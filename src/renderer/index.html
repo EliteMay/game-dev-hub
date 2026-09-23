@@ -19,6 +19,7 @@
         <p class="subtitle">ゲームごとにRepositoryを分けたまま、開発開始だけ1か所にまとめる。</p>
       </div>
       <div class="top-actions">
+        <button class="button button-muted" id="diagnostics-button" type="button">診断</button>
         <button class="button button-muted" id="update-button" type="button">更新を確認</button>
         <button class="button button-muted hidden" id="update-release-button" type="button">手動更新</button>
         <button class="button button-muted" id="godot-button" type="button">Godotを設定</button>
@@ -45,6 +46,13 @@
         <div>
           <span class="global-label">保存先</span>
           <strong id="projects-root">確認中</strong>
+        </div>
+      </div>
+      <div class="global-item">
+        <span class="status-dot" id="network-dot"></span>
+        <div>
+          <span class="global-label">ネット接続</span>
+          <strong id="network-value">確認中</strong>
         </div>
       </div>
       <div class="global-item update-item">
@@ -161,6 +169,7 @@
 
     <footer class="footer">
       <span id="app-version">Game Dev Hub</span>
+      <span class="task-status" id="task-status">待機中</span>
       <span>ゲーム本体はそれぞれのGitHub Repositoryで管理します。</span>
     </footer>
   </main>
@@ -213,6 +222,40 @@
         <button class="button button-danger" id="confirm-remove-button" type="submit" value="default">Hubから外す</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog class="dialog diagnostics-dialog" id="diagnostics-dialog">
+    <div class="diagnostics-content">
+      <div class="dialog-heading">
+        <div>
+          <p class="section-kicker">Desktop Foundation</p>
+          <h2>診断情報</h2>
+        </div>
+        <button class="icon-button" id="diagnostics-close-button" type="button" aria-label="閉じる">×</button>
+      </div>
+
+      <dl class="diagnostics-grid">
+        <div><dt>アプリ</dt><dd id="diagnostics-app">確認中</dd></div>
+        <div><dt>Electron</dt><dd id="diagnostics-electron">確認中</dd></div>
+        <div><dt>OS</dt><dd id="diagnostics-os">確認中</dd></div>
+        <div><dt>ネット接続</dt><dd id="diagnostics-network">確認中</dd></div>
+        <div><dt>更新</dt><dd id="diagnostics-update">確認中</dd></div>
+        <div><dt>登録ゲーム</dt><dd id="diagnostics-projects">確認中</dd></div>
+        <div><dt>保存データ</dt><dd id="diagnostics-data-path">確認中</dd></div>
+        <div><dt>ログ</dt><dd id="diagnostics-logs-path">確認中</dd></div>
+        <div><dt>直近エラー</dt><dd id="diagnostics-last-error">なし</dd></div>
+      </dl>
+
+      <p class="dialog-note">
+        診断JSONにはゲーム名・Repository URL・Token・File本文を含めません。Pathはホームフォルダ部分を伏せて書き出します。
+      </p>
+
+      <div class="dialog-actions diagnostics-actions">
+        <button class="button button-muted" id="diagnostics-clear-logs-button" type="button">ログを消去</button>
+        <button class="button button-muted" id="diagnostics-open-logs-button" type="button">ログフォルダ</button>
+        <button class="button button-primary" id="diagnostics-export-button" type="button">診断JSONを書き出す</button>
+      </div>
+    </div>
   </dialog>
 
   <script src="./app.js"></script>

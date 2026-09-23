@@ -15,12 +15,111 @@ import { detectGodot, inspectSelectedGodot, openGodotEditor, runGodotProject } f
 import { addProject, loadProjects, removeProject, saveProjects } from "./services/project-registry.mjs";
 import { HubError, inspectGit, inspectRepository, prepareProject, syncProject } from "./services/repository.mjs";
 import { loadSettings, saveSettings } from "./services/settings.mjs";
+import updaterPackage from "electron-updater";
+
+const { autoUpdater } = updaterPackage;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rendererPath = path.join(__dirname, "renderer", "index.html");
 const trustedRendererUrl = pathToFileURL(rendererPath).toString();
 
 let mainWindow;
+
+const UPDATE_RELEASES_URL = "https://github.com/EliteMay/game-dev-hub/releases/latest";
+let updateState = {
+  status: "idle",
+  currentVersion: app.getVersion(),
+  availableVersion: null,
+  percent: null,
+  message: "更新を確認できます。"
+};
+
+function publishUpdateState(patch) {
+  updateState = { ...updateState, ...patch, currentVersion: app.getVersion() };
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("hub:update-state", updateState);
+  }
+  return updateState;
+}
+
+function configureUpdater() {
+  if (!app.isPackaged) {
+    publishUpdateState({ status: "unsupported", message: "開発モードでは自動更新を実行しません。" });
+    return;
+  }
+
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
+  autoUpdater.allowPrerelease = false;
+
+  autoUpdater.on("checking-for-update", () => {
+    publishUpdateState({ status: "checking", message: "新しいバージョンを確認しています。", percent: null });
+  });
+  autoUpdater.on("update-available", (info) => {
+    publishUpdateState({
+      status: "available",
+      availableVersion: info.version,
+      message: "v" + info.version + " を利用できます。",
+      percent: null
+    });
+  });
+  autoUpdater.on("update-not-available", () => {
+    publishUpdateState({ status: "not-available", availableVersion: null, message: "最新版です。", percent: null });
+  });
+  autoUpdater.on("download-progress", (progress) => {
+    const percent = Math.max(0, Math.min(100, Math.round(progress.percent || 0)));
+    publishUpdateState({ status: "downloading", percent, message: "更新をダウンロード中: " + percent + "%" });
+  });
+  autoUpdater.on("update-downloaded", (info) => {
+    publishUpdateState({
+      status: "downloaded",
+      availableVersion: info.version,
+      percent: 100,
+      message: "v" + info.version + " の準備ができました。再起動すると更新します。"
+    });
+  });
+  autoUpdater.on("error", (error) => {
+    publishUpdateState({
+      status: "error",
+      percent: null,
+      message: "自動更新に失敗しました。Releaseページから手動更新できます。",
+      error: String(error?.message || error)
+    });
+  });
+}
+
+async function checkForUpdates() {
+  if (!app.isPackaged) {
+    return { ok: false, code: "DEV_MODE", state: publishUpdateState({ status: "unsupported", message: "開発モードでは自動更新を実行しません。" }) };
+  }
+  try {
+    await autoUpdater.checkForUpdates();
+    return { ok: true, state: updateState };
+  } catch (error) {
+    return { ok: false, code: "UPDATE_CHECK_FAILED", message: String(error?.message || error), state: updateState };
+  }
+}
+
+async function downloadUpdate() {
+  if (updateState.status !== "available") {
+    return { ok: false, code: "UPDATE_NOT_READY", message: "先に更新を確認してください。", state: updateState };
+  }
+  await autoUpdater.downloadUpdate();
+  return { ok: true, state: updateState };
+}
+
+function installUpdate() {
+  if (updateState.status !== "downloaded") {
+    return { ok: false, code: "UPDATE_NOT_DOWNLOADED", message: "更新のダウンロードが完了していません。", state: updateState };
+  }
+  setImmediate(() => autoUpdater.quitAndInstall(false, true));
+  return { ok: true, state: updateState };
+}
+
+async function openUpdatePage() {
+  await shell.openExternal(UPDATE_RELEASES_URL);
+  return { ok: true };
+}
 
 function defaultProjectsRoot() {
   return path.join(app.getPath("documents"), "Game Dev Hub");
@@ -134,6 +233,7 @@ async function getState() {
   return {
     ok: true,
     appVersion: app.getVersion(),
+    update: updateState,
     settings: {
       projectsRoot: settings.projectsRoot
     },
@@ -463,8 +563,16 @@ app.whenReady().then(() => {
   registerIpc("hub:open-folder", openFolder);
   registerIpc("hub:open-github", openGitHub);
   registerIpc("hub:remove-project", unregisterProject);
+  registerIpc("hub:update-check", checkForUpdates);
+  registerIpc("hub:update-download", downloadUpdate);
+  registerIpc("hub:update-install", installUpdate);
+  registerIpc("hub:update-open-release", openUpdatePage);
 
+  configureUpdater();
   createWindow();
+  setTimeout(() => {
+    if (app.isPackaged) checkForUpdates().catch(() => {});
+  }, 2500);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

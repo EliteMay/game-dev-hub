@@ -1,6 +1,6 @@
 {
   "name": "game-dev-hub",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Windows desktop hub for managing multiple Godot game development repositories.",
@@ -8,7 +8,8 @@
   "scripts": {
     "dev": "electron src/main.mjs",
     "test": "node --test tests/*.test.mjs",
-    "build:win": "electron-builder --win nsis --x64 --publish never"
+    "build:win": "electron-builder --win nsis --x64 --publish never",
+    "release:win": "electron-builder --win nsis --x64 --publish always"
   },
   "engines": {
     "node": ">=20"
@@ -52,6 +53,18 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Game Dev Hub"
-    }
+    },
+    "electronUpdaterCompatibility": ">=2.16",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "EliteMay",
+        "repo": "game-dev-hub",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "6.8.9"
   }
 }

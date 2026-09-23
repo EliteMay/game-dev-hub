@@ -162,7 +162,7 @@
           <p class="section-kicker">ゲーム追加</p>
           <h2>ゲームを追加</h2>
         </div>
-        <button class="icon-button" value="cancel" aria-label="閉じる">×</button>
+        <button class="icon-button" id="add-dialog-close-button" type="button" aria-label="閉じる">×</button>
       </div>
 
       <label class="field">
@@ -186,8 +186,8 @@
       </p>
 
       <div class="dialog-actions">
-        <button class="button button-muted" value="cancel">キャンセル</button>
-        <button class="button button-primary" id="confirm-add-button" value="default">追加</button>
+        <button class="button button-muted" id="add-dialog-cancel-button" type="button">キャンセル</button>
+        <button class="button button-primary" id="confirm-add-button" type="submit" value="default">追加</button>
       </div>
     </form>
   </dialog>
@@ -199,8 +199,8 @@
         PC上のゲームFileやGitHub Repositoryは削除しません。
       </p>
       <div class="dialog-actions">
-        <button class="button button-muted" value="cancel">キャンセル</button>
-        <button class="button button-danger" id="confirm-remove-button" value="default">Hubから外す</button>
+        <button class="button button-muted" id="remove-dialog-cancel-button" type="button">キャンセル</button>
+        <button class="button button-danger" id="confirm-remove-button" type="submit" value="default">Hubから外す</button>
       </div>
     </form>
   </dialog>

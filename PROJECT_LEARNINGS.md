@@ -19,3 +19,12 @@
 - Status: Adopted
 - Decision: clean worktree + expected branch + expected originを確認し、fetch + pull --ff-onlyだけを許可する。
 - Reason: 初心者向けに操作を減らしても、ローカル変更を勝手に破棄する自動化は許可しない。
+
+## GL-003 — 必須入力を持つdialogのCancelをsubmitにしない
+
+- Date: 2026-09-23
+- Type: UI / Regression
+- Status: Adopted
+- Problem: `method="dialog"` のform内でCancelをsubmit buttonのままにすると、required inputのconstraint validationが先に動き、× / キャンセルを押しても閉じない。
+- Decision: Cancel / close controlは `type="button"` と明示的な `dialog.close()` を使い、確定操作だけをsubmitにする。
+- Prevention: 主要button無反応はRegression Testを追加し、必須入力が空の状態でもCancelできるContractを維持する。

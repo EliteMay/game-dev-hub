@@ -1,6 +1,6 @@
 {
   "name": "game-dev-hub",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "Windows desktop hub for managing multiple Godot game development repositories.",
@@ -35,13 +35,16 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "artifactName": "game_dev_hub_${version}_setup.${ext}",
       "signAndEditExecutable": true,
       "signExecutable": false,
-      "forceCodeSigning": false
+      "forceCodeSigning": false,
+      "icon": "build/icon.svg"
     },
     "nsis": {
       "oneClick": false,

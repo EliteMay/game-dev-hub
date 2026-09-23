@@ -991,3 +991,157 @@ h3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+
+/* Safe-stop recovery and task guidance */
+.safety-recovery {
+  margin-top: 10px;
+  padding: 15px 16px;
+  border: 1px solid rgba(241, 189, 103, 0.38);
+  border-radius: 10px;
+  background: rgba(54, 41, 20, 0.28);
+}
+
+.safety-recovery-heading,
+.safety-actions,
+.task-guide-heading,
+.task-guide-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.safety-recovery-heading h3 {
+  margin-bottom: 0;
+  font-size: 14px;
+}
+
+.safety-summary {
+  margin: 8px 0 12px;
+  color: #d3c4a8;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.safety-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 1fr);
+  gap: 14px;
+}
+
+.safety-columns > div {
+  min-width: 0;
+}
+
+.safety-columns strong,
+.task-guide-block > strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #d7e2eb;
+  font-size: 11px;
+}
+
+.changed-file-list,
+.safety-steps ol,
+.task-guide-block ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.changed-file-list {
+  max-height: 116px;
+  overflow: auto;
+}
+
+.changed-file-list li,
+.safety-steps li,
+.task-guide-block li {
+  padding: 2px 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.changed-file-list code {
+  margin-right: 6px;
+  color: var(--warning);
+  font-family: Consolas, "Cascadia Mono", monospace;
+}
+
+.changed-file-list span {
+  overflow-wrap: anywhere;
+}
+
+.safety-steps p {
+  margin: 7px 0 0;
+  color: var(--faint);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.safety-actions {
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.task-guide {
+  margin: 0 0 12px;
+  padding: 12px;
+  border: 1px solid #31566e;
+  border-radius: 9px;
+  background: #102330;
+}
+
+.task-guide-heading {
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.task-guide-heading span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+}
+
+.task-guide-heading h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.task-guide-block + .task-guide-block {
+  margin-top: 9px;
+}
+
+.task-guide-block p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.task-guide-note {
+  margin: 10px 0 0;
+  padding-top: 9px;
+  border-top: 1px solid rgba(99, 199, 255, 0.14);
+  color: var(--faint);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.task-guide-actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+@media (max-width: 900px) {
+  .safety-columns {
+    grid-template-columns: 1fr;
+  }
+}

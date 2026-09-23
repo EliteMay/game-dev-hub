@@ -2,8 +2,8 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -21,25 +21,38 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
-
-      - name: Verify tag matches package version
+      - name: Resolve release version
+        id: release
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $package = Get-Content package.json -Raw | ConvertFrom-Json
-          $expected = "v$($package.version)"
-          if ($env:GITHUB_REF_NAME -ne $expected) {
-            throw "Tag $env:GITHUB_REF_NAME does not match package version $expected"
+          $tag = "v$($package.version)"
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+
+          gh release view "$tag" --repo "$env:GITHUB_REPOSITORY" *> $null
+          if ($LASTEXITCODE -eq 0) {
+            "exists=true" >> $env:GITHUB_OUTPUT
+            Write-Host "$tag is already released. Skipping."
+          } else {
+            "exists=false" >> $env:GITHUB_OUTPUT
           }
 
+      - name: Install dependencies
+        if: steps.release.outputs.exists != 'true'
+        run: npm install --no-audit --no-fund
+
       - name: Test
+        if: steps.release.outputs.exists != 'true'
         run: npm test
 
       - name: Build Windows update artifacts
+        if: steps.release.outputs.exists != 'true'
         run: npm run build:win
 
       - name: Verify update artifacts
+        if: steps.release.outputs.exists != 'true'
         shell: pwsh
         run: |
           if (-not (Test-Path "dist/latest.yml")) {
@@ -58,13 +71,15 @@ jobs:
           }
 
       - name: Create GitHub Release
+        if: steps.release.outputs.exists != 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "$env:GITHUB_REF_NAME" `
+          gh release create "${{ steps.release.outputs.tag }}" `
             --repo "$env:GITHUB_REPOSITORY" `
-            --title "Game Dev Hub $env:GITHUB_REF_NAME" `
+            --target "$env:GITHUB_SHA" `
+            --title "Game Dev Hub ${{ steps.release.outputs.tag }}" `
             --generate-notes `
             dist/latest.yml `
             dist/*.exe `

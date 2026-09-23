@@ -128,7 +128,7 @@ Deep Factory固有の仕様は `deep-factory` 側を正本とします。
 - Multi-project architecture: 実装済み
 - Security boundary: 実装済み
 - Unit / contract tests: 追加済み
-- GitHub Actions Windows test/build: 実行確認中
+- GitHub Actions Windows test/build: ✅ Success
 - Windows実機でのUI / Clone / Pull / Godot起動: 未確認
 - Setup.exe実機install / uninstall: 未確認
 

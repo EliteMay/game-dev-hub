@@ -357,21 +357,6 @@ function renderDetail() {
     el.heroTitle.textContent = "このまま開発を始められます";
     el.heroDescription.textContent =
       "GitHubを確認して最新化したあと、Godot Editorを開きます。";
-  } else if (!state.git?.available) {
-    el.heroStatus.textContent = "セットアップ";
-    el.heroTitle.textContent = "Gitが必要です";
-    el.heroDescription.textContent =
-      "Git for Windowsを準備したあと状態を更新してください。";
-  } else if (!state.godot?.available) {
-    el.heroStatus.textContent = "初回設定";
-    el.heroTitle.textContent = "Godotを一度だけ設定してください";
-    el.heroDescription.textContent =
-      "上の「Godotを設定」からGodot.exeを選べます。";
-  } else if (repo.dirty) {
-    el.heroStatus.textContent = "安全停止";
-    el.heroTitle.textContent = "Local変更を保護しています";
-    el.heroDescription.textContent =
-      "変更を勝手に消さないため、GitHubからの自動更新を停止しています。";
   } else if (!repo.exists) {
     el.heroStatus.textContent = "初回準備";
     el.heroTitle.textContent = "最初の取得は自動で行います";

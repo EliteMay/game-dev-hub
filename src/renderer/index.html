@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'"
+  >
+  <title>Game Dev Hub</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">GAME DEV HUB</p>
+        <h1>ゲーム開発</h1>
+        <p class="subtitle">ゲームごとにRepositoryを分けたまま、開発開始だけ1か所にまとめる。</p>
+      </div>
+      <div class="top-actions">
+        <button class="button button-muted" id="godot-button" type="button">Godotを設定</button>
+        <button class="button button-muted" id="refresh-button" type="button">状態を更新</button>
+      </div>
+    </header>
+
+    <section class="global-status" aria-label="全体状態">
+      <div class="global-item">
+        <span class="status-dot" id="git-dot"></span>
+        <div>
+          <span class="global-label">Git</span>
+          <strong id="git-value">確認中</strong>
+        </div>
+      </div>
+      <div class="global-item">
+        <span class="status-dot" id="godot-dot"></span>
+        <div>
+          <span class="global-label">Godot</span>
+          <strong id="godot-value">確認中</strong>
+        </div>
+      </div>
+      <div class="global-item global-path">
+        <div>
+          <span class="global-label">保存先</span>
+          <strong id="projects-root">確認中</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <aside class="project-pane">
+        <div class="pane-heading">
+          <div>
+            <p class="section-kicker">PROJECTS</p>
+            <h2>ゲーム</h2>
+          </div>
+          <button class="icon-button" id="add-project-button" type="button" aria-label="ゲームを追加">＋</button>
+        </div>
+
+        <div class="project-list" id="project-list" aria-label="登録ゲーム"></div>
+
+        <button class="import-button" id="import-project-button" type="button">
+          既存のGame Repositoryを登録
+        </button>
+      </aside>
+
+      <section class="detail-pane">
+        <div class="empty-state" id="empty-state">
+          <p class="section-kicker">SELECT PROJECT</p>
+          <h2>ゲームを選んでください</h2>
+          <p>左の一覧から開発するゲームを選択します。</p>
+        </div>
+
+        <div class="project-detail hidden" id="project-detail">
+          <div class="detail-heading">
+            <div>
+              <p class="section-kicker" id="detail-slug">PROJECT</p>
+              <h2 id="detail-name">Game</h2>
+              <p class="detail-path" id="detail-path"></p>
+            </div>
+            <button class="button button-danger-quiet" id="remove-project-button" type="button">Hubから外す</button>
+          </div>
+
+          <div class="hero-action">
+            <div>
+              <p class="hero-status" id="hero-status">状態確認中</p>
+              <h3 id="hero-title">準備を確認しています</h3>
+              <p id="hero-description">RepositoryとGodotの状態を確認します。</p>
+            </div>
+            <button class="button button-primary button-large" id="start-button" type="button">
+              開発を開始
+            </button>
+          </div>
+
+          <div class="status-cards">
+            <article class="status-card">
+              <div class="status-card-title">
+                <span class="status-dot" id="repo-dot"></span>
+                <span>Repository</span>
+              </div>
+              <strong id="repo-value">確認中</strong>
+              <p id="repo-description"></p>
+            </article>
+
+            <article class="status-card">
+              <div class="status-card-title">
+                <span class="status-dot" id="branch-dot"></span>
+                <span>Branch / 変更</span>
+              </div>
+              <strong id="branch-value">確認中</strong>
+              <p id="branch-description"></p>
+            </article>
+          </div>
+
+          <div class="action-grid">
+            <button class="action-card" id="sync-button" type="button">
+              <strong>最新版にする</strong>
+              <span>GitHubから安全に更新</span>
+            </button>
+            <button class="action-card" id="editor-button" type="button">
+              <strong>Godotで開く</strong>
+              <span>Editorを起動</span>
+            </button>
+            <button class="action-card" id="run-button" type="button">
+              <strong>ゲームを起動</strong>
+              <span>Projectを直接実行</span>
+            </button>
+            <button class="action-card" id="folder-button" type="button">
+              <strong>フォルダを開く</strong>
+              <span>Explorerで表示</span>
+            </button>
+            <button class="action-card" id="github-button" type="button">
+              <strong>GitHubを開く</strong>
+              <span>Repositoryをブラウザで表示</span>
+            </button>
+          </div>
+
+          <section class="log-section">
+            <div class="log-heading">
+              <div>
+                <p class="section-kicker">ACTIVITY</p>
+                <h3>実行ログ</h3>
+              </div>
+              <button class="button button-muted button-small" id="clear-log-button" type="button">消去</button>
+            </div>
+            <div class="log-list" id="log-list" aria-live="polite"></div>
+          </section>
+        </div>
+      </section>
+    </section>
+
+    <footer class="footer">
+      <span id="app-version">Game Dev Hub</span>
+      <span>ゲーム本体はそれぞれのGitHub Repositoryで管理します。</span>
+    </footer>
+  </main>
+
+  <dialog class="dialog" id="add-dialog">
+    <form method="dialog" id="add-form">
+      <div class="dialog-heading">
+        <div>
+          <p class="section-kicker">ADD GAME</p>
+          <h2>ゲームを追加</h2>
+        </div>
+        <button class="icon-button" value="cancel" aria-label="閉じる">×</button>
+      </div>
+
+      <label class="field">
+        <span>表示名</span>
+        <input id="project-name-input" name="name" maxlength="100" placeholder="例: My Game">
+      </label>
+
+      <label class="field">
+        <span>GitHub Repository</span>
+        <input
+          id="project-url-input"
+          name="repositoryUrl"
+          required
+          placeholder="https://github.com/EliteMay/my-game"
+          autocomplete="off"
+        >
+      </label>
+
+      <p class="dialog-note">
+        保存先はGame Dev HubのProject保存先から自動作成します。v0.1はGodot Project専用です。
+      </p>
+
+      <div class="dialog-actions">
+        <button class="button button-muted" value="cancel">キャンセル</button>
+        <button class="button button-primary" id="confirm-add-button" value="default">追加</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="dialog dialog-confirm" id="remove-dialog">
+    <form method="dialog">
+      <h2>Hubから外しますか？</h2>
+      <p id="remove-dialog-text">
+        PC上のGame FileやGitHub Repositoryは削除しません。
+      </p>
+      <div class="dialog-actions">
+        <button class="button button-muted" value="cancel">キャンセル</button>
+        <button class="button button-danger" id="confirm-remove-button" value="default">Hubから外す</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="./app.js"></script>
+</body>
+</html>

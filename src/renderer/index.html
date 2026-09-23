@@ -16,7 +16,7 @@
       <div>
         <p class="eyebrow">ゲーム開発ハブ</p>
         <h1>ゲーム開発</h1>
-        <p class="subtitle">ゲームごとにRepositoryを分けたまま、開発開始だけ1か所にまとめる。</p>
+        <p class="subtitle">Repository・やること・参考画像・ChatGPT共有・Godot起動を1か所にまとめる。</p>
       </div>
       <div class="top-actions">
         <button class="button button-muted" id="diagnostics-button" type="button">診断</button>
@@ -152,6 +152,62 @@
               <span>Repositoryをブラウザで表示</span>
             </button>
           </div>
+
+          <section class="development-workspace" aria-label="開発ワークスペース">
+            <article class="dev-panel task-panel">
+              <div class="dev-panel-heading">
+                <div>
+                  <p class="section-kicker">Repository連動</p>
+                  <h3>やること</h3>
+                </div>
+                <span class="dev-badge" id="task-progress-badge">確認中</span>
+              </div>
+
+              <div class="task-context">
+                <strong id="task-current-phase">Roadmapを確認中</strong>
+                <span id="task-source">Repositoryを更新すると自動で変わります。</span>
+              </div>
+
+              <div class="task-list" id="development-task-list" aria-live="polite"></div>
+              <p class="dev-empty hidden" id="task-empty">
+                <code>docs/ROADMAP.md</code> / <code>ROADMAP.md</code> / <code>TODO.md</code> があると、ここへ自動表示します。
+              </p>
+            </article>
+
+            <article class="dev-panel share-panel">
+              <div class="dev-panel-heading">
+                <div>
+                  <p class="section-kicker">ChatGPT連携</p>
+                  <h3>確認用データ・参考画像</h3>
+                </div>
+              </div>
+
+              <div class="share-callout">
+                <strong>今の状態をそのままChatGPTへ</strong>
+                <p>
+                  選択中タスク、Repository状態、Roadmap、直近ログ、Hub画面のPNG、参考画像を1つのFolderへまとめます。
+                </p>
+                <button class="button button-primary" id="export-chatgpt-pack-button" type="button">
+                  ChatGPT共有パックを作る
+                </button>
+              </div>
+
+              <div class="reference-heading">
+                <div>
+                  <strong>参考画像</strong>
+                  <span id="reference-image-count">0枚</span>
+                </div>
+                <button class="button button-muted button-small" id="add-reference-image-button" type="button">
+                  画像を追加
+                </button>
+              </div>
+
+              <div class="reference-image-list" id="reference-image-list"></div>
+              <p class="dev-empty" id="reference-image-empty">
+                ゲーム画面・参考作品・ラフなどを追加できます。画像はHubのLocal dataへCopyし、Game Repositoryへ勝手にCommitしません。
+              </p>
+            </article>
+          </section>
 
           <section class="log-section">
             <div class="log-heading">

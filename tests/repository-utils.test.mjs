@@ -25,10 +25,19 @@ test("matches registered project remote", () => {
   );
 });
 
-test("parses worktree status", () => {
+test("parses worktree status and exposes relative changed file names", () => {
   const result = parsePorcelainStatus(" M project.godot\n?? notes.txt\n");
   assert.equal(result.dirty, true);
   assert.equal(result.changedCount, 2);
+  assert.deepEqual(result.files, [
+    { status: "M", path: "project.godot" },
+    { status: "??", path: "notes.txt" }
+  ]);
+});
+
+test("parses rename destination for recovery display", () => {
+  const result = parsePorcelainStatus("R  old-name.txt -> new-name.txt");
+  assert.deepEqual(result.files, [{ status: "R", path: "new-name.txt" }]);
 });
 
 test("parses ahead/behind counts", () => {

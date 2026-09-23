@@ -31,8 +31,8 @@ jobs:
           $tag = "v$($package.version)"
           "tag=$tag" >> $env:GITHUB_OUTPUT
 
-          gh release view "$tag" --repo "$env:GITHUB_REPOSITORY" *> $null
-          if ($LASTEXITCODE -eq 0) {
+          $existing = gh release list --repo "$env:GITHUB_REPOSITORY" --limit 100 --json tagName --jq ".[] | select(.tagName == `"$tag`") | .tagName"
+          if ($existing -eq $tag) {
             "exists=true" >> $env:GITHUB_OUTPUT
             Write-Host "$tag is already released. Skipping."
           } else {

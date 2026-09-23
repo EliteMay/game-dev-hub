@@ -50,7 +50,10 @@ Hub側へ各ゲームの詳細仕様を複製しない。
 - Markdown Checkboxは完了状態を保持して表示する
 - Roadmapの通常Bulletも未完了Taskとして扱える
 - HubからRepository同期後、Task一覧は更新済みLocal Repositoryから再読込する
-- 未完了Taskを「作業中」に選択でき、Gameごとの選択をSettingsへ保存する
+- 未完了Taskを「今やるタスク」として選択でき、Gameごとの選択をSettingsへ保存する
+- タスク選択は実作業開始や完了を意味しないことをUIで明示する
+- 選択中TaskへRepository側Roadmapのネストした手順とPhase完了条件を表示できる
+- Roadmapに詳細手順がない場合は、選択中Taskを含めたChatGPT共有パック作成へ案内する
 - HubからRoadmapの完了状態を勝手に書き換えない
 - GameごとにPNG/JPEG/WebPの参考画像をLocal管理できる
 - 参考画像はHub DataへCopyし、Game Repositoryや元Fileを勝手に変更しない
@@ -136,6 +139,8 @@ git pull --ff-only origin <defaultBranch>
 - Status colorだけに意味を依存しない
 - Primary Actionは「開発を開始」
 - エラー時は「何が起きたか」と「次に何をするか」を表示する
+- dirty worktreeでは「GitHub同期だけが停止中」と明示し、Local Godot作業は継続可能にする
+- dirty worktreeでは変更File名と同期再開手順を示し、Hubから変更破棄・自動Commitは行わない
 
 ## 保存
 

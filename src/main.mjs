@@ -15,6 +15,14 @@ import { detectGodot, inspectSelectedGodot, openGodotEditor, runGodotProject } f
 import { addProject, loadProjects, removeProject, saveProjects } from "./services/project-registry.mjs";
 import { HubError, inspectGit, inspectRepository, prepareProject, syncProject } from "./services/repository.mjs";
 import { loadSettings, saveSettings } from "./services/settings.mjs";
+import {
+  LATEST_RELEASE_URL,
+  checkForUpdates,
+  configureUpdater,
+  downloadUpdate,
+  getUpdateStatus,
+  installDownloadedUpdate
+} from "./services/updater.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rendererPath = path.join(__dirname, "renderer", "index.html");
@@ -408,6 +416,11 @@ async function openGitHub(projectId) {
   return { ok: true, message: "GitHubを開きました。" };
 }
 
+async function openLatestRelease() {
+  await shell.openExternal(LATEST_RELEASE_URL);
+  return { ok: true, message: "最新Releaseを開きました。" };
+}
+
 async function unregisterProject(projectId) {
   const project = await findProject(projectId);
   const settings = await getSettings();
@@ -442,6 +455,15 @@ function createWindow() {
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   mainWindow.webContents.on("will-navigate", (event) => event.preventDefault());
   mainWindow.once("ready-to-show", () => mainWindow.show());
+  mainWindow.webContents.once("did-finish-load", () => {
+    mainWindow?.webContents.send("hub:update-status", getUpdateStatus());
+
+    if (app.isPackaged) {
+      setTimeout(() => {
+        checkForUpdates().catch(() => {});
+      }, 2500);
+    }
+  });
   mainWindow.loadFile(rendererPath);
 }
 
@@ -463,6 +485,22 @@ app.whenReady().then(() => {
   registerIpc("hub:open-folder", openFolder);
   registerIpc("hub:open-github", openGitHub);
   registerIpc("hub:remove-project", unregisterProject);
+  registerIpc("hub:get-update-status", () => ({
+    ok: true,
+    status: getUpdateStatus()
+  }));
+  registerIpc("hub:check-for-updates", checkForUpdates);
+  registerIpc("hub:download-update", downloadUpdate);
+  registerIpc("hub:install-update", installDownloadedUpdate);
+  registerIpc("hub:open-latest-release", openLatestRelease);
+
+  configureUpdater({
+    sendStatus: (status) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("hub:update-status", status);
+      }
+    }
+  });
 
   createWindow();
 

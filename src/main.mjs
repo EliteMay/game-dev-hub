@@ -245,7 +245,56 @@ async function importExistingProject() {
     );
   }
 
+  let defaultBranch = "main";
+
+  try {
+    const remoteHead = (await runFile(
+      "git",
+      ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
+      { cwd: localPath, timeout: 10_000 }
+    )).stdout;
+
+    defaultBranch = remoteHead.replace(/^origin\//, "") || "main";
+  } catch {
+    try {
+      defaultBranch = (await runFile(
+        "git",
+        ["rev-parse", "--abbrev-ref", "HEAD"],
+        { cwd: localPath, timeout: 10_000 }
+      )).stdout || "main";
+    } catch {
+      defaultBranch = "main";
+    }
+  }
+
   const settings = await getSettings();
+  const registry = await getRegistry();
+  const existing = registry.projects.find(
+    (item) => item.repositoryWebUrl.toLowerCase() === parsed.webUrl.toLowerCase()
+  );
+
+  if (existing) {
+    const updatedProject = createProjectRecord({
+      ...existing,
+      localPath,
+      defaultBranch
+    });
+
+    await saveProjects(app.getPath("userData"), {
+      version: registry.version,
+      projects: registry.projects.map((item) =>
+        item.id === existing.id ? updatedProject : item
+      )
+    });
+
+    return {
+      ok: true,
+      message: updatedProject.name + " のLocal folderを更新しました。",
+      projectId: updatedProject.id,
+      state: await getState()
+    };
+  }
+
   const project = await addProject(
     app.getPath("userData"),
     settings.projectsRoot,
@@ -253,7 +302,7 @@ async function importExistingProject() {
       name: parsed.repo,
       repositoryUrl: parsed.cloneUrl,
       localPath,
-      defaultBranch: "main",
+      defaultBranch,
       engine: "godot"
     }
   );

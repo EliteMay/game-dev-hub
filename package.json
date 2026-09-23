@@ -1,0 +1,54 @@
+{
+  "name": "game-dev-hub",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Windows desktop hub for managing multiple Godot game development repositories.",
+  "main": "src/main.mjs",
+  "scripts": {
+    "dev": "electron src/main.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "build:win": "electron-builder --win nsis --x64 --publish never"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "electron": "44.4.3",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.elitemay.gamedevhub",
+    "productName": "Game Dev Hub",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json",
+      "README.md",
+      "REQUIREMENTS.md",
+      "PROJECT_RULES.md"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "game_dev_hub_${version}_setup.${ext}",
+      "signAndEditExecutable": true,
+      "signExecutable": false,
+      "forceCodeSigning": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Game Dev Hub"
+    }
+  }
+}

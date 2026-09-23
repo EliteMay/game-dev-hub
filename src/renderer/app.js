@@ -193,7 +193,7 @@ function renderDetail() {
   } else if (!repo.valid) {
     setDot(el.repoDot, "error");
     el.repoValue.textContent = "要確認";
-    el.repoDescription.textContent = "Local folderと登録Repositoryが一致しません。";
+    el.repoDescription.textContent = "ローカルフォルダと登録Repositoryが一致しません。";
   } else {
     setDot(el.repoDot, "ok");
     el.repoValue.textContent = "接続済み";
@@ -207,7 +207,7 @@ function renderDetail() {
     el.branchDescription.textContent = project.defaultBranch + " をCloneします。";
   } else if (repo.dirty) {
     setDot(el.branchDot, "warning");
-    el.branchValue.textContent = "Local変更あり";
+    el.branchValue.textContent = "ローカル変更あり";
     el.branchDescription.textContent =
       repo.changedCount + "件の変更があります。自動更新は安全停止します。";
   } else if (repo.branch !== project.defaultBranch) {
@@ -220,7 +220,7 @@ function renderDetail() {
     el.branchValue.textContent = repo.branch + " / 変更なし";
     const delta = repo.behind > 0
       ? "GitHubより " + repo.behind + " commit古い可能性があります。"
-      : "Local変更はありません。";
+      : "ローカル変更はありません。";
     el.branchDescription.textContent = delta;
   }
 
@@ -237,27 +237,27 @@ function renderDetail() {
     el.heroDescription.textContent =
       "GitHubを確認して最新化したあと、Godot Editorを開きます。";
   } else if (!state.git?.available) {
-    el.heroStatus.textContent = "SETUP";
+    el.heroStatus.textContent = "セットアップ";
     el.heroTitle.textContent = "Gitが必要です";
     el.heroDescription.textContent =
       "Git for Windowsを準備したあと状態を更新してください。";
   } else if (!state.godot?.available) {
-    el.heroStatus.textContent = "INITIAL SETUP";
+    el.heroStatus.textContent = "初回設定";
     el.heroTitle.textContent = "Godotを一度だけ設定してください";
     el.heroDescription.textContent =
       "上の「Godotを設定」からGodot.exeを選べます。";
   } else if (repo.dirty) {
-    el.heroStatus.textContent = "SAFETY STOP";
+    el.heroStatus.textContent = "安全停止";
     el.heroTitle.textContent = "Local変更を保護しています";
     el.heroDescription.textContent =
       "変更を勝手に消さないため、GitHubからの自動更新を停止しています。";
   } else if (!repo.exists) {
-    el.heroStatus.textContent = "FIRST START";
+    el.heroStatus.textContent = "初回準備";
     el.heroTitle.textContent = "最初の取得は自動で行います";
     el.heroDescription.textContent =
       "「開発を開始」でRepositoryをCloneしてGodotを開きます。";
   } else {
-    el.heroStatus.textContent = "CHECK";
+    el.heroStatus.textContent = "確認が必要";
     el.heroTitle.textContent = "Repository状態を確認してください";
     el.heroDescription.textContent =
       "登録情報・Branch・Local folderのどこかに確認が必要です。";
@@ -329,7 +329,7 @@ async function runAction(label, action, options = {}) {
 function requireSelected() {
   const project = selectedProject();
   if (!project) {
-    addLog("先にGameを選択してください。", "error");
+    addLog("先にゲームを選択してください。", "error");
     return null;
   }
   return project;
@@ -361,7 +361,7 @@ el.addForm.addEventListener("submit", (event) => {
   event.preventDefault();
   el.addDialog.close();
 
-  runAction("Game追加", () => api.addGitHubProject({
+  runAction("ゲーム追加", () => api.addGitHubProject({
     name: el.nameInput.value,
     repositoryUrl: el.urlInput.value
   }));
@@ -398,7 +398,7 @@ el.run.addEventListener("click", () => {
   const project = requireSelected();
   if (!project) return;
   runAction(
-    "Game起動",
+    "ゲーム起動",
     () => api.runGame(project.id),
     { pickGodotOnMissing: true }
   );
@@ -407,7 +407,7 @@ el.run.addEventListener("click", () => {
 el.folder.addEventListener("click", () => {
   const project = requireSelected();
   if (!project) return;
-  runAction("Folder表示", () => api.openFolder(project.id));
+  runAction("フォルダ表示", () => api.openFolder(project.id));
 });
 
 el.github.addEventListener("click", () => {
@@ -431,7 +431,7 @@ el.confirmRemove.addEventListener("click", (event) => {
   if (!project) return;
 
   el.removeDialog.close();
-  runAction("Game登録解除", () => api.removeProject(project.id));
+  runAction("ゲーム登録解除", () => api.removeProject(project.id));
 });
 
 el.clearLog.addEventListener("click", () => {

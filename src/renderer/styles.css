@@ -192,7 +192,7 @@ h3 {
 
 .global-status {
   display: grid;
-  grid-template-columns: 190px minmax(240px, 0.8fr) minmax(300px, 1.6fr);
+  grid-template-columns: 150px minmax(190px, 0.75fr) minmax(260px, 1.35fr) minmax(190px, 0.85fr);
   gap: 1px;
   overflow: hidden;
   margin-bottom: 12px;
@@ -651,4 +651,20 @@ h3 {
   * {
     transition: none !important;
   }
+}
+
+.update-copy {
+  min-width: 0;
+}
+
+.update-progress {
+  display: block;
+  margin-top: 3px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.hidden {
+  display: none !important;
 }

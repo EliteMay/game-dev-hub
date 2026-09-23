@@ -11,5 +11,14 @@ contextBridge.exposeInMainWorld("gameDevHub", {
   runGame: (projectId) => ipcRenderer.invoke("hub:run-game", projectId),
   openFolder: (projectId) => ipcRenderer.invoke("hub:open-folder", projectId),
   openGitHub: (projectId) => ipcRenderer.invoke("hub:open-github", projectId),
-  removeProject: (projectId) => ipcRenderer.invoke("hub:remove-project", projectId)
+  removeProject: (projectId) => ipcRenderer.invoke("hub:remove-project", projectId),
+  checkForUpdates: () => ipcRenderer.invoke("hub:update-check"),
+  downloadUpdate: () => ipcRenderer.invoke("hub:update-download"),
+  installUpdate: () => ipcRenderer.invoke("hub:update-install"),
+  openUpdatePage: () => ipcRenderer.invoke("hub:update-open-release"),
+  onUpdateState: (callback) => {
+    const listener = (_event, updateState) => callback(updateState);
+    ipcRenderer.on("hub:update-state", listener);
+    return () => ipcRenderer.removeListener("hub:update-state", listener);
+  }
 });

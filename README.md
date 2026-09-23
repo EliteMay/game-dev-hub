@@ -26,6 +26,23 @@ Game Dev Hub側がRepositoryの安全確認、GitHubからの最新版取得、G
 
 初回起動時にDeep Factoryを自動登録します。
 
+## v0.1.2 自動アップデート
+
+- 起動後にGitHub ReleasesのStable版をバックグラウンド確認
+- 「更新を確認」から手動確認
+- 新Versionがあればアプリ内でダウンロード
+- ダウンロード進捗を表示
+- 完了後「再起動して更新」で適用
+- 自動更新失敗時はGitHub Releaseを開く手動Fallback
+- Update Providerは `EliteMay/game-dev-hub` のGitHub Releasesに固定
+- Pre-releaseは自動更新対象外
+
+**v0.1.2が最初のUpdater搭載Versionです。** v0.1.1以前にはUpdaterが無いため、v0.1.2への移行だけはSetup.exeを手動インストールする必要があります。以後のStable Releaseはアプリ内から更新できます。
+
+Releaseには同じBuildから生成した `Setup.exe`、`.blockmap`、`latest.yml` を一緒に公開します。
+
+> 現在Windows code signingは未導入です。Updater metadataのSHA-512整合確認は利用しますが、署名済みアプリとは扱いません。
+
 ## v0.1機能
 
 - 複数Gameの一覧
@@ -66,6 +83,7 @@ Hubから `reset` / `clean` / `rebase` / `commit` / `push` / `force` は行い�
 - Git / GitHub
 - Godot project launcher
 - electron-builder / NSIS
+- electron-updater / GitHub Releases
 
 ## 開発起動
 
@@ -131,6 +149,7 @@ Deep Factory固有の仕様は `deep-factory` 側を正本とします。
 - GitHub Actions Windows test/build: ✅ Success
 - Windows実機でのUI / Clone / Pull / Godot起動: 未確認
 - Setup.exe実機install / uninstall: 未確認
+- v0.1.2 → 次Versionの実機Auto Update: 未確認
 
 Windows固有部分は実機確認が終わるまで完成扱いにしません。
 

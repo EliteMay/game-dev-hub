@@ -32,6 +32,16 @@ jobs:
       - name: Build Windows installer
         run: npm run build:win
 
+      - name: Verify Windows update artifacts
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist/latest.yml")) {
+            throw "dist/latest.yml was not generated"
+          }
+          if ((Get-ChildItem "dist" -Filter "*.blockmap").Count -lt 1) {
+            throw "Updater blockmap was not generated"
+          }
+
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:

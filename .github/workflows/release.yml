@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Verify tag matches package version
+        shell: pwsh
+        run: |
+          $package = Get-Content package.json -Raw | ConvertFrom-Json
+          $expected = "v$($package.version)"
+          if ($env:GITHUB_REF_NAME -ne $expected) {
+            throw "Tag $env:GITHUB_REF_NAME does not match package version $expected"
+          }
+
+      - name: Test
+        run: npm test
+
+      - name: Build Windows update artifacts
+        run: npm run build:win
+
+      - name: Verify update artifacts
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist/latest.yml")) {
+            throw "dist/latest.yml was not generated"
+          }
+          $setup = Get-ChildItem "dist" -Filter "game_dev_hub_*_setup.exe"
+          if ($setup.Count -ne 1) {
+            throw "Expected exactly one Setup.exe"
+          }
+          $blockmap = Get-ChildItem "dist" -Filter "*.blockmap"
+          if ($blockmap.Count -lt 1) {
+            throw "Expected at least one blockmap"
+          }
+          if ($setup[0].Length -lt 1MB) {
+            throw "Setup.exe is unexpectedly small"
+          }
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$env:GITHUB_REF_NAME" `
+            --repo "$env:GITHUB_REPOSITORY" `
+            --title "Game Dev Hub $env:GITHUB_REF_NAME" `
+            --generate-notes `
+            dist/latest.yml `
+            dist/*.exe `
+            dist/*.blockmap

@@ -1,6 +1,6 @@
 {
   "name": "game-dev-hub",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "description": "Windows desktop hub for managing multiple Godot game development repositories.",
@@ -52,6 +52,16 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Game Dev Hub"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "EliteMay",
+        "repo": "game-dev-hub"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "6.8.9"
   }
 }

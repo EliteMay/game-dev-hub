@@ -22,6 +22,11 @@ const el = {
   heroTitle: document.querySelector("#hero-title"),
   heroDescription: document.querySelector("#hero-description"),
   refresh: document.querySelector("#refresh-button"),
+  update: document.querySelector("#update-button"),
+  updateRelease: document.querySelector("#update-release-button"),
+  updateDot: document.querySelector("#update-dot"),
+  updateValue: document.querySelector("#update-value"),
+  updateProgress: document.querySelector("#update-progress"),
   godot: document.querySelector("#godot-button"),
   addProject: document.querySelector("#add-project-button"),
   importProject: document.querySelector("#import-project-button"),
@@ -53,6 +58,7 @@ let busy = false;
 
 const actionButtons = [
   el.refresh,
+  el.update,
   el.godot,
   el.addProject,
   el.importProject,
@@ -107,11 +113,62 @@ function addLog(message, tone = "") {
   }
 }
 
+function renderUpdate(update = state?.update) {
+  if (!update) return;
+
+  el.updateRelease.classList.toggle("hidden", update.status !== "error");
+  el.updateProgress.classList.add("hidden");
+  setDot(el.updateDot, "");
+
+  if (update.status === "checking") {
+    setDot(el.updateDot, "warning");
+    el.updateValue.textContent = "更新を確認中";
+    el.update.textContent = "確認中…";
+    el.update.disabled = true;
+  } else if (update.status === "available") {
+    setDot(el.updateDot, "warning");
+    el.updateValue.textContent = "v" + update.availableVersion + " があります";
+    el.update.textContent = "更新をダウンロード";
+    el.update.disabled = false;
+  } else if (update.status === "downloading") {
+    setDot(el.updateDot, "warning");
+    el.updateValue.textContent = update.message || "ダウンロード中";
+    el.updateProgress.textContent = String(update.percent ?? 0) + "%";
+    el.updateProgress.classList.remove("hidden");
+    el.update.textContent = "ダウンロード中";
+    el.update.disabled = true;
+  } else if (update.status === "downloaded") {
+    setDot(el.updateDot, "ok");
+    el.updateValue.textContent = "v" + update.availableVersion + " 準備完了";
+    el.update.textContent = "再起動して更新";
+    el.update.disabled = false;
+  } else if (update.status === "not-available") {
+    setDot(el.updateDot, "ok");
+    el.updateValue.textContent = "最新版 v" + update.currentVersion;
+    el.update.textContent = "更新を確認";
+    el.update.disabled = false;
+  } else if (update.status === "error") {
+    setDot(el.updateDot, "error");
+    el.updateValue.textContent = "更新確認に失敗";
+    el.update.textContent = "再試行";
+    el.update.disabled = false;
+  } else if (update.status === "unsupported") {
+    el.updateValue.textContent = "開発モード";
+    el.update.textContent = "更新を確認";
+    el.update.disabled = false;
+  } else {
+    el.updateValue.textContent = "v" + (update.currentVersion || state?.appVersion || "");
+    el.update.textContent = "更新を確認";
+    el.update.disabled = false;
+  }
+}
+
 function renderGlobal() {
   if (!state) return;
 
   el.appVersion.textContent = "Game Dev Hub v" + state.appVersion;
   el.projectsRoot.textContent = state.settings?.projectsRoot || "未設定";
+  renderUpdate(state.update);
 
   if (state.git?.available) {
     setDot(el.gitDot, "ok");
@@ -341,6 +398,38 @@ function requireSelected() {
   }
   return project;
 }
+
+el.update.addEventListener("click", async () => {
+  const status = state?.update?.status;
+  let result;
+
+  if (status === "available") {
+    result = await api.downloadUpdate();
+  } else if (status === "downloaded") {
+    result = await api.installUpdate();
+  } else {
+    result = await api.checkForUpdates();
+  }
+
+  if (result?.state) {
+    state.update = result.state;
+    renderUpdate(state.update);
+  }
+  if (!result?.ok && result?.code !== "DEV_MODE") {
+    addLog(result?.message || "更新処理に失敗しました。", "error");
+  }
+});
+
+el.updateRelease.addEventListener("click", () => api.openUpdatePage());
+
+api.onUpdateState((update) => {
+  if (!state) return;
+  state.update = update;
+  renderUpdate(update);
+  if (update.status === "available") addLog("Game Dev Hub v" + update.availableVersion + " を利用できます。");
+  if (update.status === "downloaded") addLog("更新の準備ができました。再起動して適用できます。", "success");
+  if (update.status === "error") addLog(update.message || "自動更新に失敗しました。", "error");
+});
 
 el.refresh.addEventListener("click", () => runAction("状態更新", async () => {
   const result = await api.getState();

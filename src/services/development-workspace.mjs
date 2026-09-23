@@ -78,7 +78,7 @@ export function parseRoadmapMarkdown(markdown, sourceFile = "") {
   );
   const done = allTasks.filter((task) => task.done).length;
   const nextTask = allTasks.find((task) => !task.done) || null;
-  const currentSection = nextTask?.section || populated.at(-1)?.title || "";
+  const currentSectionTitle = nextTask?.section || populated.at(-1)?.title || "";
 
   return {
     available: allTasks.length > 0,
@@ -87,7 +87,7 @@ export function parseRoadmapMarkdown(markdown, sourceFile = "") {
     total: allTasks.length,
     done,
     open: allTasks.length - done,
-    currentSection,
+    currentSection: currentSectionTitle,
     nextTask
   };
 }

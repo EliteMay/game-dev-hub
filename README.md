@@ -26,7 +26,7 @@ Game Dev Hub側がRepositoryの安全確認、GitHubからの最新版取得、G
 
 初回起動時にDeep Factoryを自動登録します。
 
-## v0.1機能
+## 主な機能
 
 - 複数Gameの一覧
 - GameごとのRepository状態表示
@@ -42,6 +42,11 @@ Game Dev Hub側がRepositoryの安全確認、GitHubからの最新版取得、G
 - Game登録解除（PC上のFileは削除しない）
 - Project一覧 / Godot pathの保存
 - 操作Log
+- 起動後のバックグラウンド更新確認
+- アプリ内の手動更新確認
+- 更新ダウンロード進捗表示
+- 明示操作による再起動・更新
+- 更新失敗時のGitHub Release手動導線
 
 ## 安全なGit更新
 
@@ -74,6 +79,38 @@ npm install
 npm test
 npm run dev
 ```
+
+## 自動アップデート
+
+v0.2.0からGitHub Releasesを更新元にしたアプリ内更新へ対応します。
+
+```text
+アプリ起動
+↓
+バックグラウンドで更新確認
+↓
+新Versionあり
+↓
+「ダウンロード」
+↓
+「再起動して更新」
+```
+
+更新Fileのダウンロードと再起動はユーザー操作で行い、作業中に勝手に再起動しません。
+
+**v0.2.0は最初の自動更新対応版です。v0.1.1以前からv0.2.0への移行だけはSetup.exeを1回手動インストールする必要があります。v0.2.0以降はGitHub Releaseから更新を検出できます。**
+
+更新が失敗した場合はアプリ内の「Releaseを開く」から最新版を手動取得できます。
+
+## Release
+
+Version tag `vX.Y.Z` をpushすると、GitHub ActionsがWindows版をTest・Buildし、GitHub Releaseへ次を同一Buildから公開します。
+
+- Setup.exe
+- Setup.exe.blockmap
+- latest.yml
+
+`package.json#version` とtagが一致しない場合はReleaseを停止します。
 
 ## Windows build
 
@@ -131,6 +168,8 @@ Deep Factory固有の仕様は `deep-factory` 側を正本とします。
 - GitHub Actions Windows test/build: ✅ Success
 - Windows実機でのUI / Clone / Pull / Godot起動: 未確認
 - Setup.exe実機install / uninstall: 未確認
+- v0.2.0 → 次Versionの実機Auto Update: 未確認
+- GitHub ActionsでInstaller / update metadata生成: CIで確認予定
 
 Windows固有部分は実機確認が終わるまで完成扱いにしません。
 

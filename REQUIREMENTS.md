@@ -42,7 +42,46 @@ Hub側へ各ゲームの詳細仕様を複製しない。
 - 操作ログを表示する
 - 設定・Project一覧をElectron `userData`へ保存する
 
+## v0.2 — Game Dev Hub自体の更新
+
+### 必須
+
+- GitHub Releasesのstable Releaseを更新元にする
+- 起動を長時間止めずバックグラウンドで更新確認する
+- 手動の「更新を確認」を提供する
+- 新Versionがある場合だけ明示操作でダウンロードする
+- ダウンロード進捗を表示する
+- 更新準備完了後も自動再起動せず「再起動して更新」を要求する
+- Update error時も現在Versionを継続利用できる
+- Update error時はGitHub Releaseの手動導線を提供する
+- Rendererへ任意Update URLやNode APIを公開しない
+- Release tag / package version / Setup.exe / latest.ymlを同じRelease Pipelineで整合させる
+- v0.2.0をUpdater Bootstrap Versionとし、v0.1.1以前からは1回だけ手動Installer更新を必要とすることを明記する
+- Project Registry / Settings等の`userData`を更新で消さない
+
+### Release Contract
+
+Stable Release:
+
+```text
+vX.Y.Z
+├─ game_dev_hub_X.Y.Z_setup.exe
+├─ game_dev_hub_X.Y.Z_setup.exe.blockmap
+└─ latest.yml
+```
+
+Release PipelineはVersion tagと`package.json#version`不一致時に停止する。
+
+### Security
+
+- Update providerは`EliteMay/game-dev-hub` GitHub Releasesへ固定する
+- Pre-releaseをstable auto updateへ混ぜない
+- Rendererからfeed URLを変更できない
+- Download / Installは`electron-updater`のmetadata integrity検証経路を使う
+- Windows code signingは未導入。署名済みと扱わず、導入までSmartScreen等の制約を未解決事項として扱う
+
 ### 非目標
+
 
 - ゲーム本体をHub Repositoryへ集約する
 - HubからGit commit / push / force operationを行う
@@ -115,3 +154,13 @@ v0.1は、Windows実機で次を確認して初めて完成扱いとする。
 8. App再起動後もProject一覧復元
 9. dirty worktreeで同期安全停止
 10. Setup.exe install / uninstall
+
+v0.2のUpdate機能は追加で次を確認する。
+
+11. v0.2.0 InstallerにUpdaterとGitHub provider metadataが含まれる
+12. ReleaseにSetup.exe / blockmap / latest.ymlが揃う
+13. v0.2.0インストール後に次stable Versionを検出できる
+14. Download progressが表示される
+15. 「再起動して更新」まで勝手に再起動しない
+16. Update後もProject一覧 / Godot pathが維持される
+17. Update失敗時も現Versionを起動・利用できる

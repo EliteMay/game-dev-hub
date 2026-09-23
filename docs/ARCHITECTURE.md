@@ -8,7 +8,9 @@ Game Dev Hub
 │  ├─ Project Registry
 │  ├─ Git Repository Service
 │  ├─ Godot Service
-│  ├─ Settings
+│  ├─ Settings / Desktop Foundation
+│  ├─ Diagnostics / bounded local log
+│  ├─ Window state / single instance / recovery
 │  └─ Native dialogs / external launch
 │
 ├─ Preload
@@ -42,7 +44,7 @@ Hubはゲーム内容を知らない。
 
 ## Registry
 
-`userData/projects.json` をLocal Registryとする。
+`userData/hub-data/projects.json` をLocal Registryとする。v0.1.2以前のroot直下Fileはv0.1.3初回起動時にCopy Migrationし、Rollback用に旧Fileを削除しない。
 
 初回起動時だけDeep FactoryをSeedする。
 
@@ -50,13 +52,31 @@ Registryは将来Schema migrationできるよう `version` を持つ。
 
 ## Settings
 
-`userData/settings.json`:
+`userData/hub-data/settings.json`:
 
 - schema version
 - default projects root
 - default Godot path
+- last selected Game
+- Window Size / Position / Maximized state
 
 Project RegistryとGlobal Settingsを分離する。
+
+## Desktop Foundation
+
+```text
+Electron Main
+├─ App-specific data root: userData/hub-data
+├─ Atomic JSON + backup recovery
+├─ Bounded local JSONL diagnostics
+├─ Window state clamp / restore
+├─ Single instance focus
+├─ Renderer crash recovery
+├─ Stable update state
+└─ Network capability state
+```
+
+診断ExportはProject名・Repository URL・File本文・Secretを含めず、Home Directoryを `%HOME%` 表記へRedactする。
 
 ## Process Boundary
 
@@ -103,4 +123,5 @@ v0.1後の候補:
 - Releases
 - Test status
 - Game-specific task shortcuts
-- Auto updater for Game Dev Hub itself
+- Build / Export task managerの拡張
+- Process Supervisorが必要な外部Runtimeを将来扱う場合の共通管理

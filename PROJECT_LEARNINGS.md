@@ -75,3 +75,14 @@
 - Problem: 自動で大量のFile/画像/Pathを収集すると不要な個人DataやSecretを共有しやすい。
 - Decision: Userが「ChatGPT共有パックを作る」を押した時だけ、Sanitized JSON・Hub Screenshot・明示追加した参考画像を固定Folderへ生成する。
 - Boundary: Token / Secret / Source File本文はExportしない。CodeはCurrent GitHub RepositoryをSource of TruthとしてChatGPT側で確認する。
+
+
+## GL-009 — Safety stateとTask selectionにはNext Actionが必要
+
+- Date: 2026-09-24
+- Type: UX / Workflow
+- Status: Adopted
+- Problem: dirtyを「安全停止」、Roadmap itemを「作業中」と表示するだけでは、Userは停止解除方法も実際に何をするTaskかも判断できない。Taskをクリックしただけで作業を開始したようにも見える。
+- Decision: Safety stateは「何を止めているか」「何は続けられるか」「解除するには何をするか」を同じSurfaceへ表示する。Task clickは「今やるタスクの選択」とし、Repository由来の手順 / 完了条件を表示する。
+- Boundary: HubはLocal変更を勝手に破棄・Commit・Pushしない。Task completionの正本もGame RepositoryのRoadmap/TODOのまま維持する。
+- Prevention: State labelだけで完了せず、Error / Blocked / Selected stateには実行可能なNext ActionまたはRecovery pathを必ず確認する。

@@ -42,3 +42,13 @@ test("diagnostic IPC remains operation-specific", () => {
   assert.match(preloadSource, /openLogsFolder/);
   assert.match(preloadSource, /clearDiagnosticLogs/);
 });
+
+test("development workspace IPC stays operation-specific", () => {
+  assert.match(preloadSource, /setActiveTask/);
+  assert.match(preloadSource, /listReferenceImages/);
+  assert.match(preloadSource, /addReferenceImages/);
+  assert.match(preloadSource, /removeReferenceImage/);
+  assert.match(preloadSource, /openReferenceImage/);
+  assert.match(preloadSource, /exportChatGptPack/);
+  assert.doesNotMatch(preloadSource, /readFile|writeFile|copyFile|rm\(/);
+});

@@ -36,10 +36,13 @@ const el = {
   logList: document.querySelector("#log-list"),
   appVersion: document.querySelector("#app-version"),
   addDialog: document.querySelector("#add-dialog"),
+  addDialogClose: document.querySelector("#add-dialog-close-button"),
+  addDialogCancel: document.querySelector("#add-dialog-cancel-button"),
   addForm: document.querySelector("#add-form"),
   nameInput: document.querySelector("#project-name-input"),
   urlInput: document.querySelector("#project-url-input"),
   removeDialog: document.querySelector("#remove-dialog"),
+  removeDialogCancel: document.querySelector("#remove-dialog-cancel-button"),
   removeDialogText: document.querySelector("#remove-dialog-text"),
   confirmRemove: document.querySelector("#confirm-remove-button")
 };
@@ -326,6 +329,10 @@ async function runAction(label, action, options = {}) {
   }
 }
 
+function closeDialog(dialog, returnValue = "cancel") {
+  if (dialog?.open) dialog.close(returnValue);
+}
+
 function requireSelected() {
   const project = selectedProject();
   if (!project) {
@@ -348,6 +355,9 @@ el.addProject.addEventListener("click", () => {
   el.addDialog.showModal();
   el.urlInput.focus();
 });
+
+el.addDialogClose.addEventListener("click", () => closeDialog(el.addDialog));
+el.addDialogCancel.addEventListener("click", () => closeDialog(el.addDialog));
 
 el.importProject.addEventListener("click", () => runAction(
   "既存Game登録",
@@ -424,6 +434,8 @@ el.remove.addEventListener("click", () => {
     project.name + " をGame Dev Hubから外します。PC上のFileとGitHub Repositoryは削除しません。";
   el.removeDialog.showModal();
 });
+
+el.removeDialogCancel.addEventListener("click", () => closeDialog(el.removeDialog));
 
 el.confirmRemove.addEventListener("click", (event) => {
   event.preventDefault();

@@ -55,6 +55,7 @@ export async function inspectRepository(project) {
     commit: "",
     dirty: false,
     changedCount: 0,
+    changedFiles: [],
     ahead: 0,
     behind: 0,
     origin: ""
@@ -89,6 +90,7 @@ export async function inspectRepository(project) {
     base.commit = commitResult.stdout;
     base.dirty = status.dirty;
     base.changedCount = status.changedCount;
+    base.changedFiles = status.files.slice(0, 20);
     base.origin = originResult.stdout;
     base.expectedRemote = remoteMatchesProject(base.origin, project);
     base.valid = base.projectFile && base.expectedRemote;
@@ -169,7 +171,7 @@ export async function syncProject(project) {
   if (state.dirty) {
     throw new HubError(
       "DIRTY_WORKTREE",
-      "Localに未Commitの変更があります。内容を消さないため自動更新を停止しました。"
+      "Localに未Commitの変更があります。変更を保護するためGitHub同期だけを停止しています。Godotでの作業は続けられます。同期したい場合は、必要な変更をCommitするか不要な変更を手動で元に戻したあと、状態を更新してください。"
     );
   }
 

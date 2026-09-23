@@ -10,6 +10,47 @@ export async function readJson(filePath, fallback) {
   }
 }
 
+export async function readJsonRecovering(filePath, fallback) {
+  try {
+    const raw = await fs.readFile(filePath, "utf8");
+    return {
+      value: JSON.parse(raw),
+      recovered: false
+    };
+  } catch {
+    const backupPath = filePath + ".backup.json";
+
+    try {
+      const backupRaw = await fs.readFile(backupPath, "utf8");
+      const backup = JSON.parse(backupRaw);
+      const corruptPath = filePath + ".corrupt.json";
+      const tempPath = filePath + ".restore.tmp";
+
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      await fs.rm(corruptPath, { force: true });
+
+      try {
+        await fs.rename(filePath, corruptPath);
+      } catch {
+        // Missing primary file is fine when only the backup exists.
+      }
+
+      await fs.writeFile(tempPath, JSON.stringify(backup, null, 2) + "\n", "utf8");
+      await fs.rename(tempPath, filePath);
+
+      return {
+        value: backup,
+        recovered: true
+      };
+    } catch {
+      return {
+        value: fallback,
+        recovered: false
+      };
+    }
+  }
+}
+
 export async function writeJsonAtomic(filePath, value) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
 

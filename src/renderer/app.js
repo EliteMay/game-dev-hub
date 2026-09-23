@@ -20,6 +20,12 @@ const el = {
   branchDot: document.querySelector("#branch-dot"),
   branchValue: document.querySelector("#branch-value"),
   branchDescription: document.querySelector("#branch-description"),
+  safetyRecovery: document.querySelector("#safety-recovery"),
+  safetyRecoveryTitle: document.querySelector("#safety-recovery-title"),
+  safetyChangeCount: document.querySelector("#safety-change-count"),
+  safetyChangedFiles: document.querySelector("#safety-changed-files"),
+  safetyOpenFolder: document.querySelector("#safety-open-folder-button"),
+  safetyRefresh: document.querySelector("#safety-refresh-button"),
   heroStatus: document.querySelector("#hero-status"),
   heroTitle: document.querySelector("#hero-title"),
   heroDescription: document.querySelector("#hero-description"),
@@ -45,6 +51,13 @@ const el = {
   taskSource: document.querySelector("#task-source"),
   developmentTaskList: document.querySelector("#development-task-list"),
   taskEmpty: document.querySelector("#task-empty"),
+  activeTaskGuide: document.querySelector("#active-task-guide"),
+  activeTaskTitle: document.querySelector("#active-task-title"),
+  activeTaskSteps: document.querySelector("#active-task-steps"),
+  activeTaskCompletion: document.querySelector("#active-task-completion"),
+  taskClearSelection: document.querySelector("#task-clear-selection-button"),
+  taskOpenEditor: document.querySelector("#task-open-editor-button"),
+  taskExport: document.querySelector("#task-export-button"),
   exportChatGptPack: document.querySelector("#export-chatgpt-pack-button"),
   addReferenceImage: document.querySelector("#add-reference-image-button"),
   referenceImageCount: document.querySelector("#reference-image-count"),
@@ -100,7 +113,12 @@ const actionButtons = [
   el.github,
   el.remove,
   el.exportChatGptPack,
-  el.addReferenceImage
+  el.addReferenceImage,
+  el.safetyOpenFolder,
+  el.safetyRefresh,
+  el.taskClearSelection,
+  el.taskOpenEditor,
+  el.taskExport
 ];
 
 function setBusy(value, label = "") {
@@ -285,6 +303,59 @@ function allDevelopmentTasks(tasks) {
   );
 }
 
+function activeDevelopmentTask(project) {
+  const tasks = project?.development?.tasks;
+  const activeTaskId = project?.development?.activeTaskId || "";
+  if (!tasks?.available || !activeTaskId) return null;
+
+  for (const section of tasks.sections) {
+    const task = section.tasks.find((candidate) => candidate.id === activeTaskId && !candidate.done);
+    if (task) {
+      return {
+        ...task,
+        section: section.title,
+        completionCriteria: section.completionCriteria || ""
+      };
+    }
+  }
+
+  return null;
+}
+
+function renderActiveTaskGuide(project) {
+  const activeTask = activeDevelopmentTask(project);
+
+  if (!activeTask) {
+    el.activeTaskGuide.classList.add("hidden");
+    el.activeTaskTitle.textContent = "タスク未選択";
+    el.activeTaskSteps.replaceChildren();
+    el.activeTaskCompletion.textContent = "";
+    return;
+  }
+
+  el.activeTaskGuide.classList.remove("hidden");
+  el.activeTaskTitle.textContent = activeTask.section + " / " + activeTask.text;
+  el.activeTaskSteps.replaceChildren();
+
+  const steps = activeTask.steps?.length
+    ? activeTask.steps
+    : [
+        "Roadmapにはこのタスクの詳しい手順がまだ書かれていません。",
+        "このタスクを選んだまま「ChatGPT共有パックを作る」を押し、ChatGPTへ送って具体的な作業手順を確認してください。",
+        "作業後はRepositoryの変更を反映し、この画面で「状態を更新」してRoadmapの状態を確認してください。"
+      ];
+
+  for (const step of steps) {
+    const item = document.createElement("li");
+    item.textContent = step;
+    el.activeTaskSteps.append(item);
+  }
+
+  el.activeTaskCompletion.textContent =
+    activeTask.completionCriteria ||
+    "このタスクの実装・確認が終わり、Game Repository側のRoadmapで完了として記録されたら完了です。";
+}
+
 function renderDevelopmentTasks(project) {
   const tasks = project?.development?.tasks;
   const activeTaskId = project?.development?.activeTaskId || "";
@@ -296,6 +367,7 @@ function renderDevelopmentTasks(project) {
     el.taskCurrentPhase.textContent = "やることFileが見つかりません";
     el.taskSource.textContent = "Repository内のRoadmap/TODOを読みます。";
     el.taskEmpty.classList.remove("hidden");
+    renderActiveTaskGuide(project);
     return;
   }
 
@@ -336,8 +408,10 @@ function renderDevelopmentTasks(project) {
       meta.textContent = task.done
         ? "完了"
         : task.id === activeTaskId
-          ? "作業中"
-          : (!activeTaskId && tasks.nextTask?.id === task.id ? "次の候補" : "クリックして作業中にする");
+          ? "今やるタスク / 上に手順を表示"
+          : (!activeTaskId && tasks.nextTask?.id === task.id
+              ? "次の候補 / クリックで手順を見る"
+              : "クリックで手順を見る");
 
       copy.append(text, meta);
       item.append(mark, copy);
@@ -346,13 +420,13 @@ function renderDevelopmentTasks(project) {
         item.addEventListener("click", async () => {
           const result = await api.setActiveTask({ projectId: project.id, taskId: task.id });
           if (!result?.ok) {
-            addLog(result?.message || "作業中タスクを保存できませんでした。", "error");
+            addLog(result?.message || "今やるタスクを保存できませんでした。", "error");
             return;
           }
 
           project.development.activeTaskId = task.id;
           renderDevelopmentTasks(project);
-          addLog("作業中タスク: " + task.text, "success");
+          addLog("今やるタスクを選びました: " + task.text, "success");
         });
       }
 
@@ -360,6 +434,45 @@ function renderDevelopmentTasks(project) {
     }
 
     el.developmentTaskList.append(group);
+  }
+
+  renderActiveTaskGuide(project);
+}
+
+function renderSafetyRecovery(project) {
+  const repo = project?.repository || {};
+  const visible = Boolean(repo.valid && repo.dirty);
+  el.safetyRecovery.classList.toggle("hidden", !visible);
+  el.safetyChangedFiles.replaceChildren();
+
+  if (!visible) return;
+
+  el.safetyRecoveryTitle.textContent =
+    repo.changedCount + "件のローカル変更があります";
+  el.safetyChangeCount.textContent = repo.changedCount + "件";
+
+  const files = Array.isArray(repo.changedFiles) ? repo.changedFiles : [];
+  if (!files.length) {
+    const item = document.createElement("li");
+    item.textContent = "変更File名を取得できませんでした。フォルダを開いて確認してください。";
+    el.safetyChangedFiles.append(item);
+    return;
+  }
+
+  for (const file of files) {
+    const item = document.createElement("li");
+    const status = document.createElement("code");
+    status.textContent = file.status || "?";
+    const name = document.createElement("span");
+    name.textContent = file.path || "不明";
+    item.append(status, name);
+    el.safetyChangedFiles.append(item);
+  }
+
+  if (repo.changedCount > files.length) {
+    const item = document.createElement("li");
+    item.textContent = "ほか " + (repo.changedCount - files.length) + "件";
+    el.safetyChangedFiles.append(item);
   }
 }
 
@@ -458,6 +571,7 @@ function renderDetail() {
   el.projectDetail.classList.remove("hidden");
 
   const repo = project.repository || {};
+  el.start.textContent = "開発を開始";
 
   renderDevelopmentTasks(project);
   if (referenceImagesProjectId !== project.id) {
@@ -508,6 +622,8 @@ function renderDetail() {
     el.branchDescription.textContent = delta;
   }
 
+  renderSafetyRecovery(project);
+
   const ready =
     state.git?.available &&
     state.godot?.available &&
@@ -527,19 +643,27 @@ function renderDetail() {
       "上の「Godotを設定」からGodot.exeを選べます。";
   } else if (repo.dirty) {
     el.heroStatus.textContent = "安全停止";
-    el.heroTitle.textContent = "Local変更を保護しています";
+    el.heroTitle.textContent = "GitHub同期だけ停止しています";
     el.heroDescription.textContent =
-      "変更を勝手に消さないため、GitHubからの自動更新を停止しています。";
+      "ローカル変更は保護されています。今すぐ開発を続けるなら同期せずGodotを開けます。同期したい場合は下の解除手順を確認してください。";
+    el.start.textContent = "同期せずGodotで開く";
   } else if (!state.network?.online && repo.valid) {
     el.heroStatus.textContent = "オフライン";
     el.heroTitle.textContent = "ローカル開発は続けられます";
     el.heroDescription.textContent =
       "GitHub同期は利用できません。Godotで開く・ゲーム起動・フォルダ表示は利用できます。";
+    el.start.textContent = "Godotで開く";
   } else if (!state.network?.online && !repo.exists) {
     el.heroStatus.textContent = "オフライン";
     el.heroTitle.textContent = "最初の取得にはネット接続が必要です";
     el.heroDescription.textContent =
       "接続が戻ったら「開発を開始」でRepositoryを取得できます。";
+  } else if (repo.valid && repo.branch !== project.defaultBranch) {
+    el.heroStatus.textContent = "同期停止";
+    el.heroTitle.textContent = "別ブランチなのでGitHub同期は停止中です";
+    el.heroDescription.textContent =
+      "ローカルのGodot作業は続けられます。同期する場合は " + project.defaultBranch + " に戻してから状態を更新してください。";
+    el.start.textContent = "同期せずGodotで開く";
   } else if (ready) {
     el.heroStatus.textContent = "準備OK";
     el.heroTitle.textContent = "このまま開発を始められます";
@@ -683,6 +807,53 @@ function requireSelected() {
   return project;
 }
 
+el.safetyOpenFolder.addEventListener("click", () => {
+  const project = requireSelected();
+  if (!project) return;
+  runAction("変更フォルダ表示", () => api.openFolder(project.id));
+});
+
+el.safetyRefresh.addEventListener("click", () => runAction("状態再確認", async () => {
+  const result = await api.getState();
+  return { ok: result.ok, message: "Repository状態を再確認しました。", state: result };
+}));
+
+el.taskClearSelection.addEventListener("click", async () => {
+  const project = requireSelected();
+  if (!project || busy) return;
+
+  const result = await api.setActiveTask({ projectId: project.id, taskId: "" });
+  if (result?.ok) {
+    project.development.activeTaskId = "";
+    renderDevelopmentTasks(project);
+    addLog("今やるタスクの選択を解除しました。");
+  } else {
+    addLog(result?.message || "タスク選択を解除できませんでした。", "error");
+  }
+});
+
+el.taskOpenEditor.addEventListener("click", () => {
+  const project = requireSelected();
+  if (!project) return;
+  runAction(
+    "Godot起動",
+    () => api.openEditor(project.id),
+    { pickGodotOnMissing: true }
+  );
+});
+
+el.taskExport.addEventListener("click", () => {
+  const project = requireSelected();
+  if (!project) return;
+  runAction(
+    "ChatGPT共有パック作成",
+    () => api.exportChatGptPack({
+      projectId: project.id,
+      taskId: project.development?.activeTaskId || ""
+    })
+  );
+});
+
 el.exportChatGptPack.addEventListener("click", () => {
   const project = requireSelected();
   if (!project) return;
@@ -818,6 +989,20 @@ el.addForm.addEventListener("submit", (event) => {
 el.start.addEventListener("click", () => {
   const project = requireSelected();
   if (!project) return;
+
+  const repo = project.repository || {};
+  const localOnly =
+    repo.valid &&
+    (repo.dirty || !state?.network?.online || repo.branch !== project.defaultBranch);
+
+  if (localOnly) {
+    runAction(
+      "Godot起動",
+      () => api.openEditor(project.id),
+      { pickGodotOnMissing: true }
+    );
+    return;
+  }
 
   runAction(
     "開発開始",

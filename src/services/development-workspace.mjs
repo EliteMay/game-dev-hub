@@ -267,10 +267,23 @@ export async function copyReferenceImages(dataRoot, projectId, destinationRoot) 
   await fs.mkdir(targetDir, { recursive: true });
 
   const copied = [];
+  const usedNames = new Set();
+
   for (const image of images) {
-    const target = path.join(targetDir, image.displayName);
+    const ext = path.extname(image.displayName);
+    const base = path.basename(image.displayName, ext);
+    let exportName = image.displayName;
+    let suffix = 2;
+
+    while (usedNames.has(exportName.toLowerCase())) {
+      exportName = base + "-" + suffix + ext;
+      suffix += 1;
+    }
+
+    usedNames.add(exportName.toLowerCase());
+    const target = path.join(targetDir, exportName);
     await fs.copyFile(image.filePath, target);
-    copied.push(path.join("reference-images", image.displayName).replace(/\\/g, "/"));
+    copied.push(path.join("reference-images", exportName).replace(/\\/g, "/"));
   }
 
   return copied;

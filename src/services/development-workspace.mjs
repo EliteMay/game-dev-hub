@@ -35,46 +35,95 @@ export function parseRoadmapMarkdown(markdown, sourceFile = "") {
   const sectionMap = new Map();
   const occurrenceMap = new Map();
   let currentSection = "General";
+  let lastTask = null;
+  let completionSection = null;
 
   function ensureSection(title) {
     if (!sectionMap.has(title)) {
-      const section = { title, tasks: [] };
+      const section = {
+        title,
+        tasks: [],
+        completionCriteria: ""
+      };
       sectionMap.set(title, section);
       sections.push(section);
     }
     return sectionMap.get(title);
   }
 
+  function appendCompletion(section, text) {
+    const cleaned = cleanMarkdownText(text);
+    if (!cleaned) return;
+    section.completionCriteria = section.completionCriteria
+      ? section.completionCriteria + " " + cleaned
+      : cleaned;
+  }
+
   for (const line of lines) {
     const heading = line.match(/^#{2,4}\s+(.+?)\s*$/);
     if (heading) {
       currentSection = cleanMarkdownText(heading[1]) || "General";
+      lastTask = null;
+      completionSection = null;
       continue;
     }
 
-    const checkbox = line.match(/^\s*[-*]\s+\[([ xX])\]\s+(.+?)\s*$/);
-    const bullet = checkbox ? null : line.match(/^\s*[-*]\s+(.+?)\s*$/);
-    if (!checkbox && !bullet) continue;
+    const completion = line.match(/^\s*完了条件\s*[:：]\s*(.*?)\s*$/);
+    if (completion) {
+      completionSection = ensureSection(currentSection);
+      appendCompletion(completionSection, completion[1]);
+      lastTask = null;
+      continue;
+    }
 
-    const rawText = checkbox ? checkbox[2] : bullet[1];
-    const text = cleanMarkdownText(rawText);
-    if (!text) continue;
+    const item = line.match(/^(\s*)[-*]\s+(?:\[([ xX])\]\s+)?(.+?)\s*$/);
+    if (item) {
+      const indent = item[1].replace(/\t/g, "    ").length;
+      const text = cleanMarkdownText(item[3]);
+      if (!text) continue;
 
-    const occurrenceKey = currentSection + "\0" + text;
-    const occurrence = (occurrenceMap.get(occurrenceKey) || 0) + 1;
-    occurrenceMap.set(occurrenceKey, occurrence);
+      if (indent > 0 && lastTask) {
+        lastTask.steps.push(
+          text.replace(/^(?:やること|手順|確認|完了の目安)\s*[:：]\s*/, "")
+        );
+        completionSection = null;
+        continue;
+      }
 
-    ensureSection(currentSection).tasks.push({
-      id: taskKey(currentSection, text, occurrence),
-      text,
-      done: checkbox ? checkbox[1].toLowerCase() === "x" : false,
-      explicitCheckbox: Boolean(checkbox)
-    });
+      const section = ensureSection(currentSection);
+      const occurrenceKey = currentSection + "\0" + text;
+      const occurrence = (occurrenceMap.get(occurrenceKey) || 0) + 1;
+      occurrenceMap.set(occurrenceKey, occurrence);
+
+      lastTask = {
+        id: taskKey(currentSection, text, occurrence),
+        text,
+        done: Boolean(item[2]) && item[2].toLowerCase() === "x",
+        explicitCheckbox: Boolean(item[2]),
+        steps: []
+      };
+      section.tasks.push(lastTask);
+      completionSection = null;
+      continue;
+    }
+
+    if (completionSection) {
+      const plain = cleanMarkdownText(line);
+      if (plain) {
+        appendCompletion(completionSection, plain);
+      } else {
+        completionSection = null;
+      }
+    }
   }
 
   const populated = sections.filter((section) => section.tasks.length > 0);
   const allTasks = populated.flatMap((section) =>
-    section.tasks.map((task) => ({ ...task, section: section.title }))
+    section.tasks.map((task) => ({
+      ...task,
+      section: section.title,
+      completionCriteria: section.completionCriteria
+    }))
   );
   const done = allTasks.filter((task) => task.done).length;
   const nextTask = allTasks.find((task) => !task.done) || null;

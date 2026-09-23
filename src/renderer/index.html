@@ -130,6 +130,42 @@
             </article>
           </div>
 
+          <section class="safety-recovery hidden" id="safety-recovery" aria-live="polite">
+            <div class="safety-recovery-heading">
+              <div>
+                <p class="section-kicker">安全停止の解除方法</p>
+                <h3 id="safety-recovery-title">ローカル変更を確認してください</h3>
+              </div>
+              <span class="dev-badge" id="safety-change-count">0件</span>
+            </div>
+            <p class="safety-summary" id="safety-recovery-summary">
+              GitHub同期だけを止めています。変更は消えておらず、Godotでの作業は続けられます。
+            </p>
+            <div class="safety-columns">
+              <div>
+                <strong>変更されているFile</strong>
+                <ul class="changed-file-list" id="safety-changed-files"></ul>
+              </div>
+              <div class="safety-steps">
+                <strong>GitHub同期を再開したい場合</strong>
+                <ol>
+                  <li>必要な変更ならCommitなどで保存する。</li>
+                  <li>不要な変更なら自分で元に戻す。</li>
+                  <li>下の「状態を再確認」を押し、変更0件になったら「最新版にする」。</li>
+                </ol>
+                <p>Hubはローカル変更を自動で消しません。</p>
+              </div>
+            </div>
+            <div class="safety-actions">
+              <button class="button button-muted button-small" id="safety-open-folder-button" type="button">
+                変更フォルダを開く
+              </button>
+              <button class="button button-primary button-small" id="safety-refresh-button" type="button">
+                状態を再確認
+              </button>
+            </div>
+          </section>
+
           <div class="action-grid">
             <button class="action-card" id="sync-button" type="button">
               <strong>最新版にする</strong>
@@ -167,6 +203,37 @@
                 <strong id="task-current-phase">Roadmapを確認中</strong>
                 <span id="task-source">Repositoryを更新すると自動で変わります。</span>
               </div>
+
+              <section class="task-guide hidden" id="active-task-guide" aria-live="polite">
+                <div class="task-guide-heading">
+                  <div>
+                    <span>今やるタスク</span>
+                    <h4 id="active-task-title">タスク未選択</h4>
+                  </div>
+                  <button class="button button-muted button-small" id="task-clear-selection-button" type="button">
+                    選択解除
+                  </button>
+                </div>
+                <div class="task-guide-block">
+                  <strong>今すること</strong>
+                  <ol id="active-task-steps"></ol>
+                </div>
+                <div class="task-guide-block">
+                  <strong>完了の目安</strong>
+                  <p id="active-task-completion"></p>
+                </div>
+                <p class="task-guide-note">
+                  ここで選んだだけでは作業開始・完了にはなりません。実際の作業後、Game RepositoryのRoadmapが更新されるとHubにも反映されます。
+                </p>
+                <div class="task-guide-actions">
+                  <button class="button button-muted button-small" id="task-open-editor-button" type="button">
+                    Godotで開く
+                  </button>
+                  <button class="button button-primary button-small" id="task-export-button" type="button">
+                    ChatGPT共有パックを作る
+                  </button>
+                </div>
+              </section>
 
               <div class="task-list" id="development-task-list" aria-live="polite"></div>
               <p class="dev-empty hidden" id="task-empty">

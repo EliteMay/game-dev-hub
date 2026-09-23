@@ -87,3 +87,25 @@ test("reference images are copied into Hub data and can be exported", async () =
     await fs.rm(packDir, { recursive: true, force: true });
   }
 });
+
+
+test("roadmap parser keeps nested guidance with its task and captures section completion", () => {
+  const parsed = parseRoadmapMarkdown(`
+## Phase 0 — Foundation
+- [ ] Godotバージョン固定
+  - 上部のGodot表示で実際のバージョンを確認する
+  - ChatGPT共有パックへ状態を含める
+
+完了条件:
+同じGodotバージョンでProjectを開ける。
+`, "docs/ROADMAP.md");
+
+  assert.equal(parsed.total, 1);
+  assert.equal(parsed.open, 1);
+  assert.deepEqual(parsed.sections[0].tasks[0].steps, [
+    "上部のGodot表示で実際のバージョンを確認する",
+    "ChatGPT共有パックへ状態を含める"
+  ]);
+  assert.equal(parsed.sections[0].completionCriteria, "同じGodotバージョンでProjectを開ける。");
+  assert.equal(parsed.nextTask.completionCriteria, "同じGodotバージョンでProjectを開ける。");
+});

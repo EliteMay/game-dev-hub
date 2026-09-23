@@ -59,3 +59,28 @@ test("development workspace exposes repository tasks reference images and ChatGP
   assert.match(source, /exportChatGptPack/);
   assert.match(source, /renderReferenceImages/);
 });
+
+
+test("safe stop explains recovery and keeps local Godot work available", async () => {
+  const html = await fs.readFile(new URL("src/renderer/index.html", root), "utf8");
+  const source = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
+
+  assert.match(html, /id="safety-recovery"/);
+  assert.match(html, /id="safety-changed-files"/);
+  assert.match(html, /GitHub同期を再開したい場合/);
+  assert.match(source, /同期せずGodotで開く/);
+  assert.match(source, /renderSafetyRecovery/);
+  assert.match(source, /repo\.dirty \|\| !state\?\.network\?\.online/);
+});
+
+test("task selection shows concrete guidance instead of pretending work started", async () => {
+  const html = await fs.readFile(new URL("src/renderer/index.html", root), "utf8");
+  const source = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
+
+  assert.match(html, /id="active-task-guide"/);
+  assert.match(html, /id="active-task-steps"/);
+  assert.match(html, /選んだだけでは作業開始・完了にはなりません/);
+  assert.match(source, /今やるタスクを選びました/);
+  assert.match(source, /Roadmapにはこのタスクの詳しい手順がまだ書かれていません/);
+  assert.match(source, /completionCriteria/);
+});

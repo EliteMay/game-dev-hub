@@ -19,7 +19,8 @@ test("settings schema v3 keeps desktop and development state", () => {
   const safe = sanitizeSettings({
     projectsRoot: path.resolve("C:/Games"),
     godotPath: path.resolve("C:/Godot/Godot.exe"),
-    lastSelectedProjectId: "deep-factory",\n    activeTaskByProject: { "deep-factory": "task-123" },
+    lastSelectedProjectId: "deep-factory",
+    activeTaskByProject: { "deep-factory": "task-123" },
     window: {
       width: 1500,
       height: 900,
@@ -30,7 +31,8 @@ test("settings schema v3 keeps desktop and development state", () => {
   });
 
   assert.equal(safe.version, 3);
-  assert.equal(safe.lastSelectedProjectId, "deep-factory");\n  assert.equal(safe.activeTaskByProject["deep-factory"], "task-123");
+  assert.equal(safe.lastSelectedProjectId, "deep-factory");
+  assert.equal(safe.activeTaskByProject["deep-factory"], "task-123");
   assert.equal(safe.window.width, 1500);
   assert.equal(safe.window.height, 900);
   assert.equal(safe.window.x, 200);

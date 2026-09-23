@@ -56,3 +56,22 @@
 - Problem: GitHub接続失敗をApp全体の失敗として扱うと、Godot起動やFolder表示などNetwork不要の機能まで使えないように見える。
 - Decision: `net.isOnline()` がfalseの時はGitHub同期 / Updateを停止し、Local操作は利用可能と明示する。online=trueはGitHub到達成功の保証には使わない。
 - Prevention: External Provider failureとLocal Capability stateを分けて表示・診断する。
+
+## GL-007 — 開発Taskの正本をHubへ複製しない
+
+- Date: 2026-09-24
+- Type: Architecture / Workflow
+- Status: Adopted
+- Problem: Hub独自TODOとGame RepositoryのRoadmapを両方編集できると、どちらがCurrentか分からなくなる。
+- Decision: Task completionはGame RepositoryのRoadmap/TODOを正本とし、HubはRead-only表示とActive Task選択だけを担当する。
+- Refresh: Repository sync後のLocal fileを毎回読み直す。
+- Prevention: Hubへ独立したTask completion DBや自動Roadmap書換え機能を追加しない。
+
+## GL-008 — ChatGPTへの開発Handoffは明示Exportにする
+
+- Date: 2026-09-24
+- Type: AI Handoff / Privacy
+- Status: Adopted
+- Problem: 自動で大量のFile/画像/Pathを収集すると不要な個人DataやSecretを共有しやすい。
+- Decision: Userが「ChatGPT共有パックを作る」を押した時だけ、Sanitized JSON・Hub Screenshot・明示追加した参考画像を固定Folderへ生成する。
+- Boundary: Token / Secret / Source File本文はExportしない。CodeはCurrent GitHub RepositoryをSource of TruthとしてChatGPT側で確認する。

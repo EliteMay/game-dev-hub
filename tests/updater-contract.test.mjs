@@ -26,7 +26,7 @@ test("updater IPC surface stays explicit and narrow", async () => {
 
 test("release workflow publishes updater metadata and installer together", async () => {
   const workflow = await fs.readFile(new URL(".github/workflows/release.yml", root), "utf8");
-  assert.match(workflow, /"v\\\*"/);
+  assert.ok(workflow.includes('- "v*"'));
   assert.ok(workflow.includes("dist/latest.yml"));
   assert.ok(workflow.includes("dist/*.blockmap"));
   assert.ok(workflow.includes("dist/*.exe"));

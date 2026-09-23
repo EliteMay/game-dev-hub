@@ -15,7 +15,8 @@ export async function readJsonRecovering(filePath, fallback) {
     const raw = await fs.readFile(filePath, "utf8");
     return {
       value: JSON.parse(raw),
-      recovered: false
+      recovered: false,
+      fallbackUsed: false
     };
   } catch {
     const backupPath = filePath + ".backup.json";
@@ -40,12 +41,23 @@ export async function readJsonRecovering(filePath, fallback) {
 
       return {
         value: backup,
-        recovered: true
+        recovered: true,
+        fallbackUsed: false
       };
     } catch {
+      const corruptPath = filePath + ".corrupt.json";
+
+      try {
+        await fs.rm(corruptPath, { force: true });
+        await fs.rename(filePath, corruptPath);
+      } catch {
+        // Missing primary file is fine. The caller can recreate a safe default.
+      }
+
       return {
         value: fallback,
-        recovered: false
+        recovered: false,
+        fallbackUsed: true
       };
     }
   }

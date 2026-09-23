@@ -31,12 +31,16 @@ jobs:
           $tag = "v$($package.version)"
           "tag=$tag" >> $env:GITHUB_OUTPUT
 
-          gh release view "$tag" --repo "$env:GITHUB_REPOSITORY" *> $null
-          if ($LASTEXITCODE -eq 0) {
+          $releasedTags = gh release list --repo "$env:GITHUB_REPOSITORY" --limit 100 --json tagName |
+            ConvertFrom-Json |
+            ForEach-Object { $_.tagName }
+
+          if ($releasedTags -contains $tag) {
             "exists=true" >> $env:GITHUB_OUTPUT
             Write-Host "$tag is already released. Skipping."
           } else {
             "exists=false" >> $env:GITHUB_OUTPUT
+            Write-Host "$tag has not been released yet."
           }
 
       - name: Install dependencies

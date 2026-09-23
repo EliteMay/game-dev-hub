@@ -154,7 +154,7 @@ export async function downloadUpdate() {
     };
   }
 
-  if (currentStatus.state !== "available" && currentStatus.state !== "error") {
+  if (currentStatus.state !== "available") {
     return {
       ok: false,
       code: "UPDATE_NOT_READY",

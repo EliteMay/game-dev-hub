@@ -97,3 +97,22 @@ test("diagnostic paths redact the user home prefix", () => {
   assert.match(redacted, /^%HOME%/);
   assert.doesNotMatch(redacted, /tester/i);
 });
+
+test("unrecoverable JSON is quarantined before safe fallback is recreated", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "game-dev-hub-corrupt-"));
+  const filePath = path.join(root, "settings.json");
+
+  try {
+    await fs.writeFile(filePath, "{broken", "utf8");
+    await fs.writeFile(filePath + ".backup.json", "{also-broken", "utf8");
+
+    const { readJsonRecovering } = await import("../src/services/storage.mjs");
+    const loaded = await readJsonRecovering(filePath, { version: 2 });
+
+    assert.equal(loaded.fallbackUsed, true);
+    assert.deepEqual(loaded.value, { version: 2 });
+    assert.equal(await fs.readFile(filePath + ".corrupt.json", "utf8"), "{broken");
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});

@@ -69,3 +69,88 @@ Do not copy:
 - Dark neutral surfaces
 - AccentはPrimary Actionとselected stateだけ
 - Cardを過剰に増やさず、Project list + detailのmaster-detail構造
+
+
+## 2026-09-24 Safety Stop / Task Guidance Review
+
+### Trigger
+
+Windows実機のGame Dev Hubで次のUser feedbackを確認した。
+
+- `ローカル変更あり / 安全停止` は理由だけ表示され、どう解除するか分からない
+- RoadmapのTaskをクリックすると `作業中` になるが、クリックしただけで実際の作業内容が分からない
+
+### Task-first finding
+
+Safety stateの必要情報:
+
+```text
+何が起きたか
+→ GitHub同期だけ停止
+
+何はできるか
+→ GodotでLocal開発は継続可能
+
+同期を再開するには
+→ 変更を確認 → 必要なら保存/Commit、不要なら手動で元に戻す
+→ 状態を再確認
+→ cleanなら最新版へ同期
+```
+
+Task selectionの必要情報:
+
+```text
+Taskを選ぶ
+→ Task titleだけでなく「今すること」を見る
+→ Repository / Godot / ChatGPTで実作業
+→ 完了条件を確認
+→ Roadmap側の更新
+→ Hubへ反映
+```
+
+Task click自体をexecutionやcompletionとして扱わない。
+
+### Domain reference update
+
+GitHub DesktopはChanges viewで変更Fileを可視化し、未Commit変更を隠さない。変更を破棄する場合も対象確認と明示操作を要求する。
+
+- https://docs.github.com/en/desktop/making-changes-in-a-branch/committing-and-reviewing-changes-to-your-project-in-github-desktop
+- https://docs.github.com/en/desktop/making-changes-in-a-branch/stashing-changes-in-github-desktop
+
+Transfer:
+- Block理由だけでなく変更対象を見せる
+- Destructive operationを暗黙実行しない
+- Current stateから次のActionへつなげる
+
+Do not copy:
+- HubへCommit / Stash / Discard機能をそのまま持ち込まない
+- Git authoring UIをPrimary Taskへしない
+
+### KEEP / FIX / REMOVE
+
+KEEP:
+- Dark neutral UI
+- Game list + detailのmaster-detail
+- Repository state card
+- Repository-driven Roadmap
+- Primary Action中心の構造
+
+FIX:
+- Safety stateをStatus-onlyからRecovery flowへする
+- `作業中`を実行済みに見えない`今やるタスク`へ変更
+- Task detail / completion criteriaを選択直後に表示
+- dirty / offlineでもLocal actionをPrimary pathから使えるようにする
+
+REMOVE:
+- Task clickだけで「作業中」と断定する表現
+- Safety stopでUserが次の操作を推測する状態
+
+### Direction Contract
+
+既存のVisual Directionは維持し、全面Redesignはしない。
+
+- Safety recoveryはstatus cards直下のContextual panel
+- Task guidanceはTask listと同じpanel内に表示
+- warning colorはSafety stateに限定し、破壊操作Buttonは追加しない
+- 選択中Taskの説明は常時のTask listより一段強いHierarchyにする
+- Task detailがRepositoryに無い場合は、詳細を捏造せずChatGPT共有Flowへ案内する

@@ -727,3 +727,267 @@ h3 {
     gap: 4px;
   }
 }
+
+.development-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.9fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.dev-panel {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #0f171f;
+}
+
+.dev-panel-heading,
+.reference-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dev-panel-heading {
+  margin-bottom: 12px;
+}
+
+.dev-panel-heading h3 {
+  margin-bottom: 0;
+}
+
+.dev-badge {
+  padding: 5px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: #b9c8d5;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.task-context {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+
+.task-context strong {
+  font-size: 12px;
+}
+
+.task-context span,
+.dev-empty {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.task-list {
+  max-height: 330px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.task-group + .task-group {
+  margin-top: 12px;
+}
+
+.task-group h4 {
+  margin: 0 0 6px;
+  color: var(--faint);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+}
+
+.task-item {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 7px;
+  align-items: start;
+  padding: 8px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.task-item:hover:not(:disabled) {
+  border-color: #35526a;
+  background: #13202b;
+}
+
+.task-item.active {
+  border-color: #347ca2;
+  background: #122b3a;
+}
+
+.task-item.next:not(.active) {
+  border-color: #2c4658;
+}
+
+.task-item.done {
+  opacity: 0.58;
+  cursor: default;
+}
+
+.task-mark {
+  color: var(--accent);
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.task-item.done .task-mark {
+  color: var(--success);
+}
+
+.task-copy {
+  min-width: 0;
+}
+
+.task-copy strong,
+.task-copy small {
+  display: block;
+}
+
+.task-copy strong {
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.task-copy small {
+  margin-top: 2px;
+  color: var(--faint);
+  font-size: 9px;
+}
+
+.share-callout {
+  padding: 12px;
+  border: 1px solid #2d4659;
+  border-radius: 9px;
+  background: #111e29;
+}
+
+.share-callout strong {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+
+.share-callout p {
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.reference-heading {
+  margin: 14px 0 8px;
+}
+
+.reference-heading > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.reference-heading strong {
+  font-size: 11px;
+}
+
+.reference-heading span {
+  color: var(--faint);
+  font-size: 9px;
+}
+
+.reference-image-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.reference-image-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #0b1218;
+}
+
+.reference-preview {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  place-items: center;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: #091016;
+  color: var(--faint);
+}
+
+.reference-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.reference-card-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 6px;
+}
+
+.reference-card-footer > span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reference-remove {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--faint);
+}
+
+.reference-remove:hover {
+  background: rgba(239, 125, 125, 0.12);
+  color: var(--danger);
+}
+
+.dev-empty {
+  margin: 8px 0 0;
+}
+
+.dev-empty code {
+  color: #b8c8d5;
+}
+
+@media (max-width: 1120px) {
+  .development-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .reference-image-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .reference-image-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

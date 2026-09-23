@@ -32,6 +32,21 @@ export async function loadProjects(userDataPath, projectsRoot) {
   }
 
   const loaded = await readJsonRecovering(filePath, { version: REGISTRY_VERSION, projects: [] });
+
+  if (loaded.fallbackUsed) {
+    const seeded = {
+      version: REGISTRY_VERSION,
+      projects: [
+        createProjectRecord({
+          ...DEFAULT_PROJECT,
+          localPath: path.join(projectsRoot, "deep-factory")
+        })
+      ]
+    };
+    await writeJsonAtomic(filePath, seeded);
+    return seeded;
+  }
+
   const raw = loaded.value;
   const normalized = normalizeRegistry(raw);
 

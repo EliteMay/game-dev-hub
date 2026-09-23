@@ -42,6 +42,24 @@ Hub側へ各ゲームの詳細仕様を複製しない。
 - 操作ログを表示する
 - 設定・Project一覧をElectron `userData`へ保存する
 
+### 開発ワークスペース
+
+- 選択中GameのLocal Repositoryから開発Roadmap/TODOを読み取れる
+- Task Sourceの優先順位は `docs/ROADMAP.md` → `ROADMAP.md` → `docs/TODO.md` → `TODO.md`
+- Roadmap/TODOをHubへ複製保存せず、Game RepositoryをTask状態のSource of Truthとする
+- Markdown Checkboxは完了状態を保持して表示する
+- Roadmapの通常Bulletも未完了Taskとして扱える
+- HubからRepository同期後、Task一覧は更新済みLocal Repositoryから再読込する
+- 未完了Taskを「作業中」に選択でき、Gameごとの選択をSettingsへ保存する
+- HubからRoadmapの完了状態を勝手に書き換えない
+- GameごとにPNG/JPEG/WebPの参考画像をLocal管理できる
+- 参考画像はHub DataへCopyし、Game Repositoryや元Fileを勝手に変更しない
+- ChatGPT共有パックは固定保存先へ1操作で生成し、毎回保存Folderを選ばせない
+- 共有パックは状態JSON、Hub Screenshot、参考画像、簡易説明Fileを含む
+- 共有JSONはRepository slug/commit/branch/dirty状態、Roadmap、作業中Task、直近Error/Logを含める
+- 共有JSONはCredential/Token/Secret/Source File本文を含めず、Home PathをRedactする
+- JSONだけでActual Playtest済みと断定せず、画像/User報告/実機Evidenceと分離する
+
 ### Electron Desktop Foundation
 
 - Global SettingsはSchema Versionを持ち、破損時はLast-known-good backupから復旧できる
@@ -131,6 +149,7 @@ git pull --ff-only origin <defaultBranch>
 - Default Godot executable path
 - Last selected Game
 - Window Size / Position / Maximized state
+- GameごとのActive development task
 
 Secretは保存しない。
 
@@ -159,3 +178,9 @@ v0.1は、Windows実機で次を確認して初めて完成扱いとする。
 19. OfflineでもGodotで開く / Game起動 / Folder表示が利用できる
 20. Renderer異常終了時に保存Dataを消さずRecovery導線へ進める
 21. 診断JSONがSecret / Repository URL / File本文を含まない
+22. Deep FactoryのRoadmapがHubへ表示される
+23. Repository更新後にRoadmap変更がHubへ反映される
+24. 作業中TaskがApp再起動後も復元される
+25. 参考画像を追加・表示・開く・Hubから外せる
+26. ChatGPT共有パックへJSON / Hub Screenshot / 参考画像が生成される
+27. ChatGPT共有JSONへToken / Secret / Source File本文が入らない

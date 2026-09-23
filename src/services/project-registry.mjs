@@ -6,7 +6,7 @@ import {
   normalizeRegistry,
   REGISTRY_VERSION
 } from "../core/project-model.mjs";
-import { readJson, writeJsonAtomic } from "./storage.mjs";
+import { readJsonRecovering, writeJsonAtomic } from "./storage.mjs";
 
 function registryPath(userDataPath) {
   return path.join(userDataPath, "projects.json");
@@ -31,7 +31,23 @@ export async function loadProjects(userDataPath, projectsRoot) {
     return seeded;
   }
 
-  const raw = await readJson(filePath, { version: REGISTRY_VERSION, projects: [] });
+  const loaded = await readJsonRecovering(filePath, { version: REGISTRY_VERSION, projects: [] });
+
+  if (loaded.fallbackUsed) {
+    const seeded = {
+      version: REGISTRY_VERSION,
+      projects: [
+        createProjectRecord({
+          ...DEFAULT_PROJECT,
+          localPath: path.join(projectsRoot, "deep-factory")
+        })
+      ]
+    };
+    await writeJsonAtomic(filePath, seeded);
+    return seeded;
+  }
+
+  const raw = loaded.value;
   const normalized = normalizeRegistry(raw);
 
   if (JSON.stringify(raw) !== JSON.stringify(normalized)) {

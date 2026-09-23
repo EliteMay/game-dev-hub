@@ -26,6 +26,26 @@ Game Dev Hub側がRepositoryの安全確認、GitHubからの最新版取得、G
 
 初回起動時にDeep Factoryを自動登録します。
 
+## v0.1.3 Electron Desktop Foundation
+
+最新版の `web-project-guide` Electronルールに合わせ、Desktop共通基盤を追加しました。
+
+- 設定Schema v2
+- `userData/hub-data` へのApp固有Data分離
+- v0.1.2以前の `settings.json / projects.json` を残したまま新保存先へCopy Migration
+- JSON破損時にatomic backupから復旧
+- Window位置 / Size / 最大化状態の保存と画面内への復元
+- Single Instanceで二重起動を防止し、既存WindowへFocus
+- 最後に選択していたGameを復元
+- boundedな永続診断Log
+- 「診断」画面 / Sanitized JSON Export / Log folder表示 / Log消去
+- Renderer停止時の明示的な再読み込み / 終了Recovery
+- Offline状態をGitHub同期とLocal操作で分離
+- Native Dark ThemeとWindows App identityを固定
+- 実測できない進捗率や残り時間は表示せず、現在の処理名だけ表示
+
+Secret Storage、Download Manager、Process Supervisor、Power lifecycleは現在のHub要件では不要なため追加していません。必要なFeatureが入った時点で再評価します。
+
 ## v0.1.2 自動アップデート
 
 - 起動後にGitHub ReleasesのStable版をバックグラウンド確認
@@ -59,6 +79,8 @@ Releaseには同じBuildから生成した `Setup.exe`、`.blockmap`、`latest.y
 - Game登録解除（PC上のFileは削除しない）
 - Project一覧 / Godot pathの保存
 - 操作Log
+- 永続診断Log / 診断JSON Export
+- Window state / last selected Gameの復元
 
 ## 安全なGit更新
 
@@ -149,7 +171,8 @@ Deep Factory固有の仕様は `deep-factory` 側を正本とします。
 - GitHub Actions Windows test/build: ✅ Success
 - Windows実機でのUI / Clone / Pull / Godot起動: 未確認
 - Setup.exe実機install / uninstall: 未確認
-- v0.1.2 → 次Versionの実機Auto Update: 未確認
+- v0.1.2 → v0.1.3の実機Auto Update: 未確認
+- Window state / Single Instance / Renderer RecoveryのWindows実機確認: 未確認
 
 Windows固有部分は実機確認が終わるまで完成扱いにしません。
 

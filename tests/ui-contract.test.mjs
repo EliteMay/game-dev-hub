@@ -34,3 +34,15 @@ test("Windows build uses the custom Game Dev Hub icon", async () => {
   assert.equal(pkg.build?.win?.icon, "build/icon.svg");
   assert.match(icon, /<svg[\s>]/);
 });
+
+test("desktop foundation UI exposes network diagnostics and real task state", async () => {
+  const html = await fs.readFile(new URL("src/renderer/index.html", root), "utf8");
+  const source = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
+
+  assert.match(html, /id="network-value"/);
+  assert.match(html, /id="diagnostics-button"/);
+  assert.match(html, /id="diagnostics-export-button"/);
+  assert.match(html, /id="task-status"/);
+  assert.match(source, /処理中:/);
+  assert.match(source, /オフライン \/ ローカル操作可/);
+});

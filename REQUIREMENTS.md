@@ -42,6 +42,23 @@ Hub側へ各ゲームの詳細仕様を複製しない。
 - 操作ログを表示する
 - 設定・Project一覧をElectron `userData`へ保存する
 
+### Electron Desktop Foundation
+
+- Global SettingsはSchema Versionを持ち、破損時はLast-known-good backupから復旧できる
+- App固有設定 / RegistryはChromium管理領域と衝突しない `userData/hub-data` 配下を正本とする
+- v0.1.2以前のroot直下Dataは削除せず、新保存先へCopy Migrationする
+- Window Size / Position / Maximizedを保存し、Display変更後は到達可能なWork Area内へ戻す
+- 2重起動を防ぎ、2回目の起動では既存WindowをRestore / Focusする
+- 最後に選択したGameを復元する
+- 起動 / Update /主要IPC / Renderer failureをboundedなLocal Logへ記録する
+- 診断画面からApp / Electron / OS / Update / Network / Storage /直近Errorを確認できる
+- Diagnostic ExportはGame名、Repository URL、Secret、File本文を含めず、Home PathをRedactする
+- Rendererが異常終了した場合は無限自動Restartせず、UserがReload / Exitを選べる
+- Offline時はGitHub同期を停止し、利用可能なLocal操作を明示する
+- Dark / Night mode要件に合わせElectron Native ThemeもDarkへ固定する
+- Windows AppUserModelID / Runtime identityをInstaller identityと一致させる
+- 長い処理で実測不能なPercent / ETAを捏造せず、少なくとも現在の処理名を表示する
+
 ### 自動アップデート
 
 - Stable Update Providerは `EliteMay/game-dev-hub` のGitHub Releasesに固定する
@@ -112,6 +129,8 @@ git pull --ff-only origin <defaultBranch>
 - Default branch
 - Engine type
 - Default Godot executable path
+- Last selected Game
+- Window Size / Position / Maximized state
 
 Secretは保存しない。
 
@@ -133,3 +152,10 @@ v0.1は、Windows実機で次を確認して初めて完成扱いとする。
 12. Update download / restart install
 13. Update後もProject一覧・Godot pathを維持
 14. Update失敗時にCurrent Versionを継続利用し手動Fallbackへ進める
+15. v0.1.2の設定 / Project一覧がv0.1.3の `hub-data` へ維持される
+16. Window位置 / Size / Maximizedが再起動後に復元される
+17. Display構成変更後もWindowが画面外へ消えない
+18. 2重起動時に2個目のMain Windowを作らず既存Windowへ戻る
+19. OfflineでもGodotで開く / Game起動 / Folder表示が利用できる
+20. Renderer異常終了時に保存Dataを消さずRecovery導線へ進める
+21. 診断JSONがSecret / Repository URL / File本文を含まない

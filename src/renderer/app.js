@@ -5,6 +5,8 @@ const el = {
   gitValue: document.querySelector("#git-value"),
   godotDot: document.querySelector("#godot-dot"),
   godotValue: document.querySelector("#godot-value"),
+  networkDot: document.querySelector("#network-dot"),
+  networkValue: document.querySelector("#network-value"),
   projectsRoot: document.querySelector("#projects-root"),
   projectList: document.querySelector("#project-list"),
   emptyState: document.querySelector("#empty-state"),
@@ -22,6 +24,7 @@ const el = {
   heroTitle: document.querySelector("#hero-title"),
   heroDescription: document.querySelector("#hero-description"),
   refresh: document.querySelector("#refresh-button"),
+  diagnostics: document.querySelector("#diagnostics-button"),
   update: document.querySelector("#update-button"),
   updateRelease: document.querySelector("#update-release-button"),
   updateDot: document.querySelector("#update-dot"),
@@ -39,6 +42,7 @@ const el = {
   remove: document.querySelector("#remove-project-button"),
   clearLog: document.querySelector("#clear-log-button"),
   logList: document.querySelector("#log-list"),
+  taskStatus: document.querySelector("#task-status"),
   appVersion: document.querySelector("#app-version"),
   addDialog: document.querySelector("#add-dialog"),
   addDialogClose: document.querySelector("#add-dialog-close-button"),
@@ -49,7 +53,21 @@ const el = {
   removeDialog: document.querySelector("#remove-dialog"),
   removeDialogCancel: document.querySelector("#remove-dialog-cancel-button"),
   removeDialogText: document.querySelector("#remove-dialog-text"),
-  confirmRemove: document.querySelector("#confirm-remove-button")
+  confirmRemove: document.querySelector("#confirm-remove-button"),
+  diagnosticsDialog: document.querySelector("#diagnostics-dialog"),
+  diagnosticsClose: document.querySelector("#diagnostics-close-button"),
+  diagnosticsApp: document.querySelector("#diagnostics-app"),
+  diagnosticsElectron: document.querySelector("#diagnostics-electron"),
+  diagnosticsOs: document.querySelector("#diagnostics-os"),
+  diagnosticsNetwork: document.querySelector("#diagnostics-network"),
+  diagnosticsUpdate: document.querySelector("#diagnostics-update"),
+  diagnosticsProjects: document.querySelector("#diagnostics-projects"),
+  diagnosticsDataPath: document.querySelector("#diagnostics-data-path"),
+  diagnosticsLogsPath: document.querySelector("#diagnostics-logs-path"),
+  diagnosticsLastError: document.querySelector("#diagnostics-last-error"),
+  diagnosticsExport: document.querySelector("#diagnostics-export-button"),
+  diagnosticsOpenLogs: document.querySelector("#diagnostics-open-logs-button"),
+  diagnosticsClearLogs: document.querySelector("#diagnostics-clear-logs-button")
 };
 
 let state = null;
@@ -71,11 +89,14 @@ const actionButtons = [
   el.remove
 ];
 
-function setBusy(value) {
+function setBusy(value, label = "") {
   busy = value;
   for (const button of actionButtons) {
     if (button) button.disabled = value;
   }
+
+  el.taskStatus.textContent = value && label ? "処理中: " + label : "待機中";
+  el.taskStatus.classList.toggle("active", value);
 }
 
 function setDot(node, tone) {
@@ -152,6 +173,11 @@ function renderUpdate(update = state?.update) {
     el.updateValue.textContent = "更新確認に失敗";
     el.update.textContent = "再試行";
     el.update.disabled = false;
+  } else if (update.status === "offline") {
+    setDot(el.updateDot, "warning");
+    el.updateValue.textContent = "オフライン";
+    el.update.textContent = "更新を確認";
+    el.update.disabled = false;
   } else if (update.status === "unsupported") {
     el.updateValue.textContent = "開発モード";
     el.update.textContent = "更新を確認";
@@ -169,6 +195,14 @@ function renderGlobal() {
   el.appVersion.textContent = "Game Dev Hub v" + state.appVersion;
   el.projectsRoot.textContent = state.settings?.projectsRoot || "未設定";
   renderUpdate(state.update);
+
+  if (state.network?.online) {
+    setDot(el.networkDot, "ok");
+    el.networkValue.textContent = "オンライン";
+  } else {
+    setDot(el.networkDot, "warning");
+    el.networkValue.textContent = "オフライン / ローカル操作可";
+  }
 
   if (state.git?.available) {
     setDot(el.gitDot, "ok");
@@ -221,6 +255,8 @@ function renderProjectList() {
 
     button.addEventListener("click", () => {
       selectedId = project.id;
+      if (state?.settings) state.settings.lastSelectedProjectId = project.id;
+      api.setSelectedProject(project.id).catch(() => {});
       render();
     });
 
@@ -291,12 +327,7 @@ function renderDetail() {
     !repo.dirty &&
     repo.branch === project.defaultBranch;
 
-  if (ready) {
-    el.heroStatus.textContent = "準備OK";
-    el.heroTitle.textContent = "このまま開発を始められます";
-    el.heroDescription.textContent =
-      "GitHubを確認して最新化したあと、Godot Editorを開きます。";
-  } else if (!state.git?.available) {
+  if (!state.git?.available) {
     el.heroStatus.textContent = "セットアップ";
     el.heroTitle.textContent = "Gitが必要です";
     el.heroDescription.textContent =
@@ -311,6 +342,21 @@ function renderDetail() {
     el.heroTitle.textContent = "Local変更を保護しています";
     el.heroDescription.textContent =
       "変更を勝手に消さないため、GitHubからの自動更新を停止しています。";
+  } else if (!state.network?.online && repo.valid) {
+    el.heroStatus.textContent = "オフライン";
+    el.heroTitle.textContent = "ローカル開発は続けられます";
+    el.heroDescription.textContent =
+      "GitHub同期は利用できません。Godotで開く・ゲーム起動・フォルダ表示は利用できます。";
+  } else if (!state.network?.online && !repo.exists) {
+    el.heroStatus.textContent = "オフライン";
+    el.heroTitle.textContent = "最初の取得にはネット接続が必要です";
+    el.heroDescription.textContent =
+      "接続が戻ったら「開発を開始」でRepositoryを取得できます。";
+  } else if (ready) {
+    el.heroStatus.textContent = "準備OK";
+    el.heroTitle.textContent = "このまま開発を始められます";
+    el.heroDescription.textContent =
+      "GitHubを確認して最新化したあと、Godot Editorを開きます。";
   } else if (!repo.exists) {
     el.heroStatus.textContent = "初回準備";
     el.heroTitle.textContent = "最初の取得は自動で行います";
@@ -327,8 +373,18 @@ function renderDetail() {
 function render() {
   if (!state) return;
 
+  const preferred = state.settings?.lastSelectedProjectId;
+  if (!selectedId && preferred && state.projects.some((project) => project.id === preferred)) {
+    selectedId = preferred;
+  }
+
   if (!selectedId || !state.projects.some((project) => project.id === selectedId)) {
     selectedId = state.projects[0]?.id || null;
+  }
+
+  if (state.settings && state.settings.lastSelectedProjectId !== (selectedId || "")) {
+    state.settings.lastSelectedProjectId = selectedId || "";
+    api.setSelectedProject(selectedId || null).catch(() => {});
   }
 
   renderGlobal();
@@ -350,7 +406,7 @@ async function refreshState(log = false) {
 
 async function runAction(label, action, options = {}) {
   if (busy) return;
-  setBusy(true);
+  setBusy(true, label);
   addLog(label + "を開始しました。");
 
   try {
@@ -372,7 +428,11 @@ async function runAction(label, action, options = {}) {
 
     if (result?.ok) {
       if (result.state) state = result.state;
-      if (result.projectId) selectedId = result.projectId;
+      if (result.projectId) {
+        selectedId = result.projectId;
+        if (state?.settings) state.settings.lastSelectedProjectId = result.projectId;
+        api.setSelectedProject(result.projectId).catch(() => {});
+      }
       render();
       addLog(result.message || label + "が完了しました。", "success");
     } else if (result?.code !== "CANCELED") {
@@ -390,6 +450,40 @@ function closeDialog(dialog, returnValue = "cancel") {
   if (dialog?.open) dialog.close(returnValue);
 }
 
+function renderDiagnostics(diagnostics) {
+  const app = diagnostics?.app || {};
+  const update = diagnostics?.update || {};
+  const storage = diagnostics?.storage || {};
+  const last = diagnostics?.lastError;
+
+  el.diagnosticsApp.textContent = (app.name || "Game Dev Hub") + " v" + (app.version || "?");
+  el.diagnosticsElectron.textContent = app.electron || "不明";
+  el.diagnosticsOs.textContent =
+    (app.platform === "win32" ? "Windows" : app.platform || "不明") +
+    " " + (app.platformRelease || "") + " / " + (app.arch || "");
+  el.diagnosticsNetwork.textContent = diagnostics?.network?.online ? "オンライン" : "オフライン";
+  el.diagnosticsUpdate.textContent =
+    (update.channel === "stable" ? "Stable" : update.channel || "不明") +
+    " / " + (update.status || "idle");
+  el.diagnosticsProjects.textContent = String(diagnostics?.projectCount ?? 0) + "件";
+  el.diagnosticsDataPath.textContent = storage.dataPath || "不明";
+  el.diagnosticsLogsPath.textContent = storage.logsPath || "不明";
+  el.diagnosticsLastError.textContent = last
+    ? (last.code || "ERROR") + " / " + new Date(last.at).toLocaleString("ja-JP")
+    : "なし";
+}
+
+async function openDiagnostics() {
+  const result = await api.getDiagnostics();
+  if (!result?.ok) {
+    addLog(result?.message || "診断情報を取得できませんでした。", "error");
+    return;
+  }
+
+  renderDiagnostics(result.diagnostics);
+  el.diagnosticsDialog.showModal();
+}
+
 function requireSelected() {
   const project = selectedProject();
   if (!project) {
@@ -398,6 +492,36 @@ function requireSelected() {
   }
   return project;
 }
+
+el.diagnostics.addEventListener("click", () => {
+  openDiagnostics().catch((error) => {
+    addLog("診断情報の取得に失敗しました: " + String(error?.message || error), "error");
+  });
+});
+
+el.diagnosticsClose.addEventListener("click", () => closeDialog(el.diagnosticsDialog));
+
+el.diagnosticsExport.addEventListener("click", async () => {
+  const result = await api.exportDiagnostics();
+  if (result?.ok) addLog(result.message, "success");
+  else if (result?.code !== "CANCELED") addLog(result?.message || "診断情報を書き出せませんでした。", "error");
+});
+
+el.diagnosticsOpenLogs.addEventListener("click", async () => {
+  const result = await api.openLogsFolder();
+  if (!result?.ok) addLog(result?.message || "ログフォルダを開けませんでした。", "error");
+});
+
+el.diagnosticsClearLogs.addEventListener("click", async () => {
+  const result = await api.clearDiagnosticLogs();
+  if (result?.ok) {
+    addLog(result.message, "success");
+    const refreshed = await api.getDiagnostics();
+    if (refreshed?.ok) renderDiagnostics(refreshed.diagnostics);
+  } else {
+    addLog(result?.message || "診断ログを消去できませんでした。", "error");
+  }
+});
 
 el.update.addEventListener("click", async () => {
   const status = state?.update?.status;

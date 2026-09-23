@@ -57,3 +57,14 @@ Primary Taskは「ゲームを選んで開発を開始する」。
 - Repository同期でローカル変更を勝手に捨てない
 - Secret / Tokenを保存しない
 - 未確認のWindows固有挙動を確認済み扱いにしない
+
+
+## Electron Desktop Foundation
+
+- Settings / Registryの正本は `userData/hub-data` とし、Chromium管理Fileと同じrootへApp固有Fileを増やさない
+- Window State、Last selected Game、Diagnosticsは既存Settings / Foundationへ統合し、同じ状態の第二Source of Truthを作らない
+- Persistent Logはboundedに保ち、Token / Secret / User File本文 / Repository URL /不要な個人Pathを記録しない
+- Diagnostic ExportはSanitize済みSnapshotだけをUserの明示操作で作る
+- Renderer crash recoveryはData削除や無限RestartをDefaultにしない
+- Network failure時もLocal-only機能まで一括停止しない
+- Secretを導入する将来Featureでは通常settings.jsonへ平文保存しない

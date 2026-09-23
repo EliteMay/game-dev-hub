@@ -112,6 +112,8 @@ h3 {
 
 .top-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
 }
 
@@ -192,7 +194,7 @@ h3 {
 
 .global-status {
   display: grid;
-  grid-template-columns: 150px minmax(190px, 0.75fr) minmax(260px, 1.35fr) minmax(190px, 0.85fr);
+  grid-template-columns: 130px 160px minmax(220px, 1.25fr) minmax(190px, 0.9fr) minmax(180px, 0.85fr);
   gap: 1px;
   overflow: hidden;
   margin-bottom: 12px;
@@ -667,4 +669,61 @@ h3 {
 
 .hidden {
   display: none !important;
+}
+
+.task-status {
+  min-width: 120px;
+  text-align: center;
+}
+
+.task-status.active {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.diagnostics-content {
+  padding: 20px;
+}
+
+.diagnostics-grid {
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--border);
+}
+
+.diagnostics-grid > div {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 14px;
+  padding: 10px 12px;
+  background: #0d141b;
+}
+
+.diagnostics-grid dt {
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.diagnostics-grid dd {
+  min-width: 0;
+  margin: 0;
+  color: #c6d3de;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.diagnostics-actions {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 620px) {
+  .diagnostics-grid > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
 }

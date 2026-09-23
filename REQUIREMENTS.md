@@ -42,6 +42,20 @@ Hub側へ各ゲームの詳細仕様を複製しない。
 - 操作ログを表示する
 - 設定・Project一覧をElectron `userData`へ保存する
 
+### 自動アップデート
+
+- Stable Update Providerは `EliteMay/game-dev-hub` のGitHub Releasesに固定する
+- App起動後のUpdate確認はバックグラウンドで行いPrimary TaskをBlockしない
+- Userの明示操作なしに突然再起動しない
+- 新Version検出後、Download進捗を表示できる
+- Download完了後「再起動して更新」で適用できる
+- Pre-releaseはStable利用者へ配布しない
+- Update失敗時もCurrent Versionを継続利用でき、GitHub Releaseへの手動Fallbackを提供する
+- Release Assetは同一BuildのSetup.exe / blockmap / latest.ymlを揃える
+- v0.1.2をUpdater Bootstrap Versionとし、それ以前からは1回だけ手動Installer更新を必要とする
+- userDataに保存したProject一覧・Godot pathはApp Updateで削除しない
+- Code signing未導入中は署名済みと表示・記録しない
+
 ### 非目標
 
 - ゲーム本体をHub Repositoryへ集約する
@@ -115,3 +129,7 @@ v0.1は、Windows実機で次を確認して初めて完成扱いとする。
 8. App再起動後もProject一覧復元
 9. dirty worktreeで同期安全停止
 10. Setup.exe install / uninstall
+11. v0.1.2から次Stable Versionを検出
+12. Update download / restart install
+13. Update後もProject一覧・Godot pathを維持
+14. Update失敗時にCurrent Versionを継続利用し手動Fallbackへ進める

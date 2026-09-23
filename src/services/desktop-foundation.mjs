@@ -171,3 +171,9 @@ export function redactHomePath(value, homePath) {
 
   return normalizedValue;
 }
+
+export async function clearFoundationLogs(logsPath) {
+  const logPath = path.join(logsPath, LOG_FILE_NAME);
+  await fs.rm(logPath, { force: true });
+  await fs.rm(logPath + ".1", { force: true });
+}

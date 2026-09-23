@@ -22,6 +22,14 @@ const el = {
   heroTitle: document.querySelector("#hero-title"),
   heroDescription: document.querySelector("#hero-description"),
   refresh: document.querySelector("#refresh-button"),
+  updateCheck: document.querySelector("#update-check-button"),
+  updateStrip: document.querySelector("#update-strip"),
+  updateTitle: document.querySelector("#update-title"),
+  updateDescription: document.querySelector("#update-description"),
+  updateProgress: document.querySelector("#update-progress"),
+  updateProgressBar: document.querySelector("#update-progress-bar"),
+  updateRelease: document.querySelector("#update-release-button"),
+  updatePrimary: document.querySelector("#update-primary-button"),
   godot: document.querySelector("#godot-button"),
   addProject: document.querySelector("#add-project-button"),
   importProject: document.querySelector("#import-project-button"),
@@ -50,9 +58,12 @@ const el = {
 let state = null;
 let selectedId = null;
 let busy = false;
+let updateState = { state: "idle", version: null, percent: null };
+let lastUpdateLogState = null;
 
 const actionButtons = [
   el.refresh,
+  el.updateCheck,
   el.godot,
   el.addProject,
   el.importProject,
@@ -70,11 +81,104 @@ function setBusy(value) {
   for (const button of actionButtons) {
     if (button) button.disabled = value;
   }
+  el.updateCheck.disabled =
+    value ||
+    updateState.state === "checking" ||
+    updateState.state === "downloading";
 }
 
 function setDot(node, tone) {
   node.classList.remove("ok", "warning", "error");
   if (tone) node.classList.add(tone);
+}
+
+function updateActionLabel(status) {
+  if (status.state === "available") return "ダウンロード";
+  if (status.state === "downloaded") return "再起動して更新";
+  if (status.state === "downloading") return "ダウンロード中";
+  if (status.state === "checking") return "確認中";
+  return "更新を確認";
+}
+
+function renderUpdateStatus(status) {
+  if (!status || typeof status !== "object") return;
+
+  updateState = {
+    state: String(status.state || "idle"),
+    version: status.version || null,
+    percent: Number.isFinite(status.percent) ? status.percent : null,
+    message: String(status.message || "")
+  };
+
+  const visibleStates = new Set(["available", "downloading", "downloaded", "error", "not-available"]);
+  el.updateStrip.classList.toggle("hidden", !visibleStates.has(updateState.state));
+
+  if (updateState.state === "available") {
+    el.updateTitle.textContent = "v" + updateState.version + " が利用できます";
+    el.updateDescription.textContent = "作業中の内容はそのままに、更新Fileを先にダウンロードできます。";
+  } else if (updateState.state === "downloading") {
+    el.updateTitle.textContent = "更新をダウンロード中";
+    el.updateDescription.textContent = updateState.message || "ダウンロードしています。";
+  } else if (updateState.state === "downloaded") {
+    el.updateTitle.textContent = "v" + (updateState.version || "最新版") + " の準備ができました";
+    el.updateDescription.textContent = "「再起動して更新」を押した時だけアプリを終了して更新します。";
+  } else if (updateState.state === "error") {
+    el.updateTitle.textContent = "更新を確認できませんでした";
+    el.updateDescription.textContent = updateState.message || "再試行するかReleaseページから手動更新してください。";
+  } else if (updateState.state === "not-available") {
+    el.updateTitle.textContent = "最新版です";
+    el.updateDescription.textContent = "Game Dev Hub v" + (updateState.version || state?.appVersion || "") + " を使用しています。";
+  }
+
+  const progressVisible = updateState.state === "downloading" || updateState.state === "downloaded";
+  el.updateProgress.classList.toggle("hidden", !progressVisible);
+  el.updateProgress.setAttribute("aria-hidden", String(!progressVisible));
+  el.updateProgressBar.style.width = (updateState.percent ?? 0) + "%";
+
+  el.updatePrimary.textContent = updateActionLabel(updateState);
+  el.updatePrimary.disabled =
+    updateState.state === "checking" ||
+    updateState.state === "downloading";
+  el.updateCheck.disabled =
+    busy ||
+    updateState.state === "checking" ||
+    updateState.state === "downloading";
+
+  if (
+    ["available", "downloaded", "error"].includes(updateState.state) &&
+    lastUpdateLogState !== updateState.state
+  ) {
+    const tone = updateState.state === "error" ? "error" : "success";
+    addLog(updateState.message || el.updateTitle.textContent, tone);
+    lastUpdateLogState = updateState.state;
+  } else if (updateState.state !== lastUpdateLogState && updateState.state !== "downloading") {
+    lastUpdateLogState = updateState.state;
+  }
+}
+
+async function checkAppUpdate() {
+  const result = await api.checkForUpdates();
+  if (!result?.ok && result?.code === "UPDATE_DEV_MODE") {
+    addLog(result.message);
+  } else if (!result?.ok) {
+    addLog(result?.message || "更新確認に失敗しました。", "error");
+  }
+}
+
+async function runUpdatePrimaryAction() {
+  if (updateState.state === "available") {
+    const result = await api.downloadUpdate();
+    if (!result?.ok) addLog(result?.message || "更新のダウンロードに失敗しました。", "error");
+    return;
+  }
+
+  if (updateState.state === "downloaded") {
+    const result = await api.installUpdate();
+    if (!result?.ok) addLog(result?.message || "更新を開始できませんでした。", "error");
+    return;
+  }
+
+  await checkAppUpdate();
 }
 
 function selectedProject() {
@@ -346,6 +450,27 @@ el.refresh.addEventListener("click", () => runAction("状態更新", async () =>
   const result = await api.getState();
   return { ok: result.ok, message: "状態を更新しました。", state: result };
 }));
+
+el.updateCheck.addEventListener("click", () => {
+  checkAppUpdate().catch((error) => addLog(String(error?.message || error), "error"));
+});
+
+el.updatePrimary.addEventListener("click", () => {
+  runUpdatePrimaryAction().catch((error) => addLog(String(error?.message || error), "error"));
+});
+
+el.updateRelease.addEventListener("click", async () => {
+  const result = await api.openLatestRelease();
+  if (!result?.ok) addLog(result?.message || "Releaseページを開けませんでした。", "error");
+});
+
+api.onUpdateStatus((status) => renderUpdateStatus(status));
+
+api.getUpdateStatus()
+  .then((result) => {
+    if (result?.ok && result.status) renderUpdateStatus(result.status);
+  })
+  .catch(() => {});
 
 el.godot.addEventListener("click", () => runAction("Godot設定", () => api.chooseGodot()));
 

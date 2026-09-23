@@ -144,7 +144,16 @@ export async function cloneProject(project) {
     180_000
   );
 
-  return inspectRepository(project);
+  const cloned = await inspectRepository(project);
+
+  if (!cloned.valid) {
+    throw new HubError(
+      "NOT_GODOT_REPOSITORY",
+      "Repositoryは取得できましたが、Godot Projectとして確認できません。project.godotとoriginを確認してください。"
+    );
+  }
+
+  return cloned;
 }
 
 export async function syncProject(project) {

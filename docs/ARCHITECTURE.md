@@ -9,6 +9,7 @@ Game Dev Hub
 │  ├─ Git Repository Service
 │  ├─ Godot Service
 │  ├─ Settings
+│  ├─ Auto Updater
 │  └─ Native dialogs / external launch
 │
 ├─ Preload
@@ -19,6 +20,7 @@ Game Dev Hub
    ├─ Selected project detail
    ├─ Status
    ├─ Actions
+   ├─ Update status / progress
    └─ Log
 ```
 
@@ -71,6 +73,30 @@ Main Processだけが次を固定Capabilityとして持つ。
 
 任意Command文字列はIPC payloadとして受け取らない。
 
+## Auto Update Boundary
+
+```text
+GitHub stable Release
+├─ latest.yml
+├─ Setup.exe
+└─ blockmap
+        ↓
+Electron Main / electron-updater
+        ↓ narrow IPC status/actions
+Preload
+        ↓
+Renderer
+```
+
+- Providerは`EliteMay/game-dev-hub`へBuild時に固定する。
+- Rendererはfeed URL・任意download URLを指定できない。
+- 起動後はMain processが非同期でUpdate checkを行う。
+- `autoDownload=false`で、Downloadはユーザー操作まで開始しない。
+- `autoInstallOnAppQuit=false`で、明示した「再起動して更新」までInstallを開始しない。
+- Update error時もGame Dev Hub本体は継続利用可能とする。
+- Manual fallbackは固定されたGitHub Releases URLだけをMain processから開く。
+
+
 ## Repository Sync
 
 ```text
@@ -103,4 +129,3 @@ v0.1後の候補:
 - Releases
 - Test status
 - Game-specific task shortcuts
-- Auto updater for Game Dev Hub itself

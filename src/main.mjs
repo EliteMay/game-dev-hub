@@ -715,7 +715,7 @@ function flattenTasks(tasks) {
 
 async function setActiveTask(payload) {
   if (!payload || typeof payload !== "object") {
-    throw new HubError("INVALID_INPUT", "作業中タスクの指定が正しくありません。");
+    throw new HubError("INVALID_INPUT", "今やるタスクの指定が正しくありません。");
   }
 
   const project = await findProject(payload.projectId);
@@ -882,6 +882,7 @@ async function exportChatGptPack(payload) {
       commit: repository.commit,
       dirty: repository.dirty,
       changedCount: repository.changedCount,
+      changedFiles: repository.changedFiles,
       ahead: repository.ahead,
       behind: repository.behind
     },
@@ -894,6 +895,7 @@ async function exportChatGptPack(payload) {
     diagnostics: {
       network: diagnostics.network,
       capabilities: diagnostics.capabilities,
+      toolchain: diagnostics.toolchain,
       lastError: diagnostics.lastError,
       recentLogs: diagnostics.recentLogs
     },
@@ -981,6 +983,10 @@ async function diagnosticsSnapshot() {
     capabilities: {
       git: git.available === true,
       godot: godot.available === true
+    },
+    toolchain: {
+      gitVersion: git.version || "",
+      godotVersion: godot.version || ""
     },
     projectCount: registry.projects.length,
     lastError,

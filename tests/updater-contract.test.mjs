@@ -6,7 +6,7 @@ const root = new URL("../", import.meta.url);
 
 test("package config enables stable GitHub Release updates", async () => {
   const pkg = JSON.parse(await fs.readFile(new URL("package.json", root), "utf8"));
-  assert.equal(pkg.version, "0.1.2");
+  assert.equal(pkg.version, "0.1.3");
   assert.equal(pkg.dependencies?.["electron-updater"], "6.8.9");
   assert.deepEqual(pkg.build?.publish, [{ provider: "github", owner: "EliteMay", repo: "game-dev-hub" }]);
   assert.equal(pkg.build?.win?.target?.[0]?.target, "nsis");

@@ -28,3 +28,13 @@
 - Problem: `method="dialog"` のform内でCancelをsubmit buttonのままにすると、required inputのconstraint validationが先に動き、× / キャンセルを押しても閉じない。
 - Decision: Cancel / close controlは `type="button"` と明示的な `dialog.close()` を使い、確定操作だけをsubmitにする。
 - Prevention: 主要button無反応はRegression Testを追加し、必須入力が空の状態でもCancelできるContractを維持する。
+
+## GL-004 — Auto Updaterは最初の対応VersionをBootstrapとして扱う
+
+- Date: 2026-09-23
+- Type: Distribution / Update
+- Status: Adopted
+- Problem: Updaterを持っていない旧Versionへは、後からGitHub Releaseだけ作っても自動更新機能を遠隔追加できない。
+- Decision: v0.2.0を最初のUpdater搭載Versionとして扱い、v0.1.1以前からv0.2.0への移行は1回だけ手動Installerを必要とする。以後はstable GitHub Releaseを自動更新元にする。
+- Prevention: Release時はpackage version / tag / Setup.exe / blockmap / latest.ymlを同じPipelineで生成し、実機Update Pathは旧Updater対応Versionから次Versionで確認する。
+

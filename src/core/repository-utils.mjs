@@ -16,10 +16,26 @@ export function parsePorcelainStatus(output) {
     .map((line) => line.trimEnd())
     .filter(Boolean);
 
+  const files = lines.map((line) => {
+    const status = line.slice(0, 2).trim() || "?";
+    let filePath = line.length > 3 ? line.slice(3).trim() : line.trim();
+
+    if (filePath.includes(" -> ")) {
+      filePath = filePath.split(" -> ").at(-1);
+    }
+
+    if (filePath.startsWith('"') && filePath.endsWith('"')) {
+      filePath = filePath.slice(1, -1);
+    }
+
+    return { status, path: filePath };
+  });
+
   return {
     dirty: lines.length > 0,
     changedCount: lines.length,
-    lines
+    lines,
+    files
   };
 }
 

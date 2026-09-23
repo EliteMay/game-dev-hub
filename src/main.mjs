@@ -3,6 +3,7 @@ import {
   BrowserWindow,
   dialog,
   ipcMain,
+  nativeImage,
   nativeTheme,
   net,
   screen,
@@ -28,6 +29,14 @@ import {
   redactHomePath,
   resolveWindowPlacement
 } from "./services/desktop-foundation.mjs";
+import {
+  addReferenceImages,
+  copyReferenceImages,
+  listReferenceImages,
+  loadDevelopmentTasks,
+  referenceImagePath,
+  removeReferenceImage
+} from "./services/development-workspace.mjs";
 import updaterPackage from "electron-updater";
 
 const { autoUpdater } = updaterPackage;
@@ -271,7 +280,11 @@ const LOGGED_IPC_CHANNELS = new Set([
   "hub:update-download",
   "hub:update-install",
   "hub:diagnostics-export",
-  "hub:diagnostics-clear-logs"
+  "hub:diagnostics-clear-logs",
+  "hub:set-active-task",
+  "hub:reference-images-add",
+  "hub:reference-image-remove",
+  "hub:chatgpt-pack-export"
 ]);
 
 function registerIpc(channel, handler) {
@@ -376,7 +389,27 @@ async function getState() {
       ? await inspectRepository(project)
       : { exists: false, valid: false };
 
-    projects.push({ ...project, repository });
+    const developmentTasks = repository.exists
+      ? await loadDevelopmentTasks(project)
+      : {
+          available: false,
+          sourceFile: "",
+          sections: [],
+          total: 0,
+          done: 0,
+          open: 0,
+          currentSection: "",
+          nextTask: null
+        };
+
+    projects.push({
+      ...project,
+      repository,
+      development: {
+        tasks: developmentTasks,
+        activeTaskId: settings.activeTaskByProject?.[project.id] || ""
+      }
+    });
   }
 
   return {
@@ -674,6 +707,243 @@ async function setSelectedProject(projectId) {
   return { ok: true };
 }
 
+function flattenTasks(tasks) {
+  return (tasks?.sections || []).flatMap((section) =>
+    section.tasks.map((task) => ({ ...task, section: section.title }))
+  );
+}
+
+async function setActiveTask(payload) {
+  if (!payload || typeof payload !== "object") {
+    throw new HubError("INVALID_INPUT", "作業中タスクの指定が正しくありません。");
+  }
+
+  const project = await findProject(payload.projectId);
+  const taskId = typeof payload.taskId === "string" ? payload.taskId : "";
+  const tasks = await loadDevelopmentTasks(project);
+
+  if (taskId && !flattenTasks(tasks).some((task) => task.id === taskId && !task.done)) {
+    throw new HubError("TASK_NOT_FOUND", "そのタスクは現在のRoadmapにありません。Repositoryを更新して再確認してください。");
+  }
+
+  const settings = await getSettings();
+  await updateSettings({
+    activeTaskByProject: {
+      ...(settings.activeTaskByProject || {}),
+      [project.id]: taskId
+    }
+  });
+
+  return { ok: true, taskId };
+}
+
+async function referenceImagesState(projectId) {
+  const project = await findProject(projectId);
+  const items = await listReferenceImages(appDataRoot(), project.id);
+
+  const images = items.map((item) => {
+    let thumbnail = "";
+    try {
+      const image = nativeImage.createFromPath(item.filePath);
+      if (!image.isEmpty()) {
+        thumbnail = image.resize({ width: 220, quality: "good" }).toDataURL();
+      }
+    } catch {
+      thumbnail = "";
+    }
+
+    return {
+      id: item.id,
+      displayName: item.displayName,
+      size: item.size,
+      updatedAt: item.updatedAt,
+      thumbnail
+    };
+  });
+
+  return { ok: true, images };
+}
+
+async function addProjectReferenceImages(projectId) {
+  const project = await findProject(projectId);
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: project.name + " の参考画像を追加",
+    properties: ["openFile", "multiSelections"],
+    filters: [
+      { name: "画像", extensions: ["png", "jpg", "jpeg", "webp"] }
+    ]
+  });
+
+  if (result.canceled || !result.filePaths.length) {
+    return { ok: false, code: "CANCELED", message: "画像追加をキャンセルしました。" };
+  }
+
+  const added = await addReferenceImages(appDataRoot(), project.id, result.filePaths);
+  const state = await referenceImagesState(project.id);
+
+  return {
+    ok: true,
+    message: added.accepted.length + "枚の参考画像を追加しました。" +
+      (added.skipped.length ? " " + added.skipped.length + "枚は形式または容量の条件で追加できませんでした。" : ""),
+    images: state.images
+  };
+}
+
+async function removeProjectReferenceImage(payload) {
+  if (!payload || typeof payload !== "object") {
+    throw new HubError("INVALID_INPUT", "画像の指定が正しくありません。");
+  }
+
+  const project = await findProject(payload.projectId);
+  await removeReferenceImage(appDataRoot(), project.id, payload.imageId);
+  const state = await referenceImagesState(project.id);
+  return { ok: true, message: "参考画像を外しました。元の画像Fileは削除していません。", images: state.images };
+}
+
+async function openProjectReferenceImage(payload) {
+  if (!payload || typeof payload !== "object") {
+    throw new HubError("INVALID_INPUT", "画像の指定が正しくありません。");
+  }
+
+  const project = await findProject(payload.projectId);
+  const filePath = referenceImagePath(appDataRoot(), project.id, payload.imageId);
+  const errorMessage = await shell.openPath(filePath);
+  if (errorMessage) {
+    throw new HubError("OPEN_IMAGE_FAILED", "参考画像を開けませんでした。");
+  }
+  return { ok: true };
+}
+
+function safeFolderPart(value) {
+  return String(value || "game")
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60) || "game";
+}
+
+async function exportChatGptPack(payload) {
+  if (!payload || typeof payload !== "object") {
+    throw new HubError("INVALID_INPUT", "ChatGPT共有パックの指定が正しくありません。");
+  }
+
+  const project = await findProject(payload.projectId);
+  const repository = await inspectRepository(project);
+  const tasks = await loadDevelopmentTasks(project);
+  const settings = await getSettings();
+  const requestedTaskId = typeof payload.taskId === "string" ? payload.taskId : "";
+  const activeTaskId = requestedTaskId || settings.activeTaskByProject?.[project.id] || "";
+  const allTasks = flattenTasks(tasks);
+  const activeTask =
+    allTasks.find((task) => task.id === activeTaskId && !task.done) ||
+    tasks.nextTask ||
+    null;
+
+  const capturedAt = new Date();
+  const stamp = capturedAt.toISOString().replace(/[:.]/g, "-");
+  const packRoot = path.join(
+    app.getPath("documents"),
+    "Game Dev Hub",
+    "ChatGPT Packs",
+    safeFolderPart(project.name) + "-" + stamp
+  );
+  await fs.mkdir(packRoot, { recursive: true });
+
+  const screenshotFile = "hub-screenshot.png";
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const image = await mainWindow.webContents.capturePage();
+    await fs.writeFile(path.join(packRoot, screenshotFile), image.toPNG());
+  }
+
+  const referenceImages = await copyReferenceImages(appDataRoot(), project.id, packRoot);
+  const diagnostics = await diagnosticsSnapshot();
+  const homePath = app.getPath("home");
+
+  const pack = {
+    schemaVersion: 1,
+    kind: "game-dev-hub-chatgpt-pack",
+    capturedAt: capturedAt.toISOString(),
+    purpose: "このJSONと同じFolderの画像をChatGPTへ添付し、現在のGame開発状態を共有する。",
+    app: {
+      name: "Game Dev Hub",
+      version: app.getVersion()
+    },
+    project: {
+      name: project.name,
+      repository: project.repositorySlug,
+      repositoryUrl: project.repositoryWebUrl,
+      defaultBranch: project.defaultBranch,
+      localPath: redactHomePath(project.localPath, homePath)
+    },
+    repository: {
+      exists: repository.exists,
+      valid: repository.valid,
+      branch: repository.branch,
+      commit: repository.commit,
+      dirty: repository.dirty,
+      changedCount: repository.changedCount,
+      ahead: repository.ahead,
+      behind: repository.behind
+    },
+    roadmap: tasks,
+    activeTask,
+    verification: {
+      source: "Game Dev Hub runtime snapshot",
+      note: "Gameの実プレイ結果は画像やUser messageと併せて判断する。JSONだけでPlaytest済みとは扱わない。"
+    },
+    diagnostics: {
+      network: diagnostics.network,
+      capabilities: diagnostics.capabilities,
+      lastError: diagnostics.lastError,
+      recentLogs: diagnostics.recentLogs
+    },
+    files: {
+      hubScreenshot: screenshotFile,
+      referenceImages
+    },
+    privacy: {
+      secretsIncluded: false,
+      sourceFileContentsIncluded: false,
+      homePathRedacted: true
+    }
+  };
+
+  await fs.writeFile(
+    path.join(packRoot, "game-dev-hub-report.json"),
+    JSON.stringify(pack, null, 2) + "\n",
+    "utf8"
+  );
+
+  const promptLines = [
+    "このFolderの game-dev-hub-report.json と画像をChatGPTへ送ってください。",
+    "",
+    "見てほしい内容:",
+    "- 現在のRepository状態が開発を続けられる状態か",
+    "- Roadmap上の次の作業は何か",
+    "- 添付画像から確認できる実装・見た目・不具合",
+    "- 次にRepositoryへ入れるべき変更",
+    "",
+    activeTask ? "現在選択中のタスク: " + activeTask.section + " / " + activeTask.text : "現在選択中のタスク: 未選択",
+    "",
+    "※ JSONにはTokenやFile本文を入れていません。必要なCodeはGitHub RepositoryをSource of Truthとして確認してください。"
+  ];
+  await fs.writeFile(path.join(packRoot, "CHATGPTに送る.txt"), promptLines.join("\n") + "\n", "utf8");
+
+  const openError = await shell.openPath(packRoot);
+  if (openError) {
+    void writeFoundationLog("chatgpt-pack.open-folder-failed", {
+      level: "warning",
+      code: "OPEN_PACK_FOLDER_FAILED"
+    });
+  }
+
+  return {
+    ok: true,
+    message: "ChatGPT共有パックを作成しました。開いたFolderのJSONと画像をそのまま送れます。",
+    fileCount: 2 + referenceImages.length + (mainWindow && !mainWindow.isDestroyed() ? 1 : 0)
+  };
+}
+
 async function diagnosticsSnapshot() {
   const settings = await getSettings();
   const registry = await getRegistry();
@@ -949,6 +1219,12 @@ if (!singleInstanceLock) {
     registerIpc("hub:open-github", openGitHub);
     registerIpc("hub:remove-project", unregisterProject);
     registerIpc("hub:set-selected-project", setSelectedProject);
+    registerIpc("hub:set-active-task", setActiveTask);
+    registerIpc("hub:reference-images-list", referenceImagesState);
+    registerIpc("hub:reference-images-add", addProjectReferenceImages);
+    registerIpc("hub:reference-image-remove", removeProjectReferenceImage);
+    registerIpc("hub:reference-image-open", openProjectReferenceImage);
+    registerIpc("hub:chatgpt-pack-export", exportChatGptPack);
     registerIpc("hub:get-diagnostics", getDiagnostics);
     registerIpc("hub:diagnostics-export", exportDiagnostics);
     registerIpc("hub:diagnostics-open-logs", openLogsFolder);

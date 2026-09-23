@@ -10,6 +10,8 @@ Game Dev Hub
 │  ├─ Godot Service
 │  ├─ Settings / Desktop Foundation
 │  ├─ Diagnostics / bounded local log
+│  ├─ Development Workspace / Roadmap reader
+│  ├─ Reference image local store / ChatGPT pack exporter
 │  ├─ Window state / single instance / recovery
 │  └─ Native dialogs / external launch
 │
@@ -125,3 +127,25 @@ v0.1後の候補:
 - Game-specific task shortcuts
 - Build / Export task managerの拡張
 - Process Supervisorが必要な外部Runtimeを将来扱う場合の共通管理
+
+
+## Development Workspace Flow
+
+```text
+Game Repository
+└─ docs/ROADMAP.md / ROADMAP.md / TODO.md
+        ↓ read-only
+Game Dev Hub
+├─ Task list
+├─ Active task (Settings only)
+├─ Reference images (Hub local data)
+└─ ChatGPT Pack Export
+        ↓ explicit user action
+Documents/Game Dev Hub/ChatGPT Packs/<game>-<timestamp>/
+├─ game-dev-hub-report.json
+├─ hub-screenshot.png
+├─ CHATGPTに送る.txt
+└─ reference-images/
+```
+
+Roadmap/TODOのTask completionはGame RepositoryがCanonicalです。HubはTask本文や完了状態の第二Source of Truthを持ちません。

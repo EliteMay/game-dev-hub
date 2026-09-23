@@ -68,3 +68,13 @@ Primary Taskは「ゲームを選んで開発を開始する」。
 - Renderer crash recoveryはData削除や無限RestartをDefaultにしない
 - Network failure時もLocal-only機能まで一括停止しない
 - Secretを導入する将来Featureでは通常settings.jsonへ平文保存しない
+
+## Development Workspace
+
+- Roadmap / TODOの完了状態は各Game RepositoryをSource of Truthとし、Hubへ第二のTask DBを作らない
+- Hub Settingsへ保存してよいのは「現在選択しているTask」のようなWorkspace stateだけとする
+- HubからRoadmapを直接編集・Commit・Pushしない
+- 参考画像は `userData/hub-data/project-media/<project-id>` へCopyし、Game Repositoryへ暗黙追加しない
+- ChatGPT共有パックはUserの明示操作でのみ生成する
+- ChatGPT共有JSONにCredential / Token / Secret / Source File本文を含めない
+- 実プレイ結果はRuntime snapshotやStatic stateだけから完了扱いにしない

@@ -40,6 +40,16 @@ const el = {
   folder: document.querySelector("#folder-button"),
   github: document.querySelector("#github-button"),
   remove: document.querySelector("#remove-project-button"),
+  taskProgressBadge: document.querySelector("#task-progress-badge"),
+  taskCurrentPhase: document.querySelector("#task-current-phase"),
+  taskSource: document.querySelector("#task-source"),
+  developmentTaskList: document.querySelector("#development-task-list"),
+  taskEmpty: document.querySelector("#task-empty"),
+  exportChatGptPack: document.querySelector("#export-chatgpt-pack-button"),
+  addReferenceImage: document.querySelector("#add-reference-image-button"),
+  referenceImageCount: document.querySelector("#reference-image-count"),
+  referenceImageList: document.querySelector("#reference-image-list"),
+  referenceImageEmpty: document.querySelector("#reference-image-empty"),
   clearLog: document.querySelector("#clear-log-button"),
   logList: document.querySelector("#log-list"),
   taskStatus: document.querySelector("#task-status"),
@@ -73,6 +83,8 @@ const el = {
 let state = null;
 let selectedId = null;
 let busy = false;
+let referenceImages = [];
+let referenceImagesProjectId = "";
 
 const actionButtons = [
   el.refresh,
@@ -86,7 +98,9 @@ const actionButtons = [
   el.run,
   el.folder,
   el.github,
-  el.remove
+  el.remove,
+  el.exportChatGptPack,
+  el.addReferenceImage
 ];
 
 function setBusy(value, label = "") {
@@ -257,10 +271,177 @@ function renderProjectList() {
       selectedId = project.id;
       if (state?.settings) state.settings.lastSelectedProjectId = project.id;
       api.setSelectedProject(project.id).catch(() => {});
+      referenceImagesProjectId = "";
       render();
     });
 
     el.projectList.append(button);
+  }
+}
+
+function allDevelopmentTasks(tasks) {
+  return (tasks?.sections || []).flatMap((section) =>
+    section.tasks.map((task) => ({ ...task, section: section.title }))
+  );
+}
+
+function renderDevelopmentTasks(project) {
+  const tasks = project?.development?.tasks;
+  const activeTaskId = project?.development?.activeTaskId || "";
+
+  el.developmentTaskList.replaceChildren();
+
+  if (!tasks?.available) {
+    el.taskProgressBadge.textContent = "Roadmapなし";
+    el.taskCurrentPhase.textContent = "やることFileが見つかりません";
+    el.taskSource.textContent = "Repository内のRoadmap/TODOを読みます。";
+    el.taskEmpty.classList.remove("hidden");
+    return;
+  }
+
+  el.taskEmpty.classList.add("hidden");
+  el.taskProgressBadge.textContent = tasks.done + " / " + tasks.total + " 完了";
+  el.taskCurrentPhase.textContent = tasks.currentSection || "Roadmap";
+  el.taskSource.textContent = tasks.sourceFile + " をRepositoryから読込";
+
+  for (const section of tasks.sections) {
+    const group = document.createElement("section");
+    group.className = "task-group";
+
+    const heading = document.createElement("h4");
+    heading.textContent = section.title;
+    group.append(heading);
+
+    for (const task of section.tasks) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className =
+        "task-item" +
+        (task.done ? " done" : "") +
+        (task.id === activeTaskId ? " active" : "") +
+        (!activeTaskId && !task.done && tasks.nextTask?.id === task.id ? " next" : "");
+      item.disabled = task.done;
+
+      const mark = document.createElement("span");
+      mark.className = "task-mark";
+      mark.textContent = task.done ? "✓" : task.id === activeTaskId ? "▶" : "○";
+
+      const copy = document.createElement("span");
+      copy.className = "task-copy";
+
+      const text = document.createElement("strong");
+      text.textContent = task.text;
+
+      const meta = document.createElement("small");
+      meta.textContent = task.done
+        ? "完了"
+        : task.id === activeTaskId
+          ? "作業中"
+          : (!activeTaskId && tasks.nextTask?.id === task.id ? "次の候補" : "クリックして作業中にする");
+
+      copy.append(text, meta);
+      item.append(mark, copy);
+
+      if (!task.done) {
+        item.addEventListener("click", async () => {
+          const result = await api.setActiveTask({ projectId: project.id, taskId: task.id });
+          if (!result?.ok) {
+            addLog(result?.message || "作業中タスクを保存できませんでした。", "error");
+            return;
+          }
+
+          project.development.activeTaskId = task.id;
+          renderDevelopmentTasks(project);
+          addLog("作業中タスク: " + task.text, "success");
+        });
+      }
+
+      group.append(item);
+    }
+
+    el.developmentTaskList.append(group);
+  }
+}
+
+function renderReferenceImages() {
+  el.referenceImageList.replaceChildren();
+  el.referenceImageCount.textContent = referenceImages.length + "枚";
+  el.referenceImageEmpty.classList.toggle("hidden", referenceImages.length > 0);
+
+  for (const image of referenceImages) {
+    const card = document.createElement("article");
+    card.className = "reference-image-card";
+
+    const preview = document.createElement("button");
+    preview.type = "button";
+    preview.className = "reference-preview";
+    preview.title = image.displayName;
+
+    if (image.thumbnail) {
+      const img = document.createElement("img");
+      img.src = image.thumbnail;
+      img.alt = image.displayName;
+      preview.append(img);
+    } else {
+      const fallback = document.createElement("span");
+      fallback.textContent = "画像";
+      preview.append(fallback);
+    }
+
+    preview.addEventListener("click", () => {
+      const project = selectedProject();
+      if (!project) return;
+      api.openReferenceImage({ projectId: project.id, imageId: image.id }).catch(() => {});
+    });
+
+    const footer = document.createElement("div");
+    footer.className = "reference-card-footer";
+
+    const name = document.createElement("span");
+    name.textContent = image.displayName;
+    name.title = image.displayName;
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "reference-remove";
+    remove.textContent = "×";
+    remove.setAttribute("aria-label", image.displayName + " をHubから外す");
+    remove.addEventListener("click", async () => {
+      const project = selectedProject();
+      if (!project) return;
+      const result = await api.removeReferenceImage({ projectId: project.id, imageId: image.id });
+      if (result?.ok) {
+        referenceImages = result.images || [];
+        renderReferenceImages();
+        addLog(result.message, "success");
+      } else {
+        addLog(result?.message || "参考画像を外せませんでした。", "error");
+      }
+    });
+
+    footer.append(name, remove);
+    card.append(preview, footer);
+    el.referenceImageList.append(card);
+  }
+}
+
+async function refreshReferenceImages() {
+  const project = selectedProject();
+  if (!project) {
+    referenceImages = [];
+    referenceImagesProjectId = "";
+    renderReferenceImages();
+    return;
+  }
+
+  const projectId = project.id;
+  const result = await api.listReferenceImages(projectId);
+  if (selectedId !== projectId) return;
+
+  if (result?.ok) {
+    referenceImagesProjectId = projectId;
+    referenceImages = result.images || [];
+    renderReferenceImages();
   }
 }
 
@@ -277,6 +458,13 @@ function renderDetail() {
   el.projectDetail.classList.remove("hidden");
 
   const repo = project.repository || {};
+
+  renderDevelopmentTasks(project);
+  if (referenceImagesProjectId !== project.id) {
+    referenceImages = [];
+    renderReferenceImages();
+    refreshReferenceImages().catch(() => {});
+  }
 
   el.detailSlug.textContent = project.repositorySlug;
   el.detailName.textContent = project.name;
@@ -397,6 +585,7 @@ async function refreshState(log = false) {
   if (result?.ok) {
     state = result;
     render();
+    refreshReferenceImages().catch(() => {});
     if (log) addLog("状態を更新しました。", "success");
   } else {
     addLog(result?.message || "状態確認に失敗しました。", "error");
@@ -434,6 +623,7 @@ async function runAction(label, action, options = {}) {
         api.setSelectedProject(result.projectId).catch(() => {});
       }
       render();
+      refreshReferenceImages().catch(() => {});
       addLog(result.message || label + "が完了しました。", "success");
     } else if (result?.code !== "CANCELED") {
       addLog(result?.message || label + "に失敗しました。", "error");
@@ -492,6 +682,41 @@ function requireSelected() {
   }
   return project;
 }
+
+el.exportChatGptPack.addEventListener("click", () => {
+  const project = requireSelected();
+  if (!project) return;
+
+  runAction(
+    "ChatGPT共有パック作成",
+    () => api.exportChatGptPack({
+      projectId: project.id,
+      taskId: project.development?.activeTaskId || ""
+    })
+  );
+});
+
+el.addReferenceImage.addEventListener("click", async () => {
+  const project = requireSelected();
+  if (!project || busy) return;
+
+  setBusy(true, "参考画像追加");
+  try {
+    const result = await api.addReferenceImages(project.id);
+    if (result?.ok) {
+      referenceImagesProjectId = project.id;
+      referenceImages = result.images || [];
+      renderReferenceImages();
+      addLog(result.message, "success");
+    } else if (result?.code !== "CANCELED") {
+      addLog(result?.message || "参考画像を追加できませんでした。", "error");
+    }
+  } catch (error) {
+    addLog(String(error?.message || error), "error");
+  } finally {
+    setBusy(false);
+  }
+});
 
 el.diagnostics.addEventListener("click", () => {
   openDiagnostics().catch((error) => {

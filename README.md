@@ -1,5 +1,38 @@
 # Game Dev Hub
 
+## v0.1.4 開発ワークスペース
+
+Game Dev HubをLauncherだけでなく、日常のゲーム開発作業をまとめるWorkspaceへ拡張します。
+
+- Game Repositoryの `docs/ROADMAP.md` / `ROADMAP.md` / `TODO.md` を自動読込
+- Checkboxと通常の箇条書きを「やること」として表示
+- RepositoryをHubから更新すると、やること一覧もCurrent Local Repositoryへ追従
+- 未完了タスクを「作業中」に選択し、次回起動後も復元
+- Gameごとの参考画像をHub Local DataへCopyして一覧表示
+- 参考画像はGame Repositoryへ勝手にCommitしない
+- 「ChatGPT共有パックを作る」で次を `Documents/Game Dev Hub/ChatGPT Packs` へ自動生成
+  - `game-dev-hub-report.json`
+  - `hub-screenshot.png`
+  - `reference-images/`
+  - `CHATGPTに送る.txt`
+- 共有JSONにはRepository状態、Roadmap、作業中タスク、直近診断情報を含める
+- Token / Secret / Source File本文は共有JSONへ含めず、Home Pathは伏せる
+
+基本Flow:
+
+```text
+Gameを選ぶ
+→ Roadmapから「やること」を確認
+→ 今やるタスクを選ぶ
+→ 必要なら参考画像を追加
+→ ChatGPT共有パックを作る
+→ ChatGPTへJSON + 画像を送る
+→ Godotで実装 / Playtest
+→ Repository更新
+→ Hubのやることも更新
+```
+
+
 **Game Dev Hub** は、Godotを中心とした複数のゲーム開発Repositoryを、1つのWindowsアプリから管理するための個人用開発Hubです。
 
 ゲーム本体を1つの巨大Repositoryへまとめず、**ゲームごとに独立したGitHub RepositoryをSource of Truthとして管理**します。

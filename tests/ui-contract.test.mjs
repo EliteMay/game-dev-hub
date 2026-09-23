@@ -46,3 +46,16 @@ test("desktop foundation UI exposes network diagnostics and real task state", as
   assert.match(source, /処理中:/);
   assert.match(source, /オフライン \/ ローカル操作可/);
 });
+
+test("development workspace exposes repository tasks reference images and ChatGPT pack", async () => {
+  const html = await fs.readFile(new URL("src/renderer/index.html", root), "utf8");
+  const source = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
+
+  assert.match(html, /id="development-task-list"/);
+  assert.match(html, /id="export-chatgpt-pack-button"/);
+  assert.match(html, /id="add-reference-image-button"/);
+  assert.match(html, /Repositoryを更新すると自動で変わります/);
+  assert.match(source, /setActiveTask/);
+  assert.match(source, /exportChatGptPack/);
+  assert.match(source, /renderReferenceImages/);
+});

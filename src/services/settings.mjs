@@ -1,7 +1,7 @@
 import path from "node:path";
 import { readJsonRecovering, writeJsonAtomic } from "./storage.mjs";
 
-const SETTINGS_VERSION = 2;
+const SETTINGS_VERSION = 3;
 
 function absoluteOrEmpty(value) {
   if (typeof value !== "string") return "";
@@ -35,6 +35,19 @@ function sanitizeWindowState(value = {}, defaults = {}) {
   };
 }
 
+function sanitizeActiveTaskMap(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+
+  const safe = {};
+  for (const [projectId, taskId] of Object.entries(value)) {
+    if (!/^[a-z0-9-]{1,100}$/.test(projectId)) continue;
+    if (typeof taskId !== "string" || taskId.length > 100) continue;
+    safe[projectId] = taskId;
+    if (Object.keys(safe).length >= 100) break;
+  }
+  return safe;
+}
+
 export function sanitizeSettings(value = {}, defaults = {}) {
   return {
     version: SETTINGS_VERSION,
@@ -42,6 +55,7 @@ export function sanitizeSettings(value = {}, defaults = {}) {
       absoluteOrEmpty(defaults.projectsRoot),
     godotPath: absoluteOrEmpty(value.godotPath),
     lastSelectedProjectId: projectIdOrEmpty(value.lastSelectedProjectId),
+    activeTaskByProject: sanitizeActiveTaskMap(value.activeTaskByProject),
     window: sanitizeWindowState(value.window, defaults.window)
   };
 }

@@ -19,6 +19,7 @@
         <p class="subtitle">ゲームごとにRepositoryを分けたまま、開発開始だけ1か所にまとめる。</p>
       </div>
       <div class="top-actions">
+        <button class="button button-muted" id="update-check-button" type="button">更新を確認</button>
         <button class="button button-muted" id="godot-button" type="button">Godotを設定</button>
         <button class="button button-muted" id="refresh-button" type="button">状態を更新</button>
       </div>
@@ -44,6 +45,21 @@
           <span class="global-label">保存先</span>
           <strong id="projects-root">確認中</strong>
         </div>
+      </div>
+    </section>
+
+    <section class="update-strip hidden" id="update-strip" aria-live="polite">
+      <div class="update-copy">
+        <span class="update-kicker">アプリアップデート</span>
+        <strong id="update-title">更新を確認できます</strong>
+        <p id="update-description">新しいバージョンがある場合はここから更新できます。</p>
+        <div class="update-progress hidden" id="update-progress" aria-hidden="true">
+          <div id="update-progress-bar"></div>
+        </div>
+      </div>
+      <div class="update-actions">
+        <button class="button button-muted button-small" id="update-release-button" type="button">Releaseを開く</button>
+        <button class="button button-primary button-small" id="update-primary-button" type="button">更新を確認</button>
       </div>
     </section>
 

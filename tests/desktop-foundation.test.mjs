@@ -15,11 +15,11 @@ import {
 } from "../src/services/desktop-foundation.mjs";
 import { sanitizeSettings } from "../src/services/settings.mjs";
 
-test("settings schema v2 keeps desktop state and last selected project", () => {
+test("settings schema v3 keeps desktop and development state", () => {
   const safe = sanitizeSettings({
     projectsRoot: path.resolve("C:/Games"),
     godotPath: path.resolve("C:/Godot/Godot.exe"),
-    lastSelectedProjectId: "deep-factory",
+    lastSelectedProjectId: "deep-factory",\n    activeTaskByProject: { "deep-factory": "task-123" },
     window: {
       width: 1500,
       height: 900,
@@ -29,8 +29,8 @@ test("settings schema v2 keeps desktop state and last selected project", () => {
     }
   });
 
-  assert.equal(safe.version, 2);
-  assert.equal(safe.lastSelectedProjectId, "deep-factory");
+  assert.equal(safe.version, 3);
+  assert.equal(safe.lastSelectedProjectId, "deep-factory");\n  assert.equal(safe.activeTaskByProject["deep-factory"], "task-123");
   assert.equal(safe.window.width, 1500);
   assert.equal(safe.window.height, 900);
   assert.equal(safe.window.x, 200);

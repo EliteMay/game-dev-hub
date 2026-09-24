@@ -865,9 +865,8 @@ async function exportChatGptPack(payload) {
   const capturedAt = new Date();
   const stamp = capturedAt.toISOString().replace(/[:.]/g, "-");
   const packRoot = path.join(
-    app.getPath("documents"),
-    "Game Dev Hub",
-    "ChatGPT Packs",
+    appDataRoot(),
+    "chatgpt-packs",
     safeFolderPart(project.name) + "-" + stamp
   );
   await fs.mkdir(packRoot, { recursive: true });
@@ -911,6 +910,15 @@ async function exportChatGptPack(payload) {
     },
     roadmap: tasks,
     activeTask,
+    handoff: {
+      goal: "現在選択中のタスクを前へ進める。",
+      chatgptAction:
+        "GitHub Repositoryと共有情報だけで完了できる作業は、説明だけで終わらせずChatGPTがそのままRepositoryへ反映する。必要な文書更新やTask完了更新も含む。",
+      userAction:
+        "Windows実機操作、Godot上での目視確認、プレイ結果などUserにしか確認できない作業だけをUserへ依頼する。",
+      clarificationPolicy:
+        "共有情報とRepositoryから合理的に判断できる内容はUserへ聞き返さず進める。"
+    },
     verification: {
       source: "Game Dev Hub runtime snapshot",
       note: "Gameの実プレイ結果は画像やUser messageと併せて判断する。JSONだけでPlaytest済みとは扱わない。"
@@ -940,13 +948,20 @@ async function exportChatGptPack(payload) {
   );
 
   const promptLines = [
-    "このFolderの game-dev-hub-report.json と画像をChatGPTへ送ってください。",
+    "この共有パックは、現在選択中のタスクをChatGPTと続けるための引き継ぎです。",
     "",
-    "見てほしい内容:",
+    "ChatGPTへの依頼:",
+    "- 現在選択中のタスクを最優先で進めてください。",
+    "- GitHub Repositoryと共有情報だけで完了できる作業は、手順を説明するだけで終わらせず、そのままRepositoryへ反映してください。",
+    "- 必要ならREADME / Roadmap /仕様書など関連文書も実装と一致するよう更新してください。",
+    "- Windows実機操作、Godot上の目視確認、プレイ結果など、Userにしかできない確認だけをUserへ依頼してください。",
+    "- 共有情報とRepositoryから合理的に判断できることは、不要に聞き返さず進めてください。",
+    "",
+    "確認してほしい内容:",
     "- 現在のRepository状態が開発を続けられる状態か",
-    "- Roadmap上の次の作業は何か",
+    "- 選択中タスクのどこまで完了しているか",
     "- 添付画像から確認できる実装・見た目・不具合",
-    "- 次にRepositoryへ入れるべき変更",
+    "- ChatGPT側で今すぐRepositoryへ反映できる変更",
     "",
     activeTask ? "現在選択中のタスク: " + activeTask.section + " / " + activeTask.text : "現在選択中のタスク: 未選択",
     "",
@@ -964,7 +979,7 @@ async function exportChatGptPack(payload) {
 
   return {
     ok: true,
-    message: "ChatGPT共有パックを作成しました。開いたFolderのJSONと画像をそのまま送れます。",
+    message: "ChatGPT共有パックをGame Dev Hubのアプリデータ内へ作成しました。開いたFolderのJSONと画像をそのまま送れます。",
     fileCount: 2 + referenceImages.length + (mainWindow && !mainWindow.isDestroyed() ? 1 : 0)
   };
 }

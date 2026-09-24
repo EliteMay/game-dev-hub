@@ -67,8 +67,12 @@ test("safe stop explains recovery and keeps local Godot work available", async (
 
   assert.match(html, /id="safety-recovery"/);
   assert.match(html, /id="safety-changed-files"/);
-  assert.match(html, /GitHub同期を再開したい場合/);
-  assert.match(source, /同期せずGodotで開く/);
+  assert.match(html, /エラーではありません/);
+  assert.match(html, /id="safety-continue-button"/);
+  assert.match(html, /id="safety-export-button"/);
+  assert.match(source, /changedFileStatusLabel/);
+  assert.match(source, /新しく作成/);
+  assert.match(source, /Godotがファイルを識別するために作るID用ファイル/);
   assert.match(source, /renderSafetyRecovery/);
   assert.match(source, /repo\.dirty \|\| !state\?\.network\?\.online/);
 });
@@ -83,4 +87,11 @@ test("task selection shows concrete guidance instead of pretending work started"
   assert.match(source, /今やるタスクを選びました/);
   assert.match(source, /Roadmapにはこのタスクの詳しい手順がまだ書かれていません/);
   assert.match(source, /completionCriteria/);
+});
+
+
+test("dirty task fallback explains stale local roadmap in plain Japanese", async () => {
+  const source = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
+  assert.match(source, /PC側に変更があるため、HubがGitHubの最新版を取り込めていない可能性があります/);
+  assert.doesNotMatch(source, /status\.textContent = file\.status \|\| "\?"/);
 });

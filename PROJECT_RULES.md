@@ -55,6 +55,7 @@ Primary Taskは「ゲームを選んで開発を開始する」。
 - RendererへNode APIを直接公開しない
 - 任意Shell実行Capabilityを追加しない
 - Repository同期でローカル変更を勝手に捨てない
+- GitHub保存はUserが明示的に押した場合だけ行い、reset / clean / rebase / force pushを使わない
 - Secret / Tokenを保存しない
 - 未確認のWindows固有挙動を確認済み扱いにしない
 
@@ -73,7 +74,8 @@ Primary Taskは「ゲームを選んで開発を開始する」。
 
 - Roadmap / TODOの完了状態は各Game RepositoryをSource of Truthとし、Hubへ第二のTask DBを作らない
 - Hub Settingsへ保存してよいのは「現在選択しているTask」のようなWorkspace stateだけとする
-- HubからRoadmapを直接編集・Commit・Pushしない
+- HubはRoadmapを自動編集しない。Userが「GitHubに保存」を押した場合は、Roadmapを含むCurrent worktree変更を他の変更と同じ確認対象として保存できる
+- GitHub保存はCurrent registered Repository / expected branchだけを対象にし、秘密情報らしいFileを検出した場合は停止する
 - 参考画像は `userData/hub-data/project-media/<project-id>` へCopyし、Game Repositoryへ暗黙追加しない
 - ChatGPT共有パックはUserの明示操作でのみ生成する
 - ChatGPT共有JSONにCredential / Token / Secret / Source File本文を含めない

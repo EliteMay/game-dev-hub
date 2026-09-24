@@ -154,3 +154,48 @@ REMOVE:
 - warning colorはSafety stateに限定し、破壊操作Buttonは追加しない
 - 選択中Taskの説明は常時のTask listより一段強いHierarchyにする
 - Task detailがRepositoryに無い場合は、詳細を捏造せずChatGPT共有Flowへ案内する
+
+
+## 2026-09-24 Local Change Save Flow
+
+### User feedback
+
+ローカル変更の意味を日本語化しても、User側に「結局残すのか消すのか」「どうGitHubへ反映するのか」というGit判断が残り、Primary Taskを完了できなかった。
+
+### Revised task flow
+
+```text
+PC側に変更あり
+→ 変更Fileと意味を見る
+→ GitHubに保存
+→ 保存前確認
+→ PC側へ履歴保存
+→ GitHub側が進んでいれば通常Merge
+→ GitHubへ送信
+→ clean / syncedへ戻る
+```
+
+Failure:
+
+```text
+秘密情報らしいFile
+→ stage前に停止
+
+Merge conflict
+→ merge abort
+→ Local Commit保持
+→ ChatGPT確認 / manual recovery
+
+Push failure
+→ Local Commit保持
+→ 「GitHubへの送信待ち」
+→ 同じButtonで再試行
+```
+
+### UI decision
+
+- dirty stateのPrimary recoveryは「GitHubに保存」
+- 「Godotで続ける」はSecondary action
+- Git command名は通常画面へ出さない
+- 高Riskなforce/reset等は機能として提供しない
+- 保存対象一覧と保存メモはConfirmation Dialogで確認する

@@ -150,14 +150,17 @@
             <div class="safety-next">
               <strong>今どうする？</strong>
               <p>
-                変更の意味が分からない場合は、まず「ChatGPTに確認データを作る」を使ってください。Hubが勝手に変更を消すことはありません。
+                基本は「GitHubに保存」でOKです。変更を消さずに履歴へ残し、GitHub側に新しい変更があれば安全に組み合わせてから送ります。
               </p>
               <div class="safety-actions">
-                <button class="button button-primary button-small" id="safety-continue-button" type="button">
-                  このままGodotで続ける
+                <button class="button button-primary button-small" id="safety-save-button" type="button">
+                  GitHubに保存
+                </button>
+                <button class="button button-muted button-small" id="safety-continue-button" type="button">
+                  まだ保存せずGodotで続ける
                 </button>
                 <button class="button button-muted button-small" id="safety-export-button" type="button">
-                  ChatGPTに確認データを作る
+                  分からないのでChatGPTに確認
                 </button>
                 <button class="button button-muted button-small" id="safety-open-folder-button" type="button">
                   フォルダを見る
@@ -169,9 +172,9 @@
             </div>
 
             <details class="safety-details">
-              <summary>GitHubの最新版も取り込みたい場合</summary>
+              <summary>「GitHubに保存」で何をする？</summary>
               <p>
-                この変更を残すか消すか決めて、PC側の変更を0件にすると「最新版にする」が使えるようになります。分からない状態で削除しないでください。
+                今ある変更をPCの履歴へ保存してGitHubへ送ります。GitHub側に新しい変更がある場合は先に安全に組み合わせます。競合した場合は自動で中断し、PC側の変更は残します。
               </p>
             </details>
           </section>
@@ -340,6 +343,47 @@
       <div class="dialog-actions">
         <button class="button button-muted" id="add-dialog-cancel-button" type="button">キャンセル</button>
         <button class="button button-primary" id="confirm-add-button" type="submit" value="default">追加</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="dialog save-changes-dialog" id="save-changes-dialog">
+    <form method="dialog" id="save-changes-form">
+      <div class="dialog-heading">
+        <div>
+          <p class="section-kicker">GitHubへ保存</p>
+          <h2>この変更を保存しますか？</h2>
+        </div>
+        <button class="icon-button" id="save-changes-close-button" type="button" aria-label="閉じる">×</button>
+      </div>
+
+      <p class="dialog-note" id="save-changes-summary">
+        PC側の変更を消さずにGitHubへ保存します。
+      </p>
+
+      <div class="save-changes-list" id="save-changes-list"></div>
+
+      <p class="save-sync-note" id="save-changes-sync-note"></p>
+
+      <label class="field">
+        <span>保存メモ（あとで何を変えたか分かる名前）</span>
+        <input
+          id="save-changes-message-input"
+          maxlength="120"
+          autocomplete="off"
+          value="ゲーム開発の変更を保存"
+        >
+      </label>
+
+      <p class="dialog-note">
+        Hubは強制上書き・履歴の巻き戻し・ファイル削除を行いません。秘密情報らしいファイルを見つけた場合は保存を自動で止めます。
+      </p>
+
+      <div class="dialog-actions">
+        <button class="button button-muted" id="save-changes-cancel-button" type="button">キャンセル</button>
+        <button class="button button-primary" id="confirm-save-changes-button" type="submit" value="default">
+          GitHubに保存
+        </button>
       </div>
     </form>
   </dialog>

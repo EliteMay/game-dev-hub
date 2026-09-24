@@ -22,8 +22,10 @@ const el = {
   branchDescription: document.querySelector("#branch-description"),
   safetyRecovery: document.querySelector("#safety-recovery"),
   safetyRecoveryTitle: document.querySelector("#safety-recovery-title"),
+  safetyRecoverySummary: document.querySelector("#safety-recovery-summary"),
   safetyChangeCount: document.querySelector("#safety-change-count"),
   safetyChangedFiles: document.querySelector("#safety-changed-files"),
+  safetySave: document.querySelector("#safety-save-button"),
   safetyContinue: document.querySelector("#safety-continue-button"),
   safetyExport: document.querySelector("#safety-export-button"),
   safetyOpenFolder: document.querySelector("#safety-open-folder-button"),
@@ -73,6 +75,14 @@ const el = {
   addDialogClose: document.querySelector("#add-dialog-close-button"),
   addDialogCancel: document.querySelector("#add-dialog-cancel-button"),
   addForm: document.querySelector("#add-form"),
+  saveChangesDialog: document.querySelector("#save-changes-dialog"),
+  saveChangesClose: document.querySelector("#save-changes-close-button"),
+  saveChangesCancel: document.querySelector("#save-changes-cancel-button"),
+  saveChangesForm: document.querySelector("#save-changes-form"),
+  saveChangesSummary: document.querySelector("#save-changes-summary"),
+  saveChangesList: document.querySelector("#save-changes-list"),
+  saveChangesSyncNote: document.querySelector("#save-changes-sync-note"),
+  saveChangesMessageInput: document.querySelector("#save-changes-message-input"),
   nameInput: document.querySelector("#project-name-input"),
   urlInput: document.querySelector("#project-url-input"),
   removeDialog: document.querySelector("#remove-dialog"),
@@ -116,6 +126,7 @@ const actionButtons = [
   el.remove,
   el.exportChatGptPack,
   el.addReferenceImage,
+  el.safetySave,
   el.safetyContinue,
   el.safetyExport,
   el.safetyOpenFolder,
@@ -477,15 +488,37 @@ function changedFileExplanation(filePath) {
 
 function renderSafetyRecovery(project) {
   const repo = project?.repository || {};
-  const visible = Boolean(repo.valid && repo.dirty);
+  const visible = Boolean(repo.valid && (repo.dirty || (repo.ahead || 0) > 0));
   el.safetyRecovery.classList.toggle("hidden", !visible);
   el.safetyChangedFiles.replaceChildren();
 
   if (!visible) return;
 
+  if (!repo.dirty && (repo.ahead || 0) > 0) {
+    el.safetyRecoveryTitle.textContent =
+      "PCには保存済みですが、GitHubへまだ送れていない履歴が" + repo.ahead + "件あります";
+    el.safetyRecoverySummary.textContent =
+      "変更はPCに保存されています。下の「GitHubへ送る」で送信だけ再試行できます。";
+    el.safetyChangeCount.textContent = repo.ahead + "件";
+    el.safetySave.textContent = "GitHubへ送る";
+
+    const item = document.createElement("div");
+    item.className = "changed-file-card";
+    const title = document.createElement("strong");
+    title.textContent = "PC側への保存は完了";
+    const copy = document.createElement("p");
+    copy.textContent = "GitHubへの送信だけが残っています。変更は消えていません。";
+    item.append(title, copy);
+    el.safetyChangedFiles.append(item);
+    return;
+  }
+
   el.safetyRecoveryTitle.textContent =
     "GitHubにまだ反映されていない変更が" + repo.changedCount + "件あります";
+  el.safetyRecoverySummary.textContent =
+    "エラーではありません。PC側の変更を守るため「最新版にする」だけ一時停止しています。Godotでの作業はそのまま続けられます。";
   el.safetyChangeCount.textContent = repo.changedCount + "件";
+  el.safetySave.textContent = repo.changedCount + "件をGitHubに保存";
 
   const files = Array.isArray(repo.changedFiles) ? repo.changedFiles : [];
   if (!files.length) {
@@ -524,6 +557,67 @@ function renderSafetyRecovery(project) {
     item.textContent = "ほか " + (repo.changedCount - files.length) + "件の変更があります。";
     el.safetyChangedFiles.append(item);
   }
+}
+
+function defaultRepositorySaveMessage(project) {
+  const files = project?.repository?.changedFiles || [];
+  const allGodotMeta = files.length > 0 && files.every((file) =>
+    file.path === "project.godot" || /\.uid$/i.test(file.path || "")
+  );
+
+  return allGodotMeta
+    ? "Godotの設定と自動生成ファイルを保存"
+    : "ゲーム開発の変更を保存";
+}
+
+function openSaveChangesDialog(project) {
+  const repo = project?.repository || {};
+  const files = Array.isArray(repo.changedFiles) ? repo.changedFiles : [];
+
+  el.saveChangesSummary.textContent =
+    "今ある" + repo.changedCount + "件の変更を消さずにGitHubへ保存します。";
+  el.saveChangesMessageInput.value = defaultRepositorySaveMessage(project);
+  el.saveChangesList.replaceChildren();
+
+  for (const file of files) {
+    const row = document.createElement("div");
+    row.className = "save-change-row";
+
+    const top = document.createElement("div");
+    top.className = "save-change-row-top";
+
+    const status = document.createElement("span");
+    status.className = "changed-file-status";
+    status.textContent = changedFileStatusLabel(file.status);
+
+    const name = document.createElement("strong");
+    name.textContent = file.path || "不明";
+
+    const description = document.createElement("p");
+    description.textContent = changedFileExplanation(file.path);
+
+    top.append(status, name);
+    row.append(top, description);
+    el.saveChangesList.append(row);
+  }
+
+  if (repo.changedCount > files.length) {
+    const more = document.createElement("p");
+    more.className = "dialog-note";
+    more.textContent =
+      "ほか" + (repo.changedCount - files.length) + "件も同じ保存に含まれます。";
+    el.saveChangesList.append(more);
+  }
+
+  if ((repo.ahead || 0) > 0 || (repo.behind || 0) > 0) {
+    el.saveChangesSyncNote.textContent =
+      "GitHubとの間に未送信・未取得の履歴があります。Hubが先に最新状態を確認し、安全に組み合わせられる場合だけGitHubへ送ります。";
+  } else {
+    el.saveChangesSyncNote.textContent =
+      "GitHub側に新しい変更が見つかった場合も、Hubが安全に組み合わせられる場合だけ保存を続けます。";
+  }
+
+  el.saveChangesDialog.showModal();
 }
 
 function renderReferenceImages() {
@@ -655,9 +749,14 @@ function renderDetail() {
     el.branchDescription.textContent = project.defaultBranch + " をCloneします。";
   } else if (repo.dirty) {
     setDot(el.branchDot, "warning");
-    el.branchValue.textContent = "ローカル変更あり";
+    el.branchValue.textContent = "PC側に未保存の変更あり";
     el.branchDescription.textContent =
-      repo.changedCount + "件の変更があります。自動更新は安全停止します。";
+      repo.changedCount + "件の変更があります。「GitHubに保存」でまとめて保存できます。";
+  } else if ((repo.ahead || 0) > 0) {
+    setDot(el.branchDot, "warning");
+    el.branchValue.textContent = "GitHubへの送信待ち";
+    el.branchDescription.textContent =
+      repo.ahead + "件の履歴がPCに保存済みです。「GitHubへ送る」で再試行できます。";
   } else if (repo.branch !== project.defaultBranch) {
     setDot(el.branchDot, "warning");
     el.branchValue.textContent = repo.branch || "Branch不明";
@@ -679,6 +778,7 @@ function renderDetail() {
     state.godot?.available &&
     repo.valid &&
     !repo.dirty &&
+    (repo.ahead || 0) === 0 &&
     repo.branch === project.defaultBranch;
 
   if (!state.git?.available) {
@@ -692,11 +792,17 @@ function renderDetail() {
     el.heroDescription.textContent =
       "上の「Godotを設定」からGodot.exeを選べます。";
   } else if (repo.dirty) {
-    el.heroStatus.textContent = "安全停止";
-    el.heroTitle.textContent = "GitHub同期だけ停止しています";
+    el.heroStatus.textContent = "GitHubへの保存待ち";
+    el.heroTitle.textContent = "PC側に変更があります";
     el.heroDescription.textContent =
-      "ローカル変更は保護されています。今すぐ開発を続けるなら同期せずGodotを開けます。同期したい場合は下の解除手順を確認してください。";
-    el.start.textContent = "同期せずGodotで開く";
+      "下の「GitHubに保存」で変更を残したままGitHubへ保存できます。Godotでの作業を続けることもできます。";
+    el.start.textContent = "保存せずGodotで続ける";
+  } else if ((repo.ahead || 0) > 0) {
+    el.heroStatus.textContent = "GitHubへの送信待ち";
+    el.heroTitle.textContent = "PC側への保存は完了しています";
+    el.heroDescription.textContent =
+      "GitHubへの送信だけが残っています。下の「GitHubへ送る」で再試行できます。";
+    el.start.textContent = "Godotで続ける";
   } else if (!state.network?.online && repo.valid) {
     el.heroStatus.textContent = "オフライン";
     el.heroTitle.textContent = "ローカル開発は続けられます";
@@ -857,6 +963,12 @@ function requireSelected() {
   return project;
 }
 
+el.safetySave.addEventListener("click", () => {
+  const project = requireSelected();
+  if (!project || busy) return;
+  openSaveChangesDialog(project);
+});
+
 el.safetyContinue.addEventListener("click", () => {
   const project = requireSelected();
   if (!project) return;
@@ -889,6 +1001,29 @@ el.safetyRefresh.addEventListener("click", () => runAction("状態再確認", as
   const result = await api.getState();
   return { ok: result.ok, message: "Repository状態を再確認しました。", state: result };
 }));
+
+el.saveChangesClose.addEventListener("click", () => closeDialog(el.saveChangesDialog));
+el.saveChangesCancel.addEventListener("click", () => closeDialog(el.saveChangesDialog));
+
+el.saveChangesForm.addEventListener("submit", (event) => {
+  const submitter = event.submitter;
+  if (!submitter || submitter.value !== "default") return;
+
+  event.preventDefault();
+  const project = requireSelected();
+  if (!project) return;
+
+  const message = el.saveChangesMessageInput.value;
+  el.saveChangesDialog.close();
+
+  runAction(
+    "GitHubへ保存",
+    () => api.saveRepositoryChanges({
+      projectId: project.id,
+      message
+    })
+  );
+});
 
 el.taskClearSelection.addEventListener("click", async () => {
   const project = requireSelected();
@@ -1065,7 +1200,7 @@ el.start.addEventListener("click", () => {
   const repo = project.repository || {};
   const localOnly =
     repo.valid &&
-    (repo.dirty || !state?.network?.online || repo.branch !== project.defaultBranch);
+    (repo.dirty || (repo.ahead || 0) > 0 || !state?.network?.online || repo.branch !== project.defaultBranch);
 
   if (localOnly) {
     runAction(

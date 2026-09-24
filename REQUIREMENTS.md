@@ -97,7 +97,8 @@ Hub側へ各ゲームの詳細仕様を複製しない。
 ### 非目標
 
 - ゲーム本体をHub Repositoryへ集約する
-- HubからGit commit / push / force operationを行う
+- Userの明示操作なしにGit commit / pushを行う
+- force push / reset / clean / rebase等の履歴破壊Operationを行う
 - Hubから任意PowerShell / Terminal commandを実行する
 - GitHub Tokenを保存する
 - Godot自体をHubから自動インストールする
@@ -121,14 +122,28 @@ git fetch --prune origin
 git pull --ff-only origin <defaultBranch>
 ```
 
+Local変更保存Contract:
+
+- Userが「GitHubに保存」を明示的に押した場合だけ実行する
+- registered origin / expected branch / current worktreeをMain Processで再検証する
+- 秘密情報らしいFile名を検出した場合はstage前に停止する
+- 保存対象はCurrent worktree全体とし、確認Dialogで変更一覧を見せる
+- `git add -A` で変更をstageする
+- `git commit -m <message>` でPC側へ保存する
+- Remoteが進んでいる場合は `git merge --no-edit origin/<defaultBranch>` で通常Mergeする
+- Merge conflict時は `git merge --abort` し、作成済みLocal Commitは残す
+- `git push origin HEAD:<defaultBranch>` でGitHubへ送る
+- Push失敗後もLocal Commitを保持し、再試行可能な状態を表示する
+- Git user.name / user.emailが無い場合はRepository local configだけを補完する
+- Git CredentialはHubへ保存せず、既存Git Credential Manager等へ委譲する
+
 禁止Operation:
 
 - reset
 - clean
-- force
+- force push
 - rebase
-- auto commit
-- auto push
+- User操作なしのcommit / push
 - working tree破棄
 
 ## UI
@@ -139,8 +154,11 @@ git pull --ff-only origin <defaultBranch>
 - Status colorだけに意味を依存しない
 - Primary Actionは「開発を開始」
 - エラー時は「何が起きたか」と「次に何をするか」を表示する
-- dirty worktreeでは「GitHub同期だけが停止中」と明示し、Local Godot作業は継続可能にする
-- dirty worktreeでは変更File名と同期再開手順を示し、Hubから変更破棄・自動Commitは行わない
+- dirty worktreeでは「GitHubへの保存待ち」と明示し、Local Godot作業は継続可能にする
+- dirty worktreeでは変更File名と意味を示し、「GitHubに保存」をPrimary recovery actionとして表示する
+- 保存前に確認Dialogを出し、何がGitHubへ送られるか分かるようにする
+- Pushだけ失敗したLocal Commitは「GitHubへの送信待ち」として再試行導線を表示する
+- Hubから変更破棄・force操作は行わない
 
 ## 保存
 
@@ -189,3 +207,8 @@ v0.1は、Windows実機で次を確認して初めて完成扱いとする。
 25. 参考画像を追加・表示・開く・Hubから外せる
 26. ChatGPT共有パックへJSON / Hub Screenshot / 参考画像が生成される
 27. ChatGPT共有JSONへToken / Secret / Source File本文が入らない
+28. dirty worktreeから「GitHubに保存」でLocal Commit + Pushまで完了できる
+29. Remoteが先行している場合も通常Mergeで安全に統合してPushできる
+30. Merge conflict時にPC側の変更を失わず停止できる
+31. Push失敗後にLocal Commitを保持し、アプリから再送信できる
+32. 秘密情報らしいFileを含む場合にGitHub保存をstage前に停止できる

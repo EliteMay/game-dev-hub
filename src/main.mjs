@@ -18,7 +18,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { createProjectRecord, parseGitHubRepositoryUrl } from "./core/project-model.mjs";
 import { detectGodot, inspectSelectedGodot, openGodotEditor, runGodotProject } from "./services/godot.mjs";
 import { addProject, loadProjects, removeProject, saveProjects } from "./services/project-registry.mjs";
-import { HubError, inspectGit, inspectRepository, prepareProject, syncProject } from "./services/repository.mjs";
+import { HubError, inspectGit, inspectRepository, prepareProject, saveRepositoryChanges, syncProject } from "./services/repository.mjs";
 import { loadSettings, saveSettings } from "./services/settings.mjs";
 import {
   appendFoundationLog,
@@ -273,6 +273,7 @@ const LOGGED_IPC_CHANNELS = new Set([
   "hub:import-existing-project",
   "hub:start-development",
   "hub:sync-project",
+  "hub:save-repository-changes",
   "hub:open-editor",
   "hub:run-game",
   "hub:remove-project",
@@ -631,6 +632,28 @@ async function syncSelected(projectId) {
   return {
     ok: true,
     message: project.name + " をGitHubの最新版へ更新しました。",
+    state: await getState()
+  };
+}
+
+async function saveSelectedRepositoryChanges(payload) {
+  requireNetwork();
+
+  if (!payload || typeof payload !== "object") {
+    throw new HubError("INVALID_INPUT", "GitHubへ保存する内容の指定が正しくありません。");
+  }
+
+  const project = await findProject(payload.projectId);
+  const commitMessage =
+    typeof payload.message === "string" ? payload.message : "";
+
+  const result = await saveRepositoryChanges(project, commitMessage);
+
+  return {
+    ok: true,
+    message: result.message,
+    commit: result.commit,
+    mergedRemote: result.mergedRemote === true,
     state: await getState()
   };
 }
@@ -1219,6 +1242,7 @@ if (!singleInstanceLock) {
     registerIpc("hub:import-existing-project", importExistingProject);
     registerIpc("hub:start-development", startDevelopment);
     registerIpc("hub:sync-project", syncSelected);
+    registerIpc("hub:save-repository-changes", saveSelectedRepositoryChanges);
     registerIpc("hub:open-editor", openEditor);
     registerIpc("hub:run-game", runGame);
     registerIpc("hub:open-folder", openFolder);

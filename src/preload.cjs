@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld("gameDevHub", {
   importExistingProject: () => ipcRenderer.invoke("hub:import-existing-project"),
   startDevelopment: (projectId) => ipcRenderer.invoke("hub:start-development", projectId),
   syncProject: (projectId) => ipcRenderer.invoke("hub:sync-project", projectId),
+  saveRepositoryChanges: (payload) => ipcRenderer.invoke("hub:save-repository-changes", payload),
   openEditor: (projectId) => ipcRenderer.invoke("hub:open-editor", projectId),
   runGame: (projectId) => ipcRenderer.invoke("hub:run-game", projectId),
   openFolder: (projectId) => ipcRenderer.invoke("hub:open-folder", projectId),

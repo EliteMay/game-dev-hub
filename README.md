@@ -1,5 +1,19 @@
 # Game Dev Hub
 
+## v0.1.7 ローカル変更をアプリからGitHubへ保存
+
+PC側に変更があるとき、Gitの操作を別アプリやPowerShellで覚えなくてもGame Dev Hub内で保存できるようにしました。
+
+- 安全停止Panelへ「GitHubに保存」を追加
+- 保存前に変更File一覧と説明を確認
+- 変更をPCの履歴へ保存してGitHubへ送信
+- GitHub側に新しい変更がある場合は、強制上書きせず通常Mergeで安全に統合
+- 競合時はMergeを中断し、PC側の変更を保持
+- Pushだけ失敗した場合は「GitHubへ送る」で再試行可能
+- `.env` / private key等、秘密情報らしいFileを検出した場合は自動保存を停止
+- `reset` / `clean` / `rebase` / force pushは使わない
+- Git設定のUser名/Emailが無い場合はRepository local設定だけを補完
+
 ## v0.1.6 ローカル変更を日本語で説明
 
 v0.1.5の安全停止画面がGitの記号や専門語を前提にしていたため、初心者でも意味と次の操作が分かる表示へ修正しました。
@@ -154,9 +168,11 @@ git pull --ff-only origin <defaultBranch>
 
 だけを実行します。
 
-Local変更がある場合や、別Branchの場合は勝手に解決せず停止します。
+Local変更がある場合は自動更新を止め、Userが「GitHubに保存」を明示的に押した場合だけ保存Flowへ進みます。
 
-Hubから `reset` / `clean` / `rebase` / `commit` / `push` / `force` は行いません。
+保存Flowでは `add -A` → `commit` → 必要なら通常`merge` → `push` を使います。競合時はMergeをabortし、PC側のCommitを残します。
+
+Hubから `reset` / `clean` / `rebase` / force push は行いません。
 
 ## 開発環境
 

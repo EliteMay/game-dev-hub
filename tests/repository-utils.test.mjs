@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  isSensitiveRepositoryPath,
+  normalizeCommitMessage,
   normalizeRemote,
   parseAheadBehind,
   parsePorcelainStatus,
@@ -42,4 +44,20 @@ test("parses rename destination for recovery display", () => {
 
 test("parses ahead/behind counts", () => {
   assert.deepEqual(parseAheadBehind("2\t3"), { ahead: 2, behind: 3 });
+});
+
+
+test("blocks common secret-bearing file names from automatic GitHub save", () => {
+  assert.equal(isSensitiveRepositoryPath(".env"), true);
+  assert.equal(isSensitiveRepositoryPath("config/.env.local"), true);
+  assert.equal(isSensitiveRepositoryPath("keys/id_ed25519"), true);
+  assert.equal(isSensitiveRepositoryPath("certs/private.key"), true);
+  assert.equal(isSensitiveRepositoryPath("scripts/player/player_controller.gd.uid"), false);
+  assert.equal(isSensitiveRepositoryPath("project.godot"), false);
+});
+
+test("normalizes commit messages and supplies a safe default", () => {
+  assert.equal(normalizeCommitMessage("  変更\nを\t保存  "), "変更 を 保存");
+  assert.equal(normalizeCommitMessage(""), "ゲーム開発の変更を保存");
+  assert.equal(normalizeCommitMessage("x".repeat(200)).length, 120);
 });

@@ -49,3 +49,25 @@ export function parseAheadBehind(output) {
     behind: Number.isFinite(behind) ? behind : 0
   };
 }
+
+
+export function isSensitiveRepositoryPath(filePath) {
+  const value = String(filePath ?? "").replace(/\\/g, "/").toLowerCase();
+  const base = value.split("/").at(-1) || "";
+
+  if (base === ".env" || base.startsWith(".env.")) return true;
+  if (["id_rsa", "id_ed25519", "credentials.json", "credentials.yml", "credentials.yaml"].includes(base)) return true;
+  if (/\.(?:pem|p12|pfx|key)$/i.test(base)) return true;
+  if (/(?:^|[-_.])(secret|secrets|token|tokens|password|passwd|credential|credentials)(?:[-_.]|$)/i.test(base)) return true;
+  return false;
+}
+
+export function normalizeCommitMessage(value) {
+  const cleaned = String(value ?? "")
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+
+  return cleaned || "ゲーム開発の変更を保存";
+}

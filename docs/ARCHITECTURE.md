@@ -6,7 +6,7 @@
 Game Dev Hub
 ├─ Electron Main Process
 │  ├─ Project Registry
-│  ├─ Git Repository Service
+│  ├─ Git Repository Service / explicit save + push
 │  ├─ Godot Service
 │  ├─ Settings / Desktop Foundation
 │  ├─ Diagnostics / bounded local log
@@ -111,7 +111,44 @@ pull --ff-only origin branch
 Inspect again
 ```
 
-Conflictやdirty stateは自動解決しない。
+通常のRepository更新ではConflictやdirty stateを自動解決しない。
+
+## Local Change Save
+
+```text
+Dirty worktree
+↓
+Userが「GitHubに保存」
+↓
+Main Processでorigin / branch / changed filesを再検証
+↓
+秘密情報らしいFileがないか確認
+↓
+git fetch --prune origin
+↓
+git add -A
+↓
+git commit
+↓
+Remoteが先行していれば通常Merge
+├─ Conflict → merge --abort / Local Commit保持 / Stop
+└─ Success
+↓
+git push origin HEAD:<defaultBranch>
+↓
+Inspect again
+```
+
+RendererへGit command文字列やPathを渡さず、operation-specific IPCの `saveRepositoryChanges` だけを公開する。
+
+Pushだけ失敗した場合はLocal Commitを第二の失敗状態として保持し、Repositoryの `ahead > 0` を「GitHubへの送信待ち」として表示して再試行できる。
+
+使用しないOperation:
+
+- reset
+- clean
+- rebase
+- force push
 
 ## Future
 

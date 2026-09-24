@@ -1,5 +1,21 @@
 # Game Dev Hub
 
+## v0.1.9 実機確認結果の記録 / Task Flow改善
+
+「担当: あなた」の実機確認Taskを、手順を見るだけで終わらずHub内で結果まで返せるようにしました。
+
+- 確認手順ごとに「できた / できなかった / 今は確認できない」を選択
+- 確認結果と任意メモをApp Dataへ自動保存
+- 確認時のRepository commit / branch / Godot Version / Hub VersionをEvidenceとして保存
+- Roadmap手順が変わった場合は以前の確認結果をstaleとして再確認を要求
+- Taskカード内から直接「ゲームを起動」
+- 確認用スクショを同じ場所から参考画像へ追加
+- ChatGPT共有パックへ選択結果・メモ・確認Versionを同梱
+- User確認Taskの共有Buttonを結果に応じて「できた結果を送る / できなかった結果を送る」等へ変更
+- 完了済みTaskは初期状態で非表示にし、必要な時だけ展開
+- Checkbox TaskがあるRoadmapでは通常Bulletを進捗Taskとして数えない
+- Current Phaseの進捗を優先表示し、Roadmap全体数は補助情報にする
+
 ## v0.1.8 ChatGPT共有パックの保存先 / 引き継ぎ改善
 
 - ChatGPT共有パックをDocuments配下へ作らず、ElectronのApp Data内 `hub-data/chatgpt-packs` へ保存

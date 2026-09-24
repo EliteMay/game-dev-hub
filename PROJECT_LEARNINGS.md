@@ -86,3 +86,13 @@
 - Decision: Safety stateは「何を止めているか」「何は続けられるか」「解除するには何をするか」を同じSurfaceへ表示する。Task clickは「今やるタスクの選択」とし、Repository由来の手順 / 完了条件を表示する。
 - Boundary: HubはLocal変更を勝手に破棄・Commit・Pushしない。Task completionの正本もGame RepositoryのRoadmap/TODOのまま維持する。
 - Prevention: State labelだけで完了せず、Error / Blocked / Selected stateには実行可能なNext ActionまたはRecovery pathを必ず確認する。
+
+
+## GL-010 — Gitの内部状態をそのまま初心者向けUIへ出さない
+
+- Date: 2026-09-24
+- Type: UX / Copy
+- Status: Adopted
+- Problem: `M` / `??`、dirty、Commit等のGit用語を表示しても、Gitに詳しくないUserには次の判断材料にならない。
+- Decision: Git内部状態はApp側で「内容が変更」「新しく作成」「GitHubへの保存待ち」等のUser語彙へ翻訳し、必要な技術詳細はProgressive Disclosureへ分離する。
+- Prevention: Owner向け主要Flowでは、内部Status codeだけを説明なしで表示しない。File種別を安全に説明できる場合は役割も補足する。

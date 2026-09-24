@@ -1024,65 +1024,86 @@ h3 {
   line-height: 1.55;
 }
 
-.safety-columns {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 1fr);
-  gap: 14px;
+.safety-file-block,
+.safety-next {
+  margin-top: 12px;
 }
 
-.safety-columns > div {
-  min-width: 0;
-}
-
-.safety-columns strong,
+.safety-file-block > strong,
+.safety-next > strong,
 .task-guide-block > strong {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 7px;
   color: #d7e2eb;
   font-size: 11px;
 }
 
-.changed-file-list,
-.safety-steps ol,
-.task-guide-block ol {
-  margin: 0;
-  padding-left: 20px;
-}
-
 .changed-file-list {
-  max-height: 116px;
-  overflow: auto;
+  display: grid;
+  gap: 7px;
 }
 
-.changed-file-list li,
-.safety-steps li,
-.task-guide-block li {
-  padding: 2px 0;
+.changed-file-card {
+  padding: 9px 10px;
+  border: 1px solid rgba(241, 189, 103, 0.18);
+  border-radius: 8px;
+  background: rgba(8, 13, 18, 0.28);
+}
+
+.changed-file-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.changed-file-status {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border: 1px solid rgba(241, 189, 103, 0.32);
+  border-radius: 999px;
+  color: var(--warning);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.changed-file-header strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 10px;
+}
+
+.changed-file-card p,
+.safety-next p,
+.safety-details p {
+  margin: 5px 0 0;
   color: var(--muted);
   font-size: 10px;
   line-height: 1.5;
 }
 
-.changed-file-list code {
-  margin-right: 6px;
-  color: var(--warning);
-  font-family: Consolas, "Cascadia Mono", monospace;
-}
-
-.changed-file-list span {
-  overflow-wrap: anywhere;
-}
-
-.safety-steps p {
-  margin: 7px 0 0;
+.changed-file-more {
   color: var(--faint);
   font-size: 9px;
-  line-height: 1.5;
 }
 
 .safety-actions {
-  justify-content: flex-end;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.safety-details {
   margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(241, 189, 103, 0.16);
+}
+
+.safety-details summary {
+  color: #cfc3ad;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 650;
 }
 
 .task-guide {
@@ -1141,7 +1162,9 @@ h3 {
 }
 
 @media (max-width: 900px) {
-  .safety-columns {
-    grid-template-columns: 1fr;
+  .changed-file-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
   }
 }

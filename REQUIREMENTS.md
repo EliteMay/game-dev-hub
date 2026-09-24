@@ -53,12 +53,17 @@ Hub側へ各ゲームの詳細仕様を複製しない。
 - 未完了Taskを「今やるタスク」として選択でき、Gameごとの選択をSettingsへ保存する
 - タスク選択は実作業開始や完了を意味しないことをUIで明示する
 - 選択中TaskへRepository側Roadmapのネストした手順とPhase完了条件を表示できる
+- RoadmapのTaskへ `担当: あなた` / `担当: ChatGPT` / `担当: Hub` をネストして書いた場合、Hubが担当を別情報として読み取り画面へ表示する
 - Roadmapに詳細手順がない場合は、選択中Taskを含めたChatGPT共有パック作成へ案内する
 - HubからRoadmapの完了状態を勝手に書き換えない
 - GameごとにPNG/JPEG/WebPの参考画像をLocal管理できる
 - 参考画像はHub DataへCopyし、Game Repositoryや元Fileを勝手に変更しない
 - ChatGPT共有パックは固定保存先へ1操作で生成し、毎回保存Folderを選ばせない
+- ChatGPT共有パックの固定保存先はDocuments等のUser文書領域ではなく、App固有Data配下 `hub-data/chatgpt-packs` とする
+- 共有パック生成後は対象FolderをExplorerで開き、添付しやすくする
 - 共有パックは状態JSON、Hub Screenshot、参考画像、簡易説明Fileを含む
+- 共有パックは選択中Taskの引き継ぎ目的を明記し、GitHub上だけで完了できる作業はChatGPTが直接Repositoryへ反映するよう指示する
+- Windows実機操作 / Godot目視 / Playtest等、Userにしか確認できない作業だけをUser actionとして分離する
 - 共有JSONはRepository slug/commit/branch/dirty状態、Roadmap、作業中Task、直近Error/Logを含める
 - 共有JSONはCredential/Token/Secret/Source File本文を含めず、Home PathをRedactする
 - JSONだけでActual Playtest済みと断定せず、画像/User報告/実機Evidenceと分離する
@@ -212,3 +217,5 @@ v0.1は、Windows実機で次を確認して初めて完成扱いとする。
 30. Merge conflict時にPC側の変更を失わず停止できる
 31. Push失敗後にLocal Commitを保持し、アプリから再送信できる
 32. 秘密情報らしいFileを含む場合にGitHub保存をstage前に停止できる
+33. ChatGPT共有パックがDocumentsではなくApp Data配下へ生成される
+34. 共有パックにChatGPT側で実行すべきRepository作業とUserだけが行える実機確認の役割分担が含まれる

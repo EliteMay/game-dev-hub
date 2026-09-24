@@ -111,3 +111,30 @@ test("local changes can be reviewed and explicitly saved to GitHub", async () =>
   assert.match(source, /GitHubへの送信待ち/);
   assert.match(source, /saveChangesCancel\.addEventListener\("click"/);
 });
+
+
+test("ChatGPT pack uses app data and tells ChatGPT to execute repository-side work", async () => {
+  const mainSource = await fs.readFile(new URL("src/main.mjs", root), "utf8");
+
+  assert.match(mainSource, /appDataRoot\(\),\s*"chatgpt-packs"/);
+  assert.doesNotMatch(
+    mainSource,
+    /app\.getPath\("documents"\),\s*"Game Dev Hub",\s*"ChatGPT Packs"/
+  );
+  assert.match(mainSource, /現在選択中のタスクを最優先で進めてください/);
+  assert.match(mainSource, /そのままRepositoryへ反映してください/);
+  assert.match(mainSource, /Userにしかできない確認だけをUserへ依頼してください/);
+  assert.match(mainSource, /chatgptAction/);
+});
+
+
+test("task guidance shows who is responsible for the selected task", async () => {
+  const html = await fs.readFile(new URL("src/renderer/index.html", root), "utf8");
+  const source = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
+
+  assert.match(html, /id="active-task-owner"/);
+  assert.match(source, /担当: ChatGPT/);
+  assert.match(source, /担当: あなた/);
+  assert.match(source, /ChatGPT担当/);
+  assert.match(source, /あなた担当/);
+});

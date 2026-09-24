@@ -4,6 +4,7 @@ import fs from "node:fs";
 
 const mainSource = fs.readFileSync(new URL("../src/main.mjs", import.meta.url), "utf8");
 const preloadSource = fs.readFileSync(new URL("../src/preload.cjs", import.meta.url), "utf8");
+const repositorySource = fs.readFileSync(new URL("../src/services/repository.mjs", import.meta.url), "utf8");
 
 test("renderer isolation is enabled", () => {
   assert.match(mainSource, /nodeIntegration:\s*false/);
@@ -21,6 +22,7 @@ test("preload exposes operation-specific API only", () => {
   assert.doesNotMatch(preloadSource, /exec|spawn|shell/i);
   assert.match(preloadSource, /startDevelopment/);
   assert.match(preloadSource, /syncProject/);
+  assert.match(preloadSource, /saveRepositoryChanges/);
 });
 
 test("desktop foundation uses single-instance and bounded recovery surfaces", () => {
@@ -51,4 +53,21 @@ test("development workspace IPC stays operation-specific", () => {
   assert.match(preloadSource, /openReferenceImage/);
   assert.match(preloadSource, /exportChatGptPack/);
   assert.doesNotMatch(preloadSource, /readFile|writeFile|copyFile|rm\(/);
+});
+
+
+test("GitHub save keeps privileged Git operations narrow and non-destructive", () => {
+  assert.match(repositorySource, /\["add", "-A"\]/);
+  assert.match(repositorySource, /\["commit", "-m", message\]/);
+  assert.match(repositorySource, /\["push", "origin", "HEAD:" \+ project\.defaultBranch\]/);
+  assert.match(repositorySource, /\["merge", "--no-edit", "origin\/" \+ project\.defaultBranch\]/);
+  assert.doesNotMatch(repositorySource, /\["reset"/);
+  assert.doesNotMatch(repositorySource, /\["clean"/);
+  assert.doesNotMatch(repositorySource, /\["rebase"/);
+  assert.doesNotMatch(repositorySource, /--force/);
+});
+
+test("GitHub save blocks likely secret files before staging", () => {
+  assert.match(repositorySource, /isSensitiveRepositoryPath/);
+  assert.match(repositorySource, /SENSITIVE_FILE_BLOCKED/);
 });

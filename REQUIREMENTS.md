@@ -53,6 +53,7 @@ Hub側へ各ゲームの詳細仕様を複製しない。
 - 未完了Taskを「今やるタスク」として選択でき、Gameごとの選択をSettingsへ保存する
 - タスク選択は実作業開始や完了を意味しないことをUIで明示する
 - 選択中TaskへRepository側Roadmapのネストした手順とPhase完了条件を表示できる
+- RoadmapのTaskへ `担当: あなた` / `担当: ChatGPT` / `担当: Hub` をネストして書いた場合、Hubが担当を別情報として読み取り画面へ表示する
 - Roadmapに詳細手順がない場合は、選択中Taskを含めたChatGPT共有パック作成へ案内する
 - HubからRoadmapの完了状態を勝手に書き換えない
 - GameごとにPNG/JPEG/WebPの参考画像をLocal管理できる

@@ -951,7 +951,11 @@ async function exportChatGptPack(payload) {
     "この共有パックは、現在選択中のタスクをChatGPTと続けるための引き継ぎです。",
     "",
     "ChatGPTへの依頼:",
-    "- 現在選択中のタスクを最優先で進めてください。",
+    activeTask?.owner === "chatgpt"
+      ? "- このタスクはChatGPT担当です。共有情報とRepositoryで実行できる作業をそのまま進めてください。"
+      : activeTask?.owner === "user"
+        ? "- このタスクはUser担当の実機確認です。必要な操作だけ具体的に案内し、結果を待ってください。"
+        : "- 現在選択中のタスクを最優先で進めてください。",
     "- GitHub Repositoryと共有情報だけで完了できる作業は、手順を説明するだけで終わらせず、そのままRepositoryへ反映してください。",
     "- 必要ならREADME / Roadmap /仕様書など関連文書も実装と一致するよう更新してください。",
     "- Windows実機操作、Godot上の目視確認、プレイ結果など、Userにしかできない確認だけをUserへ依頼してください。",

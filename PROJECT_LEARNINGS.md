@@ -147,3 +147,13 @@
 - Problem: Step resultをTaskごとに保存できても、TaskごとにChatGPTへ共有させるとUserは同じFlowを何度も繰り返すことになり、Phase単位の確認が分断される。
 - Decision: 各TaskではResult captureだけ行い、右側のChatGPT連携PanelへGame内のUser確認結果を集約する。共有Packは全User Task結果を1回で含める。
 - Prevention: Human verificationのCapture頻度とAI handoff頻度を分離する。Captureは細かく、HandoffはProject/Phase単位でまとめる。
+
+
+## GL-016 — Verificationのstale判定は完了済みRoadmap Taskへ適用しない
+
+- Date: 2026-09-24
+- Type: Verification / UX
+- Status: Adopted
+- Problem: ChatGPTが確認済みTaskへEvidence説明を追記しただけでTask signatureが変化し、Roadmapでは完了済みなのにHubが「再確認」を要求した。
+- Decision: Roadmapの `[x]` をCanonical completionとして優先し、完了済みUser Taskはstale扱いしない。再確認が必要な仕様変更ではGame Repository側でTaskを `[ ]` に戻す。
+- Prevention: Verification signatureは「未完了Taskの手順が変わった」ことを検出するGuardとして使い、完了済み状態をDerived verification stateで上書きしない。

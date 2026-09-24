@@ -230,3 +230,26 @@ ChatGPT panel preview
 ```
 
 共有PackはActive Task Resultだけに依存せず、未確認Taskも `result: null` として含める。これによりChatGPTは「できた・問題あり・未確認」をGame単位でまとめて判断できる。
+
+
+## Completed Verification Precedence
+
+Verification stateはDerived Evidenceであり、Roadmap completionより上位の状態ではない。
+
+```text
+Roadmap [x] user task
+↓
+Canonical: completed
+↓
+Stored verification signature differs?
+├─ Yes → completedのまま（staleにしない）
+└─ No  → completedのまま
+
+Roadmap [ ] user task
+↓
+Stored signature differs?
+├─ Yes → stale / re-check
+└─ No  → stored resultを利用
+```
+
+本当に再確認が必要な変更では、Game Repository側でTaskを `[ ]` へ戻す。これによりRepository Source of TruthとHubのDerived Evidenceが競合しない。

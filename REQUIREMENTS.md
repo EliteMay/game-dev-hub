@@ -66,7 +66,9 @@ Hub側へ各ゲームの詳細仕様を複製しない。
 - Windows実機操作 / Godot目視 / Playtest等、Userにしか確認できない作業だけをUser actionとして分離する
 - `担当: あなた` のTaskでは各確認手順へ「できた / できなかった / 今は確認できない」を選択できる
 - User確認結果はGame Repositoryへ直接書き込まず、App DataのTask verification stateへ保存する
-- User確認結果はTask IDだけでなく手順Signatureと結び付け、Roadmap手順変更時はstaleとして再確認させる
+- User確認結果はTask IDだけでなく手順Signatureと結び付け、未完了TaskのRoadmap手順変更時はstaleとして再確認させる
+- Roadmapで完了済み `[x]` のUser確認Taskは、説明文や完了記録の追記だけを理由に再確認対象へ戻さない
+- 完了済みUser確認Taskを本当に再確認する必要がある場合は、Game Repository側でTaskを明示的に `[ ]` へ戻す
 - User確認結果には確認時点のRepository commit / branch / Godot Version / App Version / timestampを保持する
 - User確認TaskにはTask Card内からGame起動とScreenshot追加のActionを出す
 - ChatGPT連携PanelはGame内の全User担当Taskについて確認結果Summaryを一覧表示する
@@ -240,3 +242,4 @@ v0.1は、Windows実機で次を確認して初めて完成扱いとする。
 40. Future Phaseを折りたたんだ状態でもCurrent PhaseのTaskへ集中でき、必要時にFuture Taskを展開できる
 41. ChatGPT連携Panelで全User確認Taskの結果をまとめて確認できる
 42. 複数のUser確認Task結果を1回のChatGPT共有パックへまとめて送れる
+43. Roadmapで完了済みのUser確認Taskは後続の説明追記だけで「再確認」に戻らない

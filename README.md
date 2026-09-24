@@ -1,5 +1,16 @@
 # Game Dev Hub
 
+## v0.1.11 完了済み確認Taskの誤「再確認」を防止
+
+Roadmapへ確認済みTaskを反映した後に説明文や確認記録が追記されても、完了済みTaskをもう一度Userへ確認させないよう修正しました。
+
+- Roadmapで `[x]` のUser確認Taskは完了済みEvidenceとして扱う
+- 完了済みTaskは右側の「ChatGPT連携」の再確認対象から除外
+- stale判定は未完了 `[ ]` Taskだけに適用
+- 本当に再確認したい場合はRoadmap側でTaskを `[ ]` に戻す
+- 共有Packでは完了済みTaskを「Roadmap完了済み（再確認不要）」として明示
+- 共有Pack schemaVersionを3へ更新
+
 ## v0.1.10 確認結果をまとめてChatGPTへ
 
 右側の「ChatGPT連携」を、User実機確認結果の集約場所として整理しました。

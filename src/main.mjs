@@ -965,13 +965,29 @@ async function exportChatGptPack(payload) {
 
   const verificationSummary = {
     totalUserTasks: allUserTaskResults.length,
-    recorded: allUserTaskResults.filter((item) => item.result && item.result.overall !== "untested").length,
-    passed: allUserTaskResults.filter((item) => item.result?.overall === "passed").length,
-    failed: allUserTaskResults.filter((item) => item.result?.overall === "failed").length,
-    blocked: allUserTaskResults.filter((item) => item.result?.overall === "blocked").length,
-    inProgress: allUserTaskResults.filter((item) => item.result?.overall === "in-progress").length,
-    stale: allUserTaskResults.filter((item) => item.result?.overall === "stale").length,
-    untested: allUserTaskResults.filter((item) => !item.result || item.result.overall === "untested").length
+    completed: allUserTaskResults.filter((item) => item.doneInRoadmap).length,
+    open: allUserTaskResults.filter((item) => !item.doneInRoadmap).length,
+    recorded: allUserTaskResults.filter(
+      (item) => !item.doneInRoadmap && item.result && item.result.overall !== "untested"
+    ).length,
+    passed: allUserTaskResults.filter(
+      (item) => !item.doneInRoadmap && item.result?.overall === "passed"
+    ).length,
+    failed: allUserTaskResults.filter(
+      (item) => !item.doneInRoadmap && item.result?.overall === "failed"
+    ).length,
+    blocked: allUserTaskResults.filter(
+      (item) => !item.doneInRoadmap && item.result?.overall === "blocked"
+    ).length,
+    inProgress: allUserTaskResults.filter(
+      (item) => !item.doneInRoadmap && item.result?.overall === "in-progress"
+    ).length,
+    stale: allUserTaskResults.filter(
+      (item) => !item.doneInRoadmap && item.result?.overall === "stale"
+    ).length,
+    untested: allUserTaskResults.filter(
+      (item) => !item.doneInRoadmap && (!item.result || item.result.overall === "untested")
+    ).length
   };
 
   const capturedAt = new Date();
@@ -994,7 +1010,7 @@ async function exportChatGptPack(payload) {
   const homePath = app.getPath("home");
 
   const pack = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     kind: "game-dev-hub-chatgpt-pack",
     capturedAt: capturedAt.toISOString(),
     purpose: "このゲームで保存したUser実機確認結果を全部まとめ、現在のGame開発状態と一緒にChatGPTへ共有する。",
@@ -1065,6 +1081,7 @@ async function exportChatGptPack(payload) {
   );
 
   const verificationStatusLabel = (status) => {
+    if (status === "completed") return "Roadmap完了済み";
     if (status === "passed") return "できた";
     if (status === "failed") return "できなかった項目あり";
     if (status === "blocked") return "確認できない項目あり";
@@ -1081,9 +1098,11 @@ async function exportChatGptPack(payload) {
   };
 
   const verificationLines = allUserTaskResults.map((item) => {
-    const status = verificationStatusLabel(item.result?.overall || "untested");
+    const status = item.doneInRoadmap
+      ? "Roadmap完了済み（再確認不要）"
+      : verificationStatusLabel(item.result?.overall || "untested");
     const note = item.result?.note ? " / メモ: " + item.result.note : "";
-    const steps = item.result?.steps?.length
+    const steps = !item.doneInRoadmap && item.result?.steps?.length
       ? " / " + item.result.steps.map((step) => verificationStepStatusLabel(step.status)).join(", ")
       : "";
     return "- " + item.section + " / " + item.text + ": " + status + steps + note;
@@ -1096,7 +1115,8 @@ async function exportChatGptPack(payload) {
     "- 下の「User実機確認結果」をまとめて確認してください。",
     "- できた結果はEvidenceとして扱い、必要ならRoadmapの完了状態をRepositoryへ反映してください。",
     "- できなかった結果がある場合は、該当TaskのRepository実装を調査して修正してください。",
-    "- 確認できない / 再確認が必要な項目は、Userに必要最小限の操作だけ案内してください。",
+    "- 確認できない / 再確認が必要な未完了項目は、Userに必要最小限の操作だけ案内してください。",
+    "- Roadmapで完了済みの確認Taskは、説明文変更だけを理由に再確認させないでください。",
     "- GitHub Repositoryと共有情報だけで完了できる作業は、手順を説明するだけで終わらせず、そのままRepositoryへ反映してください。",
     "- 必要ならREADME / Roadmap /仕様書など関連文書も実装と一致するよう更新してください。",
     "",
@@ -1127,7 +1147,7 @@ async function exportChatGptPack(payload) {
   return {
     ok: true,
     message: verificationSummary.recorded > 0
-      ? verificationSummary.recorded + "件の確認結果をまとめたChatGPT共有パックを作成しました。"
+      ? verificationSummary.recorded + "件の未完了Task確認結果をまとめたChatGPT共有パックを作成しました。"
       : "現在状態のChatGPT共有パックを作成しました。",
     fileCount: 2 + referenceImages.length + (mainWindow && !mainWindow.isDestroyed() ? 1 : 0)
   };

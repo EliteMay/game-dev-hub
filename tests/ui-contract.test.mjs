@@ -187,5 +187,17 @@ test("ChatGPT panel aggregates all user verification results into one shared pac
   assert.match(mainSource, /allUserTaskResults/);
   assert.match(mainSource, /verificationSummary/);
   assert.match(mainSource, /User実機確認結果まとめ/);
-  assert.match(mainSource, /schemaVersion: 2/);
+  assert.match(mainSource, /schemaVersion: 3/);
+});
+
+
+test("completed user verification tasks are not shown as actionable re-checks", async () => {
+  const renderer = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
+  const verification = await fs.readFile(new URL("src/services/task-verification.mjs", root), "utf8");
+  const mainSource = await fs.readFile(new URL("src/main.mjs", root), "utf8");
+
+  assert.match(renderer, /task\.owner === "user" && !task\.done/);
+  assert.match(verification, /completedInRoadmap \? "completed"/);
+  assert.match(mainSource, /Roadmap完了済み（再確認不要）/);
+  assert.match(mainSource, /!item\.doneInRoadmap && item\.result\?\.overall === "stale"/);
 });

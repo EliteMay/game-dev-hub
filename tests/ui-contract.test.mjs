@@ -68,6 +68,7 @@ test("safe stop explains recovery and keeps local Godot work available", async (
   assert.match(html, /id="safety-recovery"/);
   assert.match(html, /id="safety-changed-files"/);
   assert.match(html, /エラーではありません/);
+  assert.match(html, /id="safety-save-button"/);
   assert.match(html, /id="safety-continue-button"/);
   assert.match(html, /id="safety-export-button"/);
   assert.match(source, /changedFileStatusLabel/);
@@ -94,4 +95,19 @@ test("dirty task fallback explains stale local roadmap in plain Japanese", async
   const source = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
   assert.match(source, /PC側に変更があるため、HubがGitHubの最新版を取り込めていない可能性があります/);
   assert.doesNotMatch(source, /status\.textContent = file\.status \|\| "\?"/);
+});
+
+
+test("local changes can be reviewed and explicitly saved to GitHub", async () => {
+  const html = await fs.readFile(new URL("src/renderer/index.html", root), "utf8");
+  const source = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
+
+  assert.match(html, /id="save-changes-dialog"/);
+  assert.match(html, /id="save-changes-cancel-button"[^>]*type="button"/);
+  assert.match(html, /id="confirm-save-changes-button"[^>]*type="submit"/);
+  assert.match(html, /GitHubに保存/);
+  assert.match(source, /saveRepositoryChanges/);
+  assert.match(source, /openSaveChangesDialog/);
+  assert.match(source, /GitHubへの送信待ち/);
+  assert.match(source, /saveChangesCancel\.addEventListener\("click"/);
 });

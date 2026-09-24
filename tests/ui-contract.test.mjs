@@ -158,12 +158,16 @@ test("user-owned tasks expose step-by-step verification results and direct game 
   assert.match(source, /確認結果はHubに自動保存されます/);
 });
 
-test("completed roadmap tasks are hidden by default but can be revealed", async () => {
+test("completed and future roadmap tasks use progressive disclosure", async () => {
   const html = await fs.readFile(new URL("src/renderer/index.html", root), "utf8");
   const source = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
 
   assert.match(html, /id="task-toggle-completed-button"/);
+  assert.match(html, /id="task-toggle-future-button"/);
   assert.match(source, /showCompletedTasks/);
+  assert.match(source, /showFutureTasks/);
   assert.match(source, /完了済みを表示/);
+  assert.match(source, /今後のタスクを表示/);
+  assert.match(source, /futureOpenCount/);
   assert.match(source, /visibleTasks = section\.tasks\.filter/);
 });

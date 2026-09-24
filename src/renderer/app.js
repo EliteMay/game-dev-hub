@@ -52,6 +52,7 @@ const el = {
   remove: document.querySelector("#remove-project-button"),
   taskProgressBadge: document.querySelector("#task-progress-badge"),
   taskToggleCompleted: document.querySelector("#task-toggle-completed-button"),
+  taskToggleFuture: document.querySelector("#task-toggle-future-button"),
   taskCurrentPhase: document.querySelector("#task-current-phase"),
   taskSource: document.querySelector("#task-source"),
   developmentTaskList: document.querySelector("#development-task-list"),
@@ -122,6 +123,7 @@ let busy = false;
 let referenceImages = [];
 let referenceImagesProjectId = "";
 let showCompletedTasks = false;
+let showFutureTasks = false;
 
 const actionButtons = [
   el.refresh,
@@ -320,6 +322,8 @@ function renderProjectList() {
       if (state?.settings) state.settings.lastSelectedProjectId = project.id;
       api.setSelectedProject(project.id).catch(() => {});
       referenceImagesProjectId = "";
+      showCompletedTasks = false;
+      showFutureTasks = false;
       render();
     });
 
@@ -624,9 +628,34 @@ function renderDevelopmentTasks(project) {
     ? "完了済みを隠す"
     : "完了済みを表示 (" + tasks.done + ")";
 
-  for (const section of tasks.sections) {
+  const currentSectionIndex = tasks.sections.findIndex(
+    (section) => section.title === tasks.currentSection
+  );
+  const futureOpenCount = currentSectionIndex >= 0
+    ? tasks.sections
+        .slice(currentSectionIndex + 1)
+        .flatMap((section) => section.tasks)
+        .filter((task) => !task.done)
+        .length
+    : 0;
+
+  el.taskToggleFuture.classList.toggle("hidden", futureOpenCount === 0);
+  el.taskToggleFuture.textContent = showFutureTasks
+    ? "今後のタスクを隠す"
+    : "今後のタスクを表示 (" + futureOpenCount + ")";
+
+  for (let sectionIndex = 0; sectionIndex < tasks.sections.length; sectionIndex += 1) {
+    const section = tasks.sections[sectionIndex];
+    const containsActiveTask = section.tasks.some((task) => task.id === activeTaskId);
+    const isCurrentSection = section.title === tasks.currentSection;
+    const isFutureSection = currentSectionIndex >= 0 && sectionIndex > currentSectionIndex;
+    const isPastSection = currentSectionIndex >= 0 && sectionIndex < currentSectionIndex;
+
+    if (isFutureSection && !showFutureTasks && !containsActiveTask) continue;
+    if (isPastSection && !showCompletedTasks && !containsActiveTask) continue;
+
     const visibleTasks = section.tasks.filter((task) => showCompletedTasks || !task.done);
-    if (!visibleTasks.length) continue;
+    if (!visibleTasks.length && !containsActiveTask) continue;
 
     const group = document.createElement("section");
     group.className = "task-group";
@@ -1265,6 +1294,12 @@ el.saveChangesForm.addEventListener("submit", (event) => {
 
 el.taskToggleCompleted.addEventListener("click", () => {
   showCompletedTasks = !showCompletedTasks;
+  const project = selectedProject();
+  if (project) renderDevelopmentTasks(project);
+});
+
+el.taskToggleFuture.addEventListener("click", () => {
+  showFutureTasks = !showFutureTasks;
   const project = selectedProject();
   if (project) renderDevelopmentTasks(project);
 });

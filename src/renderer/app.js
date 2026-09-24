@@ -75,6 +75,10 @@ const el = {
   taskVerificationClear: document.querySelector("#task-verification-clear-button"),
   taskVerificationSavedState: document.querySelector("#task-verification-saved-state"),
   exportChatGptPack: document.querySelector("#export-chatgpt-pack-button"),
+  verificationOverview: document.querySelector("#verification-overview"),
+  verificationOverviewCounts: document.querySelector("#verification-overview-counts"),
+  verificationOverviewList: document.querySelector("#verification-overview-list"),
+  verificationOverviewEmpty: document.querySelector("#verification-overview-empty"),
   addReferenceImage: document.querySelector("#add-reference-image-button"),
   referenceImageCount: document.querySelector("#reference-image-count"),
   referenceImageList: document.querySelector("#reference-image-list"),
@@ -360,6 +364,154 @@ function verificationForTask(project, taskId) {
   return project?.development?.verifications?.[taskId] || null;
 }
 
+function allUserVerificationRows(project) {
+  const tasks = project?.development?.tasks;
+  if (!tasks?.available) return [];
+
+  return (tasks.sections || []).flatMap((section) =>
+    (section.tasks || [])
+      .filter((task) => task.owner === "user")
+      .map((task) => ({
+        ...task,
+        section: section.title,
+        completionCriteria: section.completionCriteria || "",
+        verification: verificationForTask(project, task.id)
+      }))
+  );
+}
+
+function verificationStepCounts(task, verification) {
+  const total = task?.steps?.length || 1;
+  const counts = {
+    total,
+    passed: 0,
+    failed: 0,
+    blocked: 0,
+    pending: total
+  };
+
+  if (!verification || verification.stale) return counts;
+
+  counts.pending = 0;
+  for (const step of verification.steps || []) {
+    if (step.status === "passed") counts.passed += 1;
+    else if (step.status === "failed") counts.failed += 1;
+    else if (step.status === "blocked") counts.blocked += 1;
+    else counts.pending += 1;
+  }
+
+  return counts;
+}
+
+function renderVerificationOverview(project) {
+  const rows = allUserVerificationRows(project);
+  el.verificationOverviewCounts.replaceChildren();
+  el.verificationOverviewList.replaceChildren();
+  el.verificationOverviewEmpty.classList.toggle("hidden", rows.length > 0);
+
+  if (!rows.length) {
+    el.exportChatGptPack.textContent = "今の状態をChatGPTへ";
+    return;
+  }
+
+  const aggregate = {
+    passed: 0,
+    failed: 0,
+    blocked: 0,
+    progress: 0,
+    stale: 0,
+    untested: 0
+  };
+  let savedResultCount = 0;
+
+  for (const row of rows) {
+    const overall = row.verification?.overall || "untested";
+    if (overall === "passed") aggregate.passed += 1;
+    else if (overall === "failed") aggregate.failed += 1;
+    else if (overall === "blocked") aggregate.blocked += 1;
+    else if (overall === "in-progress") aggregate.progress += 1;
+    else if (overall === "stale") aggregate.stale += 1;
+    else aggregate.untested += 1;
+
+    if (row.verification && overall !== "untested") savedResultCount += 1;
+  }
+
+  for (const [label, value, tone] of [
+    ["できた", aggregate.passed, "ok"],
+    ["問題あり", aggregate.failed, "error"],
+    ["確認できない", aggregate.blocked, "warning"],
+    ["確認途中", aggregate.progress, "warning"],
+    ["再確認", aggregate.stale, "warning"],
+    ["未確認", aggregate.untested, ""]
+  ]) {
+    if (!value) continue;
+    const chip = document.createElement("span");
+    chip.className = "verification-overview-chip";
+    chip.dataset.tone = tone;
+    chip.textContent = label + " " + value;
+    el.verificationOverviewCounts.append(chip);
+  }
+
+  for (const row of rows) {
+    const card = document.createElement("article");
+    card.className = "verification-overview-item";
+
+    const top = document.createElement("div");
+    top.className = "verification-overview-item-top";
+
+    const copy = document.createElement("div");
+    copy.className = "verification-overview-item-copy";
+
+    const phase = document.createElement("span");
+    phase.textContent = row.section;
+
+    const title = document.createElement("strong");
+    title.textContent = row.text;
+
+    copy.append(phase, title);
+
+    const summary = verificationSummary(row.verification?.overall || "untested");
+    const badge = document.createElement("span");
+    badge.className = "verification-overview-status";
+    badge.dataset.tone = summary.tone;
+    badge.textContent = summary.label;
+
+    top.append(copy, badge);
+    card.append(top);
+
+    const counts = verificationStepCounts(row, row.verification);
+    const detail = document.createElement("p");
+
+    if (!row.verification) {
+      detail.textContent = "まだ結果を選んでいません。";
+    } else if (row.verification.stale) {
+      detail.textContent = "Roadmapの手順が変わったため、再確認が必要です。";
+    } else {
+      const parts = [];
+      if (counts.passed) parts.push("できた " + counts.passed + "/" + counts.total);
+      if (counts.failed) parts.push("できなかった " + counts.failed);
+      if (counts.blocked) parts.push("確認できない " + counts.blocked);
+      if (counts.pending) parts.push("未選択 " + counts.pending);
+      detail.textContent = parts.join(" / ") || "確認結果なし";
+    }
+
+    card.append(detail);
+
+    if (row.verification?.note && !row.verification.stale) {
+      const note = document.createElement("p");
+      note.className = "verification-overview-note";
+      note.textContent = "メモ: " + row.verification.note;
+      card.append(note);
+    }
+
+    el.verificationOverviewList.append(card);
+  }
+
+  el.exportChatGptPack.textContent = savedResultCount > 0
+    ? savedResultCount + "件の確認結果をまとめてChatGPTへ"
+    : "確認結果をまとめてChatGPTへ";
+}
+
 function verificationSummary(overall) {
   if (overall === "passed") return { label: "すべてできた", tone: "ok" };
   if (overall === "failed") return { label: "できなかった項目あり", tone: "error" };
@@ -406,6 +558,7 @@ async function saveVerificationChoice(project, task, stepIndex, status) {
   project.development.verifications ||= {};
   project.development.verifications[task.id] = result.verification;
   renderActiveTaskGuide(project);
+  renderVerificationOverview(project);
 }
 
 async function saveVerificationNote(project, task) {
@@ -432,6 +585,7 @@ async function saveVerificationNote(project, task) {
   project.development.verifications ||= {};
   project.development.verifications[task.id] = result.verification;
   renderActiveTaskGuide(project);
+  renderVerificationOverview(project);
 }
 
 function renderTaskVerification(project, task) {
@@ -573,22 +727,15 @@ function renderActiveTaskGuide(project) {
   const verification = verificationForTask(project, activeTask.id);
   if (activeTask.owner === "user") {
     el.taskGuideNote.textContent =
-      "確認結果はHubに自動保存されます。共有パックを送ると、ChatGPTが結果をEvidenceとして確認し、必要なRoadmap更新や修正を進めます。";
-
-    if (verification?.overall === "passed") {
-      el.taskExport.textContent = "できた結果をChatGPTへ送る";
-    } else if (verification?.overall === "failed") {
-      el.taskExport.textContent = "できなかった結果をChatGPTへ送る";
-    } else if (verification?.overall === "blocked") {
-      el.taskExport.textContent = "確認できない理由をChatGPTへ送る";
-    } else {
-      el.taskExport.textContent = "確認結果入り共有パックを作る";
-    }
+      "確認結果はHubに自動保存されます。複数タスクを確認したあと、右の「ChatGPT連携」から全部まとめて1回で送れます。";
+    el.taskExport.classList.add("hidden");
   } else if (activeTask.owner === "chatgpt") {
+    el.taskExport.classList.remove("hidden");
     el.taskGuideNote.textContent =
       "このタスクはChatGPT担当です。共有パックを送れば、Repositoryで実行できる作業はChatGPT側で進めます。";
     el.taskExport.textContent = "ChatGPTにこのタスクを渡す";
   } else {
+    el.taskExport.classList.remove("hidden");
     el.taskGuideNote.textContent =
       "ここで選んだだけでは作業開始・完了にはなりません。実際の作業後、Game RepositoryのRoadmapが更新されるとHubにも反映されます。";
     el.taskExport.textContent = "ChatGPT共有パックを作る";
@@ -985,6 +1132,7 @@ function renderDetail() {
   el.start.textContent = "開発を開始";
 
   renderDevelopmentTasks(project);
+  renderVerificationOverview(project);
   if (referenceImagesProjectId !== project.id) {
     referenceImages = [];
     renderReferenceImages();

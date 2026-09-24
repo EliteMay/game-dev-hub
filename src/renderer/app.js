@@ -22,6 +22,7 @@ const el = {
   branchDescription: document.querySelector("#branch-description"),
   safetyRecovery: document.querySelector("#safety-recovery"),
   safetyRecoveryTitle: document.querySelector("#safety-recovery-title"),
+  safetyRecoverySummary: document.querySelector("#safety-recovery-summary"),
   safetyChangeCount: document.querySelector("#safety-change-count"),
   safetyChangedFiles: document.querySelector("#safety-changed-files"),
   safetySave: document.querySelector("#safety-save-button"),
@@ -487,14 +488,35 @@ function changedFileExplanation(filePath) {
 
 function renderSafetyRecovery(project) {
   const repo = project?.repository || {};
-  const visible = Boolean(repo.valid && repo.dirty);
+  const visible = Boolean(repo.valid && (repo.dirty || (repo.ahead || 0) > 0));
   el.safetyRecovery.classList.toggle("hidden", !visible);
   el.safetyChangedFiles.replaceChildren();
 
   if (!visible) return;
 
+  if (!repo.dirty && (repo.ahead || 0) > 0) {
+    el.safetyRecoveryTitle.textContent =
+      "PCには保存済みですが、GitHubへまだ送れていない履歴が" + repo.ahead + "件あります";
+    el.safetyRecoverySummary.textContent =
+      "変更はPCに保存されています。下の「GitHubへ送る」で送信だけ再試行できます。";
+    el.safetyChangeCount.textContent = repo.ahead + "件";
+    el.safetySave.textContent = "GitHubへ送る";
+
+    const item = document.createElement("div");
+    item.className = "changed-file-card";
+    const title = document.createElement("strong");
+    title.textContent = "PC側への保存は完了";
+    const copy = document.createElement("p");
+    copy.textContent = "GitHubへの送信だけが残っています。変更は消えていません。";
+    item.append(title, copy);
+    el.safetyChangedFiles.append(item);
+    return;
+  }
+
   el.safetyRecoveryTitle.textContent =
     "GitHubにまだ反映されていない変更が" + repo.changedCount + "件あります";
+  el.safetyRecoverySummary.textContent =
+    "エラーではありません。PC側の変更を守るため「最新版にする」だけ一時停止しています。Godotでの作業はそのまま続けられます。";
   el.safetyChangeCount.textContent = repo.changedCount + "件";
   el.safetySave.textContent = repo.changedCount + "件をGitHubに保存";
 
@@ -727,9 +749,14 @@ function renderDetail() {
     el.branchDescription.textContent = project.defaultBranch + " をCloneします。";
   } else if (repo.dirty) {
     setDot(el.branchDot, "warning");
-    el.branchValue.textContent = "ローカル変更あり";
+    el.branchValue.textContent = "PC側に未保存の変更あり";
     el.branchDescription.textContent =
-      repo.changedCount + "件の変更があります。自動更新は安全停止します。";
+      repo.changedCount + "件の変更があります。「GitHubに保存」でまとめて保存できます。";
+  } else if ((repo.ahead || 0) > 0) {
+    setDot(el.branchDot, "warning");
+    el.branchValue.textContent = "GitHubへの送信待ち";
+    el.branchDescription.textContent =
+      repo.ahead + "件の履歴がPCに保存済みです。「GitHubへ送る」で再試行できます。";
   } else if (repo.branch !== project.defaultBranch) {
     setDot(el.branchDot, "warning");
     el.branchValue.textContent = repo.branch || "Branch不明";
@@ -751,6 +778,7 @@ function renderDetail() {
     state.godot?.available &&
     repo.valid &&
     !repo.dirty &&
+    (repo.ahead || 0) === 0 &&
     repo.branch === project.defaultBranch;
 
   if (!state.git?.available) {
@@ -764,11 +792,17 @@ function renderDetail() {
     el.heroDescription.textContent =
       "上の「Godotを設定」からGodot.exeを選べます。";
   } else if (repo.dirty) {
-    el.heroStatus.textContent = "安全停止";
-    el.heroTitle.textContent = "GitHub同期だけ停止しています";
+    el.heroStatus.textContent = "GitHubへの保存待ち";
+    el.heroTitle.textContent = "PC側に変更があります";
     el.heroDescription.textContent =
-      "ローカル変更は保護されています。今すぐ開発を続けるなら同期せずGodotを開けます。同期したい場合は下の解除手順を確認してください。";
-    el.start.textContent = "同期せずGodotで開く";
+      "下の「GitHubに保存」で変更を残したままGitHubへ保存できます。Godotでの作業を続けることもできます。";
+    el.start.textContent = "保存せずGodotで続ける";
+  } else if ((repo.ahead || 0) > 0) {
+    el.heroStatus.textContent = "GitHubへの送信待ち";
+    el.heroTitle.textContent = "PC側への保存は完了しています";
+    el.heroDescription.textContent =
+      "GitHubへの送信だけが残っています。下の「GitHubへ送る」で再試行できます。";
+    el.start.textContent = "Godotで続ける";
   } else if (!state.network?.online && repo.valid) {
     el.heroStatus.textContent = "オフライン";
     el.heroTitle.textContent = "ローカル開発は続けられます";
@@ -1166,7 +1200,7 @@ el.start.addEventListener("click", () => {
   const repo = project.repository || {};
   const localOnly =
     repo.valid &&
-    (repo.dirty || !state?.network?.online || repo.branch !== project.defaultBranch);
+    (repo.dirty || (repo.ahead || 0) > 0 || !state?.network?.online || repo.branch !== project.defaultBranch);
 
   if (localOnly) {
     runAction(

@@ -64,6 +64,14 @@ Hub側へ各ゲームの詳細仕様を複製しない。
 - 共有パックは状態JSON、Hub Screenshot、参考画像、簡易説明Fileを含む
 - 共有パックは選択中Taskの引き継ぎ目的を明記し、GitHub上だけで完了できる作業はChatGPTが直接Repositoryへ反映するよう指示する
 - Windows実機操作 / Godot目視 / Playtest等、Userにしか確認できない作業だけをUser actionとして分離する
+- `担当: あなた` のTaskでは各確認手順へ「できた / できなかった / 今は確認できない」を選択できる
+- User確認結果はGame Repositoryへ直接書き込まず、App DataのTask verification stateへ保存する
+- User確認結果はTask IDだけでなく手順Signatureと結び付け、Roadmap手順変更時はstaleとして再確認させる
+- User確認結果には確認時点のRepository commit / branch / Godot Version / App Version / timestampを保持する
+- User確認TaskにはTask Card内からGame起動とScreenshot追加のActionを出す
+- ChatGPT共有パックへ選択中TaskのUser確認結果とメモを含める
+- 完了済みTaskは初期状態で折りたたみ、必要時だけ表示できる
+- Checkbox Taskが1件以上あるRoadmapではTop-level通常Bulletを進捗Taskに数えない。Checkboxが一切ないLegacy Roadmapだけplain bullet fallbackを許可する
 - 共有JSONはRepository slug/commit/branch/dirty状態、Roadmap、作業中Task、直近Error/Logを含める
 - 共有JSONはCredential/Token/Secret/Source File本文を含めず、Home PathをRedactする
 - JSONだけでActual Playtest済みと断定せず、画像/User報告/実機Evidenceと分離する
@@ -178,6 +186,7 @@ Local変更保存Contract:
 - Last selected Game
 - Window Size / Position / Maximized state
 - GameごとのActive development task
+- GameごとのUser manual verification result
 
 Secretは保存しない。
 
@@ -219,3 +228,8 @@ v0.1は、Windows実機で次を確認して初めて完成扱いとする。
 32. 秘密情報らしいFileを含む場合にGitHub保存をstage前に停止できる
 33. ChatGPT共有パックがDocumentsではなくApp Data配下へ生成される
 34. 共有パックにChatGPT側で実行すべきRepository作業とUserだけが行える実機確認の役割分担が含まれる
+35. User担当Taskで各確認Stepへ結果を選択・永続保存できる
+36. User確認結果がChatGPT共有パックへ含まれ、確認Commit/Versionも追跡できる
+37. Roadmap手順変更後に古いUser確認結果をそのまま有効扱いしない
+38. Checkbox Roadmapの説明BulletがTask進捗へ混入しない
+39. 完了済みTaskを折りたたんだ状態でも現在の未完了Taskへ到達できる

@@ -130,3 +130,28 @@ test("manual verification can be cleared without touching other app data", async
     await fs.rm(root, { recursive: true, force: true });
   }
 });
+
+
+test("completed roadmap tasks never request re-verification only because instructions changed", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "game-dev-hub-verification-"));
+  try {
+    const original = task();
+    await saveTaskVerification(
+      root,
+      "deep-factory",
+      original,
+      { steps: [{ status: "passed" }, { status: "passed" }] }
+    );
+
+    const completed = task({
+      done: true,
+      steps: ["左右に視点が動く", "上下に視点が動く", "完了記録"]
+    });
+    const loaded = await loadTaskVerifications(root, "deep-factory", tasksWith(completed));
+
+    assert.equal(loaded[completed.id].stale, false);
+    assert.equal(loaded[completed.id].overall, "completed");
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});

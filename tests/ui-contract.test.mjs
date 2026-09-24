@@ -121,7 +121,7 @@ test("ChatGPT pack uses app data and tells ChatGPT to execute repository-side wo
     mainSource,
     /app\.getPath\("documents"\),\s*"Game Dev Hub",\s*"ChatGPT Packs"/
   );
-  assert.match(mainSource, /現在選択中のタスクを最優先で進めてください/);
+  assert.match(mainSource, /User実機確認結果まとめ/);
   assert.match(mainSource, /そのままRepositoryへ反映してください/);
   assert.match(mainSource, /Userにしかできない確認だけをUserへ依頼してください/);
   assert.match(mainSource, /chatgptAction/);

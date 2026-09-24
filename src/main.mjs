@@ -1073,11 +1073,18 @@ async function exportChatGptPack(payload) {
     return "未確認";
   };
 
+  const verificationStepStatusLabel = (status) => {
+    if (status === "passed") return "できた";
+    if (status === "failed") return "できなかった";
+    if (status === "blocked") return "今は確認できない";
+    return "未選択";
+  };
+
   const verificationLines = allUserTaskResults.map((item) => {
     const status = verificationStatusLabel(item.result?.overall || "untested");
     const note = item.result?.note ? " / メモ: " + item.result.note : "";
     const steps = item.result?.steps?.length
-      ? " / " + item.result.steps.map((step) => step.status).join(", ")
+      ? " / " + item.result.steps.map((step) => verificationStepStatusLabel(step.status)).join(", ")
       : "";
     return "- " + item.section + " / " + item.text + ": " + status + steps + note;
   });

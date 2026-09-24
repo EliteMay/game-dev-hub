@@ -67,13 +67,14 @@ function normalizeRecord(raw, task) {
   }));
 
   const signature = taskVerificationSignature(task);
-  const stale = raw.signature !== signature;
+  const completedInRoadmap = task?.done === true;
+  const stale = !completedInRoadmap && raw.signature !== signature;
 
   return {
     taskId: String(task?.id || ""),
     signature,
     stale,
-    overall: stale ? "stale" : overallStatus(steps),
+    overall: completedInRoadmap ? "completed" : stale ? "stale" : overallStatus(steps),
     steps,
     note: cleanText(raw.note, 2000),
     repositoryCommit: cleanText(raw.repositoryCommit, 80),

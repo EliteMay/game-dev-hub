@@ -138,3 +138,30 @@ test("task guidance shows who is responsible for the selected task", async () =>
   assert.match(source, /ChatGPT担当/);
   assert.match(source, /あなた担当/);
 });
+
+
+test("user-owned tasks expose step-by-step verification results and direct game launch", async () => {
+  const html = await fs.readFile(new URL("src/renderer/index.html", root), "utf8");
+  const source = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
+
+  assert.match(html, /id="task-verification"/);
+  assert.match(html, /id="task-verification-steps"/);
+  assert.match(html, /id="task-verification-note"/);
+  assert.match(html, /id="task-run-game-button"/);
+  assert.match(html, /できた/);
+  assert.match(source, /saveTaskVerification/);
+  assert.match(source, /clearTaskVerification/);
+  assert.match(source, /saveVerificationChoice/);
+  assert.match(source, /ゲーム起動/);
+  assert.match(source, /確認結果はHubに自動保存されます/);
+});
+
+test("completed roadmap tasks are hidden by default but can be revealed", async () => {
+  const html = await fs.readFile(new URL("src/renderer/index.html", root), "utf8");
+  const source = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
+
+  assert.match(html, /id="task-toggle-completed-button"/);
+  assert.match(source, /showCompletedTasks/);
+  assert.match(source, /完了済みを表示/);
+  assert.match(source, /visibleTasks = section\.tasks\.filter/);
+});

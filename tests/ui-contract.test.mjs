@@ -85,7 +85,7 @@ test("task selection shows concrete guidance instead of pretending work started"
   assert.match(html, /id="active-task-steps"/);
   assert.match(html, /選んだだけでは作業開始・完了にはなりません/);
   assert.match(source, /今やるタスクを選びました/);
-  assert.match(source, /Roadmapにはこのタスクの詳しい手順がまだ書かれていません/);
+  assert.match(source, /このタスクの詳しい手順がRoadmapにまだ書かれていません/);
   assert.match(source, /completionCriteria/);
 });
 

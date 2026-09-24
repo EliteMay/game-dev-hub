@@ -51,6 +51,7 @@ const el = {
   github: document.querySelector("#github-button"),
   remove: document.querySelector("#remove-project-button"),
   taskProgressBadge: document.querySelector("#task-progress-badge"),
+  taskToggleCompleted: document.querySelector("#task-toggle-completed-button"),
   taskCurrentPhase: document.querySelector("#task-current-phase"),
   taskSource: document.querySelector("#task-source"),
   developmentTaskList: document.querySelector("#development-task-list"),
@@ -60,9 +61,18 @@ const el = {
   activeTaskOwner: document.querySelector("#active-task-owner"),
   activeTaskSteps: document.querySelector("#active-task-steps"),
   activeTaskCompletion: document.querySelector("#active-task-completion"),
+  taskGuideNote: document.querySelector("#task-guide-note"),
   taskClearSelection: document.querySelector("#task-clear-selection-button"),
+  taskRunGame: document.querySelector("#task-run-game-button"),
   taskOpenEditor: document.querySelector("#task-open-editor-button"),
   taskExport: document.querySelector("#task-export-button"),
+  taskVerification: document.querySelector("#task-verification"),
+  taskVerificationSummary: document.querySelector("#task-verification-summary"),
+  taskVerificationSteps: document.querySelector("#task-verification-steps"),
+  taskVerificationNote: document.querySelector("#task-verification-note"),
+  taskVerificationAddImage: document.querySelector("#task-verification-add-image-button"),
+  taskVerificationClear: document.querySelector("#task-verification-clear-button"),
+  taskVerificationSavedState: document.querySelector("#task-verification-saved-state"),
   exportChatGptPack: document.querySelector("#export-chatgpt-pack-button"),
   addReferenceImage: document.querySelector("#add-reference-image-button"),
   referenceImageCount: document.querySelector("#reference-image-count"),
@@ -111,6 +121,7 @@ let selectedId = null;
 let busy = false;
 let referenceImages = [];
 let referenceImagesProjectId = "";
+let showCompletedTasks = false;
 
 const actionButtons = [
   el.refresh,
@@ -133,8 +144,11 @@ const actionButtons = [
   el.safetyOpenFolder,
   el.safetyRefresh,
   el.taskClearSelection,
+  el.taskRunGame,
   el.taskOpenEditor,
-  el.taskExport
+  el.taskExport,
+  el.taskVerificationAddImage,
+  el.taskVerificationClear
 ];
 
 function setBusy(value, label = "") {
@@ -338,6 +352,165 @@ function activeDevelopmentTask(project) {
   return null;
 }
 
+function verificationForTask(project, taskId) {
+  return project?.development?.verifications?.[taskId] || null;
+}
+
+function verificationSummary(overall) {
+  if (overall === "passed") return { label: "すべてできた", tone: "ok" };
+  if (overall === "failed") return { label: "できなかった項目あり", tone: "error" };
+  if (overall === "blocked") return { label: "確認できない項目あり", tone: "warning" };
+  if (overall === "in-progress") return { label: "確認途中", tone: "warning" };
+  if (overall === "stale") return { label: "手順変更・再確認", tone: "warning" };
+  return { label: "未確認", tone: "" };
+}
+
+function verificationMetaLabel(verification) {
+  if (!verification) return "";
+  if (verification.overall === "passed") return "確認OK";
+  if (verification.overall === "failed") return "問題あり";
+  if (verification.overall === "blocked") return "確認できない";
+  if (verification.overall === "in-progress") return "確認途中";
+  if (verification.overall === "stale") return "再確認が必要";
+  return "";
+}
+
+async function saveVerificationChoice(project, task, stepIndex, status) {
+  const current = verificationForTask(project, task.id);
+  const steps = (task.steps?.length ? task.steps : [task.text]).map((_text, index) => ({
+    status:
+      index === stepIndex
+        ? status
+        : (current?.stale ? "pending" : current?.steps?.[index]?.status || "pending")
+  }));
+
+  el.taskVerificationSavedState.textContent = "保存中…";
+
+  const result = await api.saveTaskVerification({
+    projectId: project.id,
+    taskId: task.id,
+    steps,
+    note: el.taskVerificationNote.value
+  });
+
+  if (!result?.ok) {
+    el.taskVerificationSavedState.textContent = "保存失敗";
+    addLog(result?.message || "確認結果を保存できませんでした。", "error");
+    return;
+  }
+
+  project.development.verifications ||= {};
+  project.development.verifications[task.id] = result.verification;
+  renderActiveTaskGuide(project);
+}
+
+async function saveVerificationNote(project, task) {
+  const current = verificationForTask(project, task.id);
+  const steps = (task.steps?.length ? task.steps : [task.text]).map((_text, index) => ({
+    status: current?.stale ? "pending" : current?.steps?.[index]?.status || "pending"
+  }));
+
+  el.taskVerificationSavedState.textContent = "保存中…";
+
+  const result = await api.saveTaskVerification({
+    projectId: project.id,
+    taskId: task.id,
+    steps,
+    note: el.taskVerificationNote.value
+  });
+
+  if (!result?.ok) {
+    el.taskVerificationSavedState.textContent = "保存失敗";
+    addLog(result?.message || "確認メモを保存できませんでした。", "error");
+    return;
+  }
+
+  project.development.verifications ||= {};
+  project.development.verifications[task.id] = result.verification;
+  renderActiveTaskGuide(project);
+}
+
+function renderTaskVerification(project, task) {
+  const visible = task?.owner === "user";
+  el.taskVerification.classList.toggle("hidden", !visible);
+  el.taskRunGame.classList.toggle("hidden", !visible);
+
+  if (!visible) {
+    el.taskVerificationSteps.replaceChildren();
+    el.taskVerificationNote.value = "";
+    el.taskVerificationSummary.textContent = "未確認";
+    el.taskVerificationSummary.dataset.tone = "";
+    return;
+  }
+
+  const verification = verificationForTask(project, task.id);
+  const summary = verificationSummary(verification?.overall || "untested");
+  el.taskVerificationSummary.textContent = summary.label;
+  el.taskVerificationSummary.dataset.tone = summary.tone;
+  el.taskVerificationSavedState.textContent = verification?.updatedAt
+    ? "保存済み " + new Date(verification.updatedAt).toLocaleTimeString("ja-JP", {
+        hour: "2-digit",
+        minute: "2-digit"
+      })
+    : "まだ結果は保存されていません";
+
+  el.taskVerificationSteps.replaceChildren();
+  const steps = task.steps?.length ? task.steps : [task.text];
+
+  for (let index = 0; index < steps.length; index += 1) {
+    const row = document.createElement("div");
+    row.className = "verification-step";
+
+    const copy = document.createElement("div");
+    copy.className = "verification-step-copy";
+
+    const number = document.createElement("span");
+    number.textContent = String(index + 1);
+
+    const text = document.createElement("strong");
+    text.textContent = steps[index];
+
+    copy.append(number, text);
+
+    const choices = document.createElement("div");
+    choices.className = "verification-choices";
+
+    const currentStatus = verification?.stale
+      ? "pending"
+      : verification?.steps?.[index]?.status || "pending";
+
+    for (const option of [
+      ["passed", "できた"],
+      ["failed", "できなかった"],
+      ["blocked", "今は確認できない"]
+    ]) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "verification-choice";
+      button.dataset.status = option[0];
+      button.textContent = option[1];
+      button.setAttribute("aria-pressed", currentStatus === option[0] ? "true" : "false");
+      button.addEventListener("click", () => {
+        saveVerificationChoice(project, task, index, option[0]).catch((error) => {
+          addLog(String(error?.message || error), "error");
+        });
+      });
+      choices.append(button);
+    }
+
+    row.append(copy, choices);
+    el.taskVerificationSteps.append(row);
+  }
+
+  el.taskVerificationNote.value = verification?.stale ? "" : verification?.note || "";
+  el.taskVerificationClear.disabled = !verification;
+
+  if (verification?.stale) {
+    el.taskVerificationSavedState.textContent =
+      "Roadmapの手順が変わったため、以前の結果は使わず再確認してください。";
+  }
+}
+
 function renderActiveTaskGuide(project) {
   const activeTask = activeDevelopmentTask(project);
 
@@ -348,6 +521,8 @@ function renderActiveTaskGuide(project) {
     el.activeTaskOwner.textContent = "";
     el.activeTaskSteps.replaceChildren();
     el.activeTaskCompletion.textContent = "";
+    el.taskVerification.classList.add("hidden");
+    el.taskRunGame.classList.add("hidden");
     return;
   }
 
@@ -388,6 +563,32 @@ function renderActiveTaskGuide(project) {
   el.activeTaskCompletion.textContent =
     activeTask.completionCriteria ||
     "このタスクの実装・確認が終わり、Game Repository側のRoadmapで完了として記録されたら完了です。";
+
+  renderTaskVerification(project, activeTask);
+
+  const verification = verificationForTask(project, activeTask.id);
+  if (activeTask.owner === "user") {
+    el.taskGuideNote.textContent =
+      "確認結果はHubに自動保存されます。共有パックを送ると、ChatGPTが結果をEvidenceとして確認し、必要なRoadmap更新や修正を進めます。";
+
+    if (verification?.overall === "passed") {
+      el.taskExport.textContent = "できた結果をChatGPTへ送る";
+    } else if (verification?.overall === "failed") {
+      el.taskExport.textContent = "できなかった結果をChatGPTへ送る";
+    } else if (verification?.overall === "blocked") {
+      el.taskExport.textContent = "確認できない理由をChatGPTへ送る";
+    } else {
+      el.taskExport.textContent = "確認結果入り共有パックを作る";
+    }
+  } else if (activeTask.owner === "chatgpt") {
+    el.taskGuideNote.textContent =
+      "このタスクはChatGPT担当です。共有パックを送れば、Repositoryで実行できる作業はChatGPT側で進めます。";
+    el.taskExport.textContent = "ChatGPTにこのタスクを渡す";
+  } else {
+    el.taskGuideNote.textContent =
+      "ここで選んだだけでは作業開始・完了にはなりません。実際の作業後、Game RepositoryのRoadmapが更新されるとHubにも反映されます。";
+    el.taskExport.textContent = "ChatGPT共有パックを作る";
+  }
 }
 
 function renderDevelopmentTasks(project) {
@@ -398,6 +599,7 @@ function renderDevelopmentTasks(project) {
 
   if (!tasks?.available) {
     el.taskProgressBadge.textContent = "Roadmapなし";
+    el.taskToggleCompleted.classList.add("hidden");
     el.taskCurrentPhase.textContent = "やることFileが見つかりません";
     el.taskSource.textContent = "Repository内のRoadmap/TODOを読みます。";
     el.taskEmpty.classList.remove("hidden");
@@ -410,7 +612,15 @@ function renderDevelopmentTasks(project) {
   el.taskCurrentPhase.textContent = tasks.currentSection || "Roadmap";
   el.taskSource.textContent = tasks.sourceFile + " をRepositoryから読込";
 
+  el.taskToggleCompleted.classList.toggle("hidden", tasks.done === 0);
+  el.taskToggleCompleted.textContent = showCompletedTasks
+    ? "完了済みを隠す"
+    : "完了済みを表示 (" + tasks.done + ")";
+
   for (const section of tasks.sections) {
+    const visibleTasks = section.tasks.filter((task) => showCompletedTasks || !task.done);
+    if (!visibleTasks.length) continue;
+
     const group = document.createElement("section");
     group.className = "task-group";
 
@@ -418,7 +628,7 @@ function renderDevelopmentTasks(project) {
     heading.textContent = section.title;
     group.append(heading);
 
-    for (const task of section.tasks) {
+    for (const task of visibleTasks) {
       const item = document.createElement("button");
       item.type = "button";
       item.className =
@@ -444,6 +654,9 @@ function renderDevelopmentTasks(project) {
         task.owner === "user" ? "あなた担当" :
         task.owner === "hub" ? "Hub担当" :
         "";
+      const verificationText = task.owner === "user"
+        ? verificationMetaLabel(verificationForTask(project, task.id))
+        : "";
       const baseMeta = task.done
         ? "完了"
         : task.id === activeTaskId
@@ -451,7 +664,7 @@ function renderDevelopmentTasks(project) {
           : (!activeTaskId && tasks.nextTask?.id === task.id
               ? "次の候補 / クリックで手順を見る"
               : "クリックで手順を見る");
-      meta.textContent = ownerText ? ownerText + " / " + baseMeta : baseMeta;
+      meta.textContent = [ownerText, verificationText, baseMeta].filter(Boolean).join(" / ");
 
       copy.append(text, meta);
       item.append(mark, copy);
@@ -1043,6 +1256,12 @@ el.saveChangesForm.addEventListener("submit", (event) => {
   );
 });
 
+el.taskToggleCompleted.addEventListener("click", () => {
+  showCompletedTasks = !showCompletedTasks;
+  const project = selectedProject();
+  if (project) renderDevelopmentTasks(project);
+});
+
 el.taskClearSelection.addEventListener("click", async () => {
   const project = requireSelected();
   if (!project || busy) return;
@@ -1057,6 +1276,16 @@ el.taskClearSelection.addEventListener("click", async () => {
   }
 });
 
+el.taskRunGame.addEventListener("click", () => {
+  const project = requireSelected();
+  if (!project) return;
+  runAction(
+    "ゲーム起動",
+    () => api.runGame(project.id),
+    { pickGodotOnMissing: true }
+  );
+});
+
 el.taskOpenEditor.addEventListener("click", () => {
   const project = requireSelected();
   if (!project) return;
@@ -1065,6 +1294,56 @@ el.taskOpenEditor.addEventListener("click", () => {
     () => api.openEditor(project.id),
     { pickGodotOnMissing: true }
   );
+});
+
+el.taskVerificationNote.addEventListener("change", () => {
+  const project = selectedProject();
+  const task = project ? activeDevelopmentTask(project) : null;
+  if (!project || !task || task.owner !== "user") return;
+
+  saveVerificationNote(project, task).catch((error) => {
+    addLog(String(error?.message || error), "error");
+  });
+});
+
+el.taskVerificationClear.addEventListener("click", async () => {
+  const project = selectedProject();
+  const task = project ? activeDevelopmentTask(project) : null;
+  if (!project || !task || task.owner !== "user" || busy) return;
+
+  const result = await api.clearTaskVerification({
+    projectId: project.id,
+    taskId: task.id
+  });
+
+  if (!result?.ok) {
+    addLog(result?.message || "確認結果をリセットできませんでした。", "error");
+    return;
+  }
+
+  state = result.state;
+  render();
+  addLog(result.message, "success");
+});
+
+el.taskVerificationAddImage.addEventListener("click", async () => {
+  const project = requireSelected();
+  if (!project || busy) return;
+
+  setBusy(true, "スクショ追加");
+  try {
+    const result = await api.addReferenceImages(project.id);
+    if (result?.ok) {
+      referenceImagesProjectId = project.id;
+      referenceImages = result.images || [];
+      renderReferenceImages();
+      addLog(result.message, "success");
+    } else if (result?.code !== "CANCELED") {
+      addLog(result?.message || "スクショを追加できませんでした。", "error");
+    }
+  } finally {
+    setBusy(false);
+  }
 });
 
 el.taskExport.addEventListener("click", () => {

@@ -83,6 +83,17 @@ export function parseRoadmapMarkdown(markdown, sourceFile = "") {
       if (!text) continue;
 
       if (indent > 0 && lastTask) {
+        const owner = text.match(/^担当\s*[:：]\s*(あなた|User|ユーザー|ChatGPT|Hub)$/i);
+        if (owner) {
+          const value = owner[1].toLowerCase();
+          lastTask.owner =
+            value === "chatgpt" ? "chatgpt" :
+            value === "hub" ? "hub" :
+            "user";
+          completionSection = null;
+          continue;
+        }
+
         lastTask.steps.push(
           text.replace(/^(?:やること|手順|確認|完了の目安)\s*[:：]\s*/, "")
         );
@@ -100,6 +111,7 @@ export function parseRoadmapMarkdown(markdown, sourceFile = "") {
         text,
         done: Boolean(item[2]) && item[2].toLowerCase() === "x",
         explicitCheckbox: Boolean(item[2]),
+        owner: "",
         steps: []
       };
       section.tasks.push(lastTask);

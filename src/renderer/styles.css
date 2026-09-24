@@ -1466,3 +1466,107 @@ h3 {
   color: #dceaf3;
   background: rgba(99, 199, 255, 0.04);
 }
+
+
+.verification-overview {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 12px;
+}
+
+.verification-overview-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.verification-overview-chip,
+.verification-overview-status {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.verification-overview-chip[data-tone="ok"],
+.verification-overview-status[data-tone="ok"] {
+  border-color: rgba(95, 201, 139, 0.38);
+  color: #88ddb0;
+}
+
+.verification-overview-chip[data-tone="warning"],
+.verification-overview-status[data-tone="warning"] {
+  border-color: rgba(241, 189, 103, 0.42);
+  color: #f1bd67;
+}
+
+.verification-overview-chip[data-tone="error"],
+.verification-overview-status[data-tone="error"] {
+  border-color: rgba(238, 116, 116, 0.42);
+  color: #f0a0a0;
+}
+
+.verification-overview-list {
+  display: grid;
+  gap: 7px;
+}
+
+.verification-overview-item {
+  padding: 9px 10px;
+  border: 1px solid rgba(148, 177, 198, 0.16);
+  border-radius: 8px;
+  background: #0d1720;
+}
+
+.verification-overview-item-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 9px;
+}
+
+.verification-overview-item-copy {
+  min-width: 0;
+}
+
+.verification-overview-item-copy span,
+.verification-overview-item-copy strong {
+  display: block;
+}
+
+.verification-overview-item-copy span {
+  margin-bottom: 2px;
+  color: var(--faint);
+  font-size: 8px;
+}
+
+.verification-overview-item-copy strong {
+  color: #dce7ef;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.verification-overview-item p,
+.verification-overview-empty {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.verification-overview-note {
+  overflow-wrap: anywhere;
+  color: #bdcbd5 !important;
+}
+
+@media (max-width: 620px) {
+  .verification-overview-item-top {
+    flex-direction: column;
+  }
+}

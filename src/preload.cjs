@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld("gameDevHub", {
   removeProject: (projectId) => ipcRenderer.invoke("hub:remove-project", projectId),
   setSelectedProject: (projectId) => ipcRenderer.invoke("hub:set-selected-project", projectId),
   setActiveTask: (payload) => ipcRenderer.invoke("hub:set-active-task", payload),
+  saveTaskVerification: (payload) => ipcRenderer.invoke("hub:task-verification-save", payload),
+  clearTaskVerification: (payload) => ipcRenderer.invoke("hub:task-verification-clear", payload),
   listReferenceImages: (projectId) => ipcRenderer.invoke("hub:reference-images-list", projectId),
   addReferenceImages: (projectId) => ipcRenderer.invoke("hub:reference-images-add", projectId),
   removeReferenceImage: (payload) => ipcRenderer.invoke("hub:reference-image-remove", payload),

@@ -1023,7 +1023,7 @@ async function exportChatGptPack(payload) {
     roadmap: tasks,
     activeTask,
     handoff: {
-      goal: "現在選択中のタスクを前へ進める。",
+      goal: "Game内のUser実機確認結果をまとめて評価し、Current TaskとRepositoryを前へ進める。",
       chatgptAction:
         "GitHub Repositoryと共有情報だけで完了できる作業は、説明だけで終わらせずChatGPTがそのままRepositoryへ反映する。必要な文書更新やTask完了更新も含む。",
       userAction:

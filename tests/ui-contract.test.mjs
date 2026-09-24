@@ -75,7 +75,7 @@ test("safe stop explains recovery and keeps local Godot work available", async (
   assert.match(source, /新しく作成/);
   assert.match(source, /Godotがファイルを識別するために作るID用ファイル/);
   assert.match(source, /renderSafetyRecovery/);
-  assert.match(source, /repo\.dirty \|\| !state\?\.network\?\.online/);
+  assert.match(source, /repo\.dirty \|\| \(repo\.ahead \|\| 0\) > 0 \|\| !state\?\.network\?\.online/);
 });
 
 test("task selection shows concrete guidance instead of pretending work started", async () => {

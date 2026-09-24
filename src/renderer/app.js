@@ -24,6 +24,8 @@ const el = {
   safetyRecoveryTitle: document.querySelector("#safety-recovery-title"),
   safetyChangeCount: document.querySelector("#safety-change-count"),
   safetyChangedFiles: document.querySelector("#safety-changed-files"),
+  safetyContinue: document.querySelector("#safety-continue-button"),
+  safetyExport: document.querySelector("#safety-export-button"),
   safetyOpenFolder: document.querySelector("#safety-open-folder-button"),
   safetyRefresh: document.querySelector("#safety-refresh-button"),
   heroStatus: document.querySelector("#hero-status"),
@@ -114,6 +116,8 @@ const actionButtons = [
   el.remove,
   el.exportChatGptPack,
   el.addReferenceImage,
+  el.safetyContinue,
+  el.safetyExport,
   el.safetyOpenFolder,
   el.safetyRefresh,
   el.taskClearSelection,
@@ -337,13 +341,20 @@ function renderActiveTaskGuide(project) {
   el.activeTaskTitle.textContent = activeTask.section + " / " + activeTask.text;
   el.activeTaskSteps.replaceChildren();
 
+  const repo = project?.repository || {};
   const steps = activeTask.steps?.length
     ? activeTask.steps
-    : [
-        "Roadmapにはこのタスクの詳しい手順がまだ書かれていません。",
-        "このタスクを選んだまま「ChatGPT共有パックを作る」を押し、ChatGPTへ送って具体的な作業手順を確認してください。",
-        "作業後はRepositoryの変更を反映し、この画面で「状態を更新」してRoadmapの状態を確認してください。"
-      ];
+    : repo.dirty
+      ? [
+          "このPCのRoadmapには詳しい手順がまだ入っていません。PC側に変更があるため、HubがGitHubの最新版を取り込めていない可能性があります。",
+          "上の「GitHubへの保存待ち」を確認してください。分からなければ「ChatGPTに確認データを作る」を使ってください。",
+          "今すぐゲーム作業を続けるだけなら「このままGodotで続ける」で開発できます。"
+        ]
+      : [
+          "このタスクの詳しい手順がRoadmapにまだ書かれていません。",
+          "「ChatGPT共有パックを作る」を押して、具体的な作業手順を確認してください。",
+          "作業後は「状態を更新」でRoadmapの状態を確認してください。"
+        ];
 
   for (const step of steps) {
     const item = document.createElement("li");
@@ -439,6 +450,31 @@ function renderDevelopmentTasks(project) {
   renderActiveTaskGuide(project);
 }
 
+function changedFileStatusLabel(status) {
+  const value = String(status || "");
+  if (value.includes("?")) return "新しく作成";
+  if (value.includes("D")) return "削除";
+  if (value.includes("R")) return "名前変更";
+  if (value.includes("A")) return "新しく追加";
+  if (value.includes("M")) return "内容が変更";
+  if (value.includes("U")) return "競合あり";
+  return "変更あり";
+}
+
+function changedFileExplanation(filePath) {
+  const value = String(filePath || "");
+
+  if (value === "project.godot") {
+    return "Godotのプロジェクト設定です。Godotの設定変更などで書き換わるため、中身を確認せず消さないでください。";
+  }
+
+  if (/\.gd\.uid$/i.test(value) || /\.uid$/i.test(value)) {
+    return "Godotがファイルを識別するために作るID用ファイルです。Godotが自動で作ることがあります。";
+  }
+
+  return "このPC上でGitHub版と違う状態になっているファイルです。";
+}
+
 function renderSafetyRecovery(project) {
   const repo = project?.repository || {};
   const visible = Boolean(repo.valid && repo.dirty);
@@ -448,30 +484,44 @@ function renderSafetyRecovery(project) {
   if (!visible) return;
 
   el.safetyRecoveryTitle.textContent =
-    repo.changedCount + "件のローカル変更があります";
+    "GitHubにまだ反映されていない変更が" + repo.changedCount + "件あります";
   el.safetyChangeCount.textContent = repo.changedCount + "件";
 
   const files = Array.isArray(repo.changedFiles) ? repo.changedFiles : [];
   if (!files.length) {
-    const item = document.createElement("li");
-    item.textContent = "変更File名を取得できませんでした。フォルダを開いて確認してください。";
+    const item = document.createElement("div");
+    item.className = "changed-file-card";
+    item.textContent = "変更されたファイル名を取得できませんでした。";
     el.safetyChangedFiles.append(item);
     return;
   }
 
   for (const file of files) {
-    const item = document.createElement("li");
-    const status = document.createElement("code");
-    status.textContent = file.status || "?";
-    const name = document.createElement("span");
+    const item = document.createElement("div");
+    item.className = "changed-file-card";
+
+    const header = document.createElement("div");
+    header.className = "changed-file-header";
+
+    const status = document.createElement("span");
+    status.className = "changed-file-status";
+    status.textContent = changedFileStatusLabel(file.status);
+
+    const name = document.createElement("strong");
     name.textContent = file.path || "不明";
-    item.append(status, name);
+
+    const description = document.createElement("p");
+    description.textContent = changedFileExplanation(file.path);
+
+    header.append(status, name);
+    item.append(header, description);
     el.safetyChangedFiles.append(item);
   }
 
   if (repo.changedCount > files.length) {
-    const item = document.createElement("li");
-    item.textContent = "ほか " + (repo.changedCount - files.length) + "件";
+    const item = document.createElement("div");
+    item.className = "changed-file-more";
+    item.textContent = "ほか " + (repo.changedCount - files.length) + "件の変更があります。";
     el.safetyChangedFiles.append(item);
   }
 }
@@ -807,10 +857,32 @@ function requireSelected() {
   return project;
 }
 
+el.safetyContinue.addEventListener("click", () => {
+  const project = requireSelected();
+  if (!project) return;
+  runAction(
+    "Godot起動",
+    () => api.openEditor(project.id),
+    { pickGodotOnMissing: true }
+  );
+});
+
+el.safetyExport.addEventListener("click", () => {
+  const project = requireSelected();
+  if (!project) return;
+  runAction(
+    "ChatGPT確認データ作成",
+    () => api.exportChatGptPack({
+      projectId: project.id,
+      taskId: project.development?.activeTaskId || ""
+    })
+  );
+});
+
 el.safetyOpenFolder.addEventListener("click", () => {
   const project = requireSelected();
   if (!project) return;
-  runAction("変更フォルダ表示", () => api.openFolder(project.id));
+  runAction("フォルダ表示", () => api.openFolder(project.id));
 });
 
 el.safetyRefresh.addEventListener("click", () => runAction("状態再確認", async () => {

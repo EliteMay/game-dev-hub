@@ -1218,3 +1218,18 @@ h3 {
   font-size: 10px;
   line-height: 1.55;
 }
+
+
+.task-owner {
+  display: inline-flex !important;
+  width: fit-content;
+  margin-top: 5px;
+  padding: 2px 7px;
+  border: 1px solid rgba(99, 199, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(99, 199, 255, 0.08);
+  color: #a9dfff !important;
+  font-size: 9px !important;
+  font-weight: 700;
+  letter-spacing: 0;
+}

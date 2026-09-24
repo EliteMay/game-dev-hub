@@ -23,6 +23,8 @@ test("preload exposes operation-specific API only", () => {
   assert.match(preloadSource, /startDevelopment/);
   assert.match(preloadSource, /syncProject/);
   assert.match(preloadSource, /saveRepositoryChanges/);
+  assert.match(preloadSource, /saveTaskVerification/);
+  assert.match(preloadSource, /clearTaskVerification/);
 });
 
 test("desktop foundation uses single-instance and bounded recovery surfaces", () => {

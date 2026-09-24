@@ -171,3 +171,21 @@ test("completed and future roadmap tasks use progressive disclosure", async () =
   assert.match(source, /futureOpenCount/);
   assert.match(source, /visibleTasks = section\.tasks\.filter/);
 });
+
+
+test("ChatGPT panel aggregates all user verification results into one shared pack", async () => {
+  const html = await fs.readFile(new URL("src/renderer/index.html", root), "utf8");
+  const renderer = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
+  const mainSource = await fs.readFile(new URL("src/main.mjs", root), "utf8");
+
+  assert.match(html, /id="verification-overview-counts"/);
+  assert.match(html, /id="verification-overview-list"/);
+  assert.match(html, /確認結果をまとめてChatGPTへ/);
+  assert.match(renderer, /renderVerificationOverview/);
+  assert.match(renderer, /allUserVerificationRows/);
+  assert.match(renderer, /複数タスクを確認したあと/);
+  assert.match(mainSource, /allUserTaskResults/);
+  assert.match(mainSource, /verificationSummary/);
+  assert.match(mainSource, /User実機確認結果まとめ/);
+  assert.match(mainSource, /schemaVersion: 2/);
+});

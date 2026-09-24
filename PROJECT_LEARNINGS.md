@@ -118,3 +118,22 @@
 - Decision: 共有パックへRole boundaryを明記する。GitHub上だけで完了する変更・文書更新・Roadmap更新はChatGPT側が直接実行し、Windows実機・Godot目視・Playtest等だけUserへ依頼する。
 - Storage Decision: 共有パックはUserのDocumentsを散らかさず、App固有Dataの `hub-data/chatgpt-packs` 配下へ保存する。
 - Prevention: AI handoffではState / Next Taskだけでなく、Execution ownership / completion expectation / clarification policyまで伝える。
+
+
+## GL-013 — User担当Taskは「指示」ではなくResult captureまで1 Flowにする
+
+- Date: 2026-09-24
+- Type: UX / Verification
+- Status: Adopted
+- Problem: `担当: あなた` と手順を表示しても、結果をHubへ返せないとUserは自然言語でChatGPTへ説明し直す必要があり、EvidenceもVersionも抜けやすい。
+- Decision: User担当TaskはStepごとに `できた / できなかった / 今は確認できない` を選択し、任意メモ・Screenshot・確認Commit / Godot Versionと一緒にApp Dataへ保存する。共有パックへそのまま含める。
+- Prevention: Human-in-the-loop verificationでは Instruction → Action → Result → Evidence → Handoff まで同じFlowで設計する。
+
+## GL-014 — Markdownの説明Bulletと進捗Taskを同じParserで曖昧にしない
+
+- Date: 2026-09-24
+- Type: Task Model / Parsing
+- Status: Adopted
+- Problem: Top-levelの通常BulletまでTask扱いすると、確認記録や説明文が進捗数へ混ざり、Roadmapの完了率とTask一覧が膨らむ。
+- Decision: Checkboxが存在するRoadmapでは `[ ] / [x]` だけをTracked Taskとする。Checkboxが一切ないLegacy Roadmapのみplain bullet fallbackを残す。
+- Prevention: Progressを表示するDataは明示的なTracked stateだけから計算する。

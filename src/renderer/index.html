@@ -209,7 +209,12 @@
                   <p class="section-kicker">Repository連動</p>
                   <h3>やること</h3>
                 </div>
-                <span class="dev-badge" id="task-progress-badge">確認中</span>
+                <div class="task-heading-actions">
+                  <span class="dev-badge" id="task-progress-badge">確認中</span>
+                  <button class="button button-muted button-small hidden" id="task-toggle-completed-button" type="button">
+                    完了済みを表示
+                  </button>
+                </div>
               </div>
 
               <div class="task-context">
@@ -236,10 +241,46 @@
                   <strong>完了の目安</strong>
                   <p id="active-task-completion"></p>
                 </div>
-                <p class="task-guide-note">
+
+                <section class="task-verification hidden" id="task-verification">
+                  <div class="task-verification-heading">
+                    <div>
+                      <span>あなたの確認結果</span>
+                      <strong>各項目を選んでください</strong>
+                    </div>
+                    <span class="verification-summary-badge" id="task-verification-summary">未確認</span>
+                  </div>
+                  <p class="task-verification-help">
+                    選んだ結果はHubに自動保存され、ChatGPT共有パックにも入ります。
+                  </p>
+                  <div class="verification-step-list" id="task-verification-steps"></div>
+                  <label class="verification-note-field">
+                    <span>気づいたこと・症状（任意）※ Token / Passwordは書かない</span>
+                    <textarea
+                      id="task-verification-note"
+                      maxlength="2000"
+                      rows="3"
+                      placeholder="例: 左右は動くけど上下だけ動かない / 壁をすり抜けた"
+                    ></textarea>
+                  </label>
+                  <div class="verification-evidence">
+                    <button class="button button-muted button-small" id="task-verification-add-image-button" type="button">
+                      スクショを追加
+                    </button>
+                    <button class="button button-muted button-small" id="task-verification-clear-button" type="button">
+                      確認結果をリセット
+                    </button>
+                    <span id="task-verification-saved-state">未保存</span>
+                  </div>
+                </section>
+
+                <p class="task-guide-note" id="task-guide-note">
                   ここで選んだだけでは作業開始・完了にはなりません。実際の作業後、Game RepositoryのRoadmapが更新されるとHubにも反映されます。
                 </p>
                 <div class="task-guide-actions">
+                  <button class="button button-primary button-small hidden" id="task-run-game-button" type="button">
+                    ゲームを起動
+                  </button>
                   <button class="button button-muted button-small" id="task-open-editor-button" type="button">
                     Godotで開く
                   </button>
@@ -250,6 +291,9 @@
               </section>
 
               <div class="task-list" id="development-task-list" aria-live="polite"></div>
+              <button class="task-future-toggle hidden" id="task-toggle-future-button" type="button">
+                今後のタスクを表示
+              </button>
               <p class="dev-empty hidden" id="task-empty">
                 <code>docs/ROADMAP.md</code> / <code>ROADMAP.md</code> / <code>TODO.md</code> があると、ここへ自動表示します。
               </p>

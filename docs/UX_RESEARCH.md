@@ -199,3 +199,60 @@ Push failure
 - Git command名は通常画面へ出さない
 - 高Riskなforce/reset等は機能として提供しない
 - 保存対象一覧と保存メモはConfirmation Dialogで確認する
+
+
+## 2026-09-24 Manual Verification Result Flow Review
+
+### Trigger
+
+User担当のWindows実機確認Taskで「何を確認するか」は表示できるようになったが、確認後に結果を返すUIがなく、Userが別途ChatGPTへ自然言語で説明する必要があった。
+
+### External reference
+
+TestRailはManual test resultでStatusを必須とし、Passed / Failed / Blocked / Retestを持つ。CommentとAttachmentも結果Contextとして扱う。
+- https://support.testrail.com/hc/en-us/articles/15813183376148-Submitting-test-results
+
+BrowserStack Test ManagementはStep単位でPass / Fail / Skip / Blocked / Retestを記録でき、Step結果からTest Case全体のStatusを決める。
+- https://www.browserstack.com/docs/test-management/test-runs/add-a-result
+
+GitHub Markdownでは進捗追跡するTaskを `- [ ]` / `- [x]` で明示する。
+- https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/about-tasklists
+
+### Transfer
+
+- User確認はTask全体の単純なDoneだけでなくStepごとにResultを持つ
+- Failure / Blockedには自由記述MemoとScreenshot Evidenceを添えられる
+- Step結果からTask Summaryを自動算出する
+- Resultには何を確認したかだけでなく、どのCommit / Godot Versionで確認したかを残す
+- Tracked Taskと説明Bulletを明示的に分ける
+
+### Do not copy
+
+- Team QA向けの担当者管理、工数、Defect tracker等は個人用Hubには入れない
+- Status種類を増やしすぎず、User向け表示は「できた / できなかった / 今は確認できない」の3択にする
+- HubのUser確認だけでRoadmapを自動完了にはしない。Repository更新はChatGPT handoff後にEvidenceを見て反映する
+
+### Additional friction found
+
+1. Task手順が「ゲームを起動」なのにTask CardにはGodot Editor起動しかなく、ActionとInstructionが不一致
+2. 完了済みTaskとFuture Phaseが常時大量表示され、現在Taskへ到達しにくい
+3. 通常BulletをTask扱いしたため、説明・確認記録までProgress総数へ混入する
+4. User確認結果にTested commit / Godot Versionが残らず、後から何を確認したEvidenceか曖昧になる
+5. Roadmap手順更新後も古い確認結果を再利用すると誤Evidenceになる
+
+### Adopted flow
+
+```text
+担当: あなた
+→ Task Cardからゲームを起動
+→ 各確認Stepで結果を選ぶ
+   ├─ できた
+   ├─ できなかった
+   └─ 今は確認できない
+→ 必要ならメモ / Screenshot
+→ Hubへ自動保存
+→ 結果入りChatGPT共有パック
+→ ChatGPTがEvidence確認
+→ 必要な修正 / Roadmap更新
+→ Repository同期
+```

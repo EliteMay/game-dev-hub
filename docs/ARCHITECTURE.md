@@ -186,3 +186,26 @@ Documents/Game Dev Hub/ChatGPT Packs/<game>-<timestamp>/
 ```
 
 Roadmap/TODOのTask completionはGame RepositoryがCanonicalです。HubはTask本文や完了状態の第二Source of Truthを持ちません。
+
+
+## Manual Verification State
+
+User担当Taskの実機確認結果はGame Repositoryへ直接書き込まず、App DataへDerived Evidenceとして保存する。
+
+```text
+Roadmap Task (Source of Truth)
+↓ task id + task signature
+hub-data/task-verifications/<project-id>.json
+↓
+Step result / note / tested commit / Godot version / timestamp
+↓
+ChatGPT shared pack
+↓
+ChatGPTがEvidenceとして確認
+↓
+Game Repositoryの修正 / Roadmap completion update
+```
+
+Task signatureはSection / Task text / Owner / Steps / Completion criteriaから作る。Roadmap側の手順が変わってSignatureが変わった場合、保存済みResultはstaleとして再確認対象にする。
+
+Hub verification stateはRoadmap completionの第二Source of Truthではない。

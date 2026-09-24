@@ -13,7 +13,7 @@ import {
   removeReferenceImage
 } from "../src/services/development-workspace.mjs";
 
-test("roadmap parser keeps checked tasks and future bullet tasks", () => {
+test("roadmap parser uses explicit checkboxes when a roadmap contains tracked tasks", () => {
   const parsed = parseRoadmapMarkdown(`
 # Roadmap
 
@@ -22,19 +22,30 @@ test("roadmap parser keeps checked tasks and future bullet tasks", () => {
 - [x] マウスルック
 - [ ] Windows実機確認
 
-## Phase 2 — Mining
+## Notes
+- これは説明用の箇条書き
+- これも進捗には数えない
+`, "docs/ROADMAP.md");
+
+  assert.equal(parsed.available, true);
+  assert.equal(parsed.total, 3);
+  assert.equal(parsed.done, 2);
+  assert.equal(parsed.open, 1);
+  assert.equal(parsed.currentSection, "Phase 1 — Controller");
+  assert.equal(parsed.nextTask.text, "Windows実機確認");
+  assert.equal(parsed.sourceFile, "docs/ROADMAP.md");
+});
+
+test("roadmap parser keeps legacy plain-bullet roadmaps working when no checkbox exists", () => {
+  const parsed = parseRoadmapMarkdown(`
+## Phase 1
 - 岩シーン
 - 採掘処理
 `, "docs/ROADMAP.md");
 
-  assert.equal(parsed.available, true);
-  assert.equal(parsed.total, 5);
-  assert.equal(parsed.done, 2);
-  assert.equal(parsed.open, 3);
-  assert.equal(parsed.currentSection, "Phase 1 — Controller");
-  assert.equal(parsed.nextTask.text, "Windows実機確認");
-  assert.equal(parsed.sections[1].tasks[0].done, false);
-  assert.equal(parsed.sourceFile, "docs/ROADMAP.md");
+  assert.equal(parsed.total, 2);
+  assert.equal(parsed.open, 2);
+  assert.equal(parsed.nextTask.text, "岩シーン");
 });
 
 test("roadmap task IDs remain stable when unrelated lines are inserted", () => {

@@ -21,6 +21,11 @@ import { addProject, loadProjects, removeProject, saveProjects } from "./service
 import { HubError, inspectGit, inspectRepository, prepareProject, saveRepositoryChanges, syncProject } from "./services/repository.mjs";
 import { loadSettings, saveSettings } from "./services/settings.mjs";
 import {
+  clearTaskVerification,
+  loadTaskVerifications,
+  saveTaskVerification
+} from "./services/task-verification.mjs";
+import {
   appendFoundationLog,
   clearFoundationLogs,
   foundationDataPath,
@@ -283,6 +288,8 @@ const LOGGED_IPC_CHANNELS = new Set([
   "hub:diagnostics-export",
   "hub:diagnostics-clear-logs",
   "hub:set-active-task",
+  "hub:task-verification-save",
+  "hub:task-verification-clear",
   "hub:reference-images-add",
   "hub:reference-image-remove",
   "hub:chatgpt-pack-export"
@@ -403,12 +410,17 @@ async function getState() {
           nextTask: null
         };
 
+    const taskVerifications = repository.exists
+      ? await loadTaskVerifications(appDataRoot(), project.id, developmentTasks)
+      : {};
+
     projects.push({
       ...project,
       repository,
       development: {
         tasks: developmentTasks,
-        activeTaskId: settings.activeTaskByProject?.[project.id] || ""
+        activeTaskId: settings.activeTaskByProject?.[project.id] || "",
+        verifications: taskVerifications
       }
     });
   }
@@ -732,7 +744,11 @@ async function setSelectedProject(projectId) {
 
 function flattenTasks(tasks) {
   return (tasks?.sections || []).flatMap((section) =>
-    section.tasks.map((task) => ({ ...task, section: section.title }))
+    section.tasks.map((task) => ({
+      ...task,
+      section: section.title,
+      completionCriteria: section.completionCriteria || ""
+    }))
   );
 }
 
@@ -758,6 +774,77 @@ async function setActiveTask(payload) {
   });
 
   return { ok: true, taskId };
+}
+
+
+async function saveManualTaskVerification(payload) {
+  if (!payload || typeof payload !== "object") {
+    throw new HubError("INVALID_INPUT", "確認結果の指定が正しくありません。");
+  }
+
+  const project = await findProject(payload.projectId);
+  const taskId = typeof payload.taskId === "string" ? payload.taskId : "";
+  const tasks = await loadDevelopmentTasks(project);
+  const task = flattenTasks(tasks).find((candidate) => candidate.id === taskId && !candidate.done);
+
+  if (!task) {
+    throw new HubError("TASK_NOT_FOUND", "そのタスクは現在のRoadmapにありません。最新版にして再確認してください。");
+  }
+
+  if (task.owner !== "user") {
+    throw new HubError("TASK_OWNER_MISMATCH", "この確認結果は「担当: あなた」のタスクだけに保存できます。");
+  }
+
+  const repository = await inspectRepository(project);
+  const settings = await getSettings();
+  const godot = await detectGodot(settings.godotPath);
+
+  const verification = await saveTaskVerification(
+    appDataRoot(),
+    project.id,
+    task,
+    payload,
+    {
+      repositoryCommit: repository.commit || "",
+      repositoryBranch: repository.branch || "",
+      godotVersion: godot.version || "",
+      appVersion: app.getVersion()
+    }
+  );
+
+  const message =
+    verification.overall === "passed" ? "確認結果を保存しました。すべて「できた」です。" :
+    verification.overall === "failed" ? "確認結果を保存しました。「できなかった」項目があります。" :
+    verification.overall === "blocked" ? "確認結果を保存しました。「今は確認できない」項目があります。" :
+    "確認途中の結果を保存しました。";
+
+  return {
+    ok: true,
+    message,
+    verification,
+    state: await getState()
+  };
+}
+
+async function clearManualTaskVerification(payload) {
+  if (!payload || typeof payload !== "object") {
+    throw new HubError("INVALID_INPUT", "確認結果の指定が正しくありません。");
+  }
+
+  const project = await findProject(payload.projectId);
+  const taskId = typeof payload.taskId === "string" ? payload.taskId : "";
+
+  if (!taskId) {
+    throw new HubError("INVALID_INPUT", "確認結果を消すタスクが指定されていません。");
+  }
+
+  await clearTaskVerification(appDataRoot(), project.id, taskId);
+
+  return {
+    ok: true,
+    message: "このタスクの確認結果をリセットしました。",
+    state: await getState()
+  };
 }
 
 async function referenceImagesState(projectId) {
@@ -861,6 +948,10 @@ async function exportChatGptPack(payload) {
     allTasks.find((task) => task.id === activeTaskId && !task.done) ||
     tasks.nextTask ||
     null;
+  const taskVerifications = await loadTaskVerifications(appDataRoot(), project.id, tasks);
+  const activeVerification = activeTask
+    ? taskVerifications[activeTask.id] || null
+    : null;
 
   const capturedAt = new Date();
   const stamp = capturedAt.toISOString().replace(/[:.]/g, "-");
@@ -921,7 +1012,8 @@ async function exportChatGptPack(payload) {
     },
     verification: {
       source: "Game Dev Hub runtime snapshot",
-      note: "Gameの実プレイ結果は画像やUser messageと併せて判断する。JSONだけでPlaytest済みとは扱わない。"
+      note: "Gameの実プレイ結果はUserがHubで選択した確認結果、画像、User messageをEvidenceとして判断する。",
+      activeTaskResult: activeVerification
     },
     diagnostics: {
       network: diagnostics.network,
@@ -935,9 +1027,11 @@ async function exportChatGptPack(payload) {
       referenceImages
     },
     privacy: {
-      secretsIncluded: false,
+      automaticSecretsIncluded: false,
+      userEnteredVerificationNoteIncluded: Boolean(activeVerification?.note),
       sourceFileContentsIncluded: false,
-      homePathRedacted: true
+      homePathRedacted: true,
+      note: "HubはToken/Secretを自動収集しません。ただしUserが確認メモへ入力した文字列はそのまま共有パックへ含まれます。"
     }
   };
 
@@ -968,8 +1062,12 @@ async function exportChatGptPack(payload) {
     "- ChatGPT側で今すぐRepositoryへ反映できる変更",
     "",
     activeTask ? "現在選択中のタスク: " + activeTask.section + " / " + activeTask.text : "現在選択中のタスク: 未選択",
+    activeVerification
+      ? "User確認結果: " + activeVerification.overall + " / " + activeVerification.steps.map((step) => step.status).join(", ")
+      : "User確認結果: なし",
+    activeVerification?.note ? "Userメモ: " + activeVerification.note : "",
     "",
-    "※ JSONにはTokenやFile本文を入れていません。必要なCodeはGitHub RepositoryをSource of Truthとして確認してください。"
+    "※ HubはTokenやFile本文を自動収集しません。User確認メモへ入力した文字列はそのままJSONへ入ります。必要なCodeはGitHub RepositoryをSource of Truthとして確認してください。"
   ];
   await fs.writeFile(path.join(packRoot, "CHATGPTに送る.txt"), promptLines.join("\n") + "\n", "utf8");
 
@@ -1269,6 +1367,8 @@ if (!singleInstanceLock) {
     registerIpc("hub:remove-project", unregisterProject);
     registerIpc("hub:set-selected-project", setSelectedProject);
     registerIpc("hub:set-active-task", setActiveTask);
+    registerIpc("hub:task-verification-save", saveManualTaskVerification);
+    registerIpc("hub:task-verification-clear", clearManualTaskVerification);
     registerIpc("hub:reference-images-list", referenceImagesState);
     registerIpc("hub:reference-images-add", addProjectReferenceImages);
     registerIpc("hub:reference-image-remove", removeProjectReferenceImage);

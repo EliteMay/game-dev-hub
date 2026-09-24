@@ -173,7 +173,7 @@ export async function syncProject(project) {
   if (state.dirty) {
     throw new HubError(
       "DIRTY_WORKTREE",
-      "Localに未Commitの変更があります。変更を保護するためGitHub同期だけを停止しています。Godotでの作業は続けられます。同期したい場合は、必要な変更をCommitするか不要な変更を手動で元に戻したあと、状態を更新してください。"
+      "PC側に未保存の変更があります。変更を守るため「最新版にする」だけ停止しています。下の「GitHubに保存」で変更を残したまま保存するか、そのままGodotで作業を続けられます。"
     );
   }
 

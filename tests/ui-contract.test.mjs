@@ -148,7 +148,9 @@ test("user-owned tasks expose step-by-step verification results and direct game 
   assert.match(html, /id="task-verification-steps"/);
   assert.match(html, /id="task-verification-note"/);
   assert.match(html, /id="task-run-game-button"/);
-  assert.match(html, /できた/);
+  assert.match(source, /できた/);
+  assert.match(source, /できなかった/);
+  assert.match(source, /今は確認できない/);
   assert.match(source, /saveTaskVerification/);
   assert.match(source, /clearTaskVerification/);
   assert.match(source, /saveVerificationChoice/);

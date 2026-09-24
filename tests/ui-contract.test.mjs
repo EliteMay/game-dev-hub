@@ -123,7 +123,7 @@ test("ChatGPT pack uses app data and tells ChatGPT to execute repository-side wo
   );
   assert.match(mainSource, /User実機確認結果まとめ/);
   assert.match(mainSource, /そのままRepositoryへ反映してください/);
-  assert.match(mainSource, /Userにしかできない確認だけをUserへ依頼してください/);
+  assert.match(mainSource, /Userに必要最小限の操作だけ案内してください/);
   assert.match(mainSource, /chatgptAction/);
 });
 

@@ -71,6 +71,7 @@ Hub側へ各ゲームの詳細仕様を複製しない。
 - User確認TaskにはTask Card内からGame起動とScreenshot追加のActionを出す
 - ChatGPT共有パックへ選択中TaskのUser確認結果とメモを含める
 - 完了済みTaskは初期状態で折りたたみ、必要時だけ表示できる
+- Current Phase以降のFuture Taskは初期状態で折りたたみ、必要時だけ表示できる
 - Checkbox Taskが1件以上あるRoadmapではTop-level通常Bulletを進捗Taskに数えない。Checkboxが一切ないLegacy Roadmapだけplain bullet fallbackを許可する
 - 共有JSONはRepository slug/commit/branch/dirty状態、Roadmap、作業中Task、直近Error/Logを含める
 - 共有JSONはCredential/Token/Secret/Source File本文を含めず、Home PathをRedactする
@@ -233,3 +234,4 @@ v0.1は、Windows実機で次を確認して初めて完成扱いとする。
 37. Roadmap手順変更後に古いUser確認結果をそのまま有効扱いしない
 38. Checkbox Roadmapの説明BulletがTask進捗へ混入しない
 39. 完了済みTaskを折りたたんだ状態でも現在の未完了Taskへ到達できる
+40. Future Phaseを折りたたんだ状態でもCurrent PhaseのTaskへ集中でき、必要時にFuture Taskを展開できる

@@ -57,6 +57,7 @@ const el = {
   taskEmpty: document.querySelector("#task-empty"),
   activeTaskGuide: document.querySelector("#active-task-guide"),
   activeTaskTitle: document.querySelector("#active-task-title"),
+  activeTaskOwner: document.querySelector("#active-task-owner"),
   activeTaskSteps: document.querySelector("#active-task-steps"),
   activeTaskCompletion: document.querySelector("#active-task-completion"),
   taskClearSelection: document.querySelector("#task-clear-selection-button"),
@@ -343,6 +344,8 @@ function renderActiveTaskGuide(project) {
   if (!activeTask) {
     el.activeTaskGuide.classList.add("hidden");
     el.activeTaskTitle.textContent = "タスク未選択";
+    el.activeTaskOwner.classList.add("hidden");
+    el.activeTaskOwner.textContent = "";
     el.activeTaskSteps.replaceChildren();
     el.activeTaskCompletion.textContent = "";
     return;
@@ -350,6 +353,15 @@ function renderActiveTaskGuide(project) {
 
   el.activeTaskGuide.classList.remove("hidden");
   el.activeTaskTitle.textContent = activeTask.section + " / " + activeTask.text;
+
+  const ownerLabel =
+    activeTask.owner === "chatgpt" ? "担当: ChatGPT" :
+    activeTask.owner === "user" ? "担当: あなた" :
+    activeTask.owner === "hub" ? "担当: Game Dev Hub" :
+    "";
+  el.activeTaskOwner.textContent = ownerLabel;
+  el.activeTaskOwner.classList.toggle("hidden", !ownerLabel);
+
   el.activeTaskSteps.replaceChildren();
 
   const repo = project?.repository || {};
@@ -427,13 +439,19 @@ function renderDevelopmentTasks(project) {
       text.textContent = task.text;
 
       const meta = document.createElement("small");
-      meta.textContent = task.done
+      const ownerText =
+        task.owner === "chatgpt" ? "ChatGPT担当" :
+        task.owner === "user" ? "あなた担当" :
+        task.owner === "hub" ? "Hub担当" :
+        "";
+      const baseMeta = task.done
         ? "完了"
         : task.id === activeTaskId
           ? "今やるタスク / 上に手順を表示"
           : (!activeTaskId && tasks.nextTask?.id === task.id
               ? "次の候補 / クリックで手順を見る"
               : "クリックで手順を見る");
+      meta.textContent = ownerText ? ownerText + " / " + baseMeta : baseMeta;
 
       copy.append(text, meta);
       item.append(mark, copy);

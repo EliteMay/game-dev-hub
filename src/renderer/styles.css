@@ -1233,3 +1233,215 @@ h3 {
   font-weight: 700;
   letter-spacing: 0;
 }
+
+
+.task-heading-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.task-verification {
+  margin-top: 12px;
+  padding: 11px;
+  border: 1px solid rgba(99, 199, 255, 0.22);
+  border-radius: 9px;
+  background: #0c1821;
+}
+
+.task-verification-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.task-verification-heading > div > span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+}
+
+.task-verification-heading strong {
+  color: var(--text);
+  font-size: 11px;
+}
+
+.task-verification-help {
+  margin: 6px 0 10px;
+  color: var(--faint);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.verification-summary-badge {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.verification-summary-badge[data-tone="ok"] {
+  border-color: rgba(95, 201, 139, 0.38);
+  color: #88ddb0;
+}
+
+.verification-summary-badge[data-tone="warning"] {
+  border-color: rgba(241, 189, 103, 0.42);
+  color: #f1bd67;
+}
+
+.verification-summary-badge[data-tone="error"] {
+  border-color: rgba(238, 116, 116, 0.42);
+  color: #f09a9a;
+}
+
+.verification-step-list {
+  display: grid;
+  gap: 8px;
+}
+
+.verification-step {
+  padding: 9px;
+  border: 1px solid rgba(148, 177, 198, 0.16);
+  border-radius: 8px;
+  background: #0b131a;
+}
+
+.verification-step-copy {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 7px;
+  align-items: start;
+}
+
+.verification-step-copy > span {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #132532;
+  color: #a9dfff;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.verification-step-copy strong {
+  color: #dbe6ee;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.verification-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  padding-left: 29px;
+}
+
+.verification-choice {
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid #2a4151;
+  border-radius: 7px;
+  background: #101b24;
+  color: #aebdca;
+  cursor: pointer;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.verification-choice:hover {
+  border-color: #4d7088;
+  color: #eef6fb;
+}
+
+.verification-choice[data-status="passed"][aria-pressed="true"] {
+  border-color: rgba(95, 201, 139, 0.58);
+  background: rgba(95, 201, 139, 0.12);
+  color: #8ee0b5;
+}
+
+.verification-choice[data-status="failed"][aria-pressed="true"] {
+  border-color: rgba(238, 116, 116, 0.58);
+  background: rgba(238, 116, 116, 0.12);
+  color: #f0a0a0;
+}
+
+.verification-choice[data-status="blocked"][aria-pressed="true"] {
+  border-color: rgba(241, 189, 103, 0.58);
+  background: rgba(241, 189, 103, 0.12);
+  color: #f1bd67;
+}
+
+.verification-note-field {
+  display: grid;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.verification-note-field > span {
+  color: #c8d4dd;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.verification-note-field textarea {
+  width: 100%;
+  min-height: 66px;
+  resize: vertical;
+  padding: 8px 9px;
+  border: 1px solid #263b4a;
+  border-radius: 7px;
+  background: #0a1117;
+  color: var(--text);
+  font: inherit;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.verification-note-field textarea:focus {
+  border-color: #4b7896;
+  outline: none;
+}
+
+.verification-evidence {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-top: 9px;
+}
+
+.verification-evidence > span {
+  margin-left: auto;
+  color: var(--faint);
+  font-size: 9px;
+}
+
+@media (max-width: 900px) {
+  .task-verification-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .verification-choices {
+    padding-left: 0;
+  }
+
+  .verification-evidence > span {
+    width: 100%;
+    margin-left: 0;
+  }
+}

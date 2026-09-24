@@ -370,7 +370,7 @@ function allUserVerificationRows(project) {
 
   return (tasks.sections || []).flatMap((section) =>
     (section.tasks || [])
-      .filter((task) => task.owner === "user")
+      .filter((task) => task.owner === "user" && !task.done)
       .map((task) => ({
         ...task,
         section: section.title,
@@ -513,6 +513,7 @@ function renderVerificationOverview(project) {
 }
 
 function verificationSummary(overall) {
+  if (overall === "completed") return { label: "Roadmap完了済み", tone: "ok" };
   if (overall === "passed") return { label: "すべてできた", tone: "ok" };
   if (overall === "failed") return { label: "できなかった項目あり", tone: "error" };
   if (overall === "blocked") return { label: "確認できない項目あり", tone: "warning" };
@@ -523,6 +524,7 @@ function verificationSummary(overall) {
 
 function verificationMetaLabel(verification) {
   if (!verification) return "";
+  if (verification.overall === "completed") return "完了済み";
   if (verification.overall === "passed") return "確認OK";
   if (verification.overall === "failed") return "問題あり";
   if (verification.overall === "blocked") return "確認できない";

@@ -287,3 +287,24 @@ Task Cを確認 → Hubへ保存
 ### Rationale
 
 確認のたびにAIへ送るとContext switchingと操作回数が増える。ResultはLocalにDurable保存されているため、複数確認後にBatchしてもEvidenceを失わない。
+
+
+## 2026-09-24 Completed Verification Stale False Positive
+
+### Trigger
+
+Phase 1のUser実機確認をRoadmapへ完了反映した後、同じTask配下へ「確認結果: 2/2できた」のような記録を追記したことでTask signatureが変わり、Hubが完了済み3件を「手順変更・再確認」と表示した。
+
+### Finding
+
+Roadmapの `[x]` はGame RepositoryのCanonical completionであり、Hub側のDerived verification stateがそれを再確認状態へ戻してはいけない。
+
+### Decision
+
+- `owner=user && done=false` だけを右側ChatGPT連携のActionable verification一覧へ表示する
+- `done=true` のTask resultは `completed` として扱う
+- completed Taskはsignature差分があってもstaleにしない
+- 再確認が必要な場合はRoadmap authorがTaskを明示的に `[ ]` へ戻す
+- Shared packにはCompleted taskをHistoryとして残せるが、Userへの再確認依頼には含めない
+
+これにより「完了記録を追記したせいで再確認」という循環を防ぐ。

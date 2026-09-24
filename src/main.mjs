@@ -1027,9 +1027,11 @@ async function exportChatGptPack(payload) {
       referenceImages
     },
     privacy: {
-      secretsIncluded: false,
+      automaticSecretsIncluded: false,
+      userEnteredVerificationNoteIncluded: Boolean(activeVerification?.note),
       sourceFileContentsIncluded: false,
-      homePathRedacted: true
+      homePathRedacted: true,
+      note: "HubはToken/Secretを自動収集しません。ただしUserが確認メモへ入力した文字列はそのまま共有パックへ含まれます。"
     }
   };
 
@@ -1065,7 +1067,7 @@ async function exportChatGptPack(payload) {
       : "User確認結果: なし",
     activeVerification?.note ? "Userメモ: " + activeVerification.note : "",
     "",
-    "※ JSONにはTokenやFile本文を入れていません。必要なCodeはGitHub RepositoryをSource of Truthとして確認してください。"
+    "※ HubはTokenやFile本文を自動収集しません。User確認メモへ入力した文字列はそのままJSONへ入ります。必要なCodeはGitHub RepositoryをSource of Truthとして確認してください。"
   ];
   await fs.writeFile(path.join(packRoot, "CHATGPTに送る.txt"), promptLines.join("\n") + "\n", "utf8");
 

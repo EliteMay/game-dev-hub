@@ -107,3 +107,14 @@
 - Decision: 明示確認付きの「GitHubに保存」でCurrent worktreeをLocal Commitへ保存し、通常Merge + PushまでHubが扱う。Push失敗時はLocal Commitを保持して再試行可能にする。
 - Safety Boundary: reset / clean / rebase / force pushは禁止。秘密情報らしいFileはstage前に停止し、CredentialはHubへ保存しない。
 - Prevention: Git内部状態を表示するだけでRecovery完了とせず、初心者が同じApp内で安全に完了できるHappy PathとFailure recoveryを持つ。
+
+
+## GL-012 — AI Handoffは「次を教える」ではなく「誰が実行するか」まで渡す
+
+- Date: 2026-09-24
+- Type: AI Handoff / Workflow
+- Status: Adopted
+- Problem: 共有パックがRepository状態と「次の変更」を求めるだけだと、ChatGPTがRepositoryへ直接反映できるTaskでも説明だけ返し、Userへ余分な操作を戻すことがある。
+- Decision: 共有パックへRole boundaryを明記する。GitHub上だけで完了する変更・文書更新・Roadmap更新はChatGPT側が直接実行し、Windows実機・Godot目視・Playtest等だけUserへ依頼する。
+- Storage Decision: 共有パックはUserのDocumentsを散らかさず、App固有Dataの `hub-data/chatgpt-packs` 配下へ保存する。
+- Prevention: AI handoffではState / Next Taskだけでなく、Execution ownership / completion expectation / clarification policyまで伝える。

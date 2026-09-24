@@ -235,7 +235,7 @@ GitHub Markdownでは進捗追跡するTaskを `- [ ]` / `- [x]` で明示する
 ### Additional friction found
 
 1. Task手順が「ゲームを起動」なのにTask CardにはGodot Editor起動しかなく、ActionとInstructionが不一致
-2. 完了済みTaskが常時大量表示され、現在Taskへ到達しにくい
+2. 完了済みTaskとFuture Phaseが常時大量表示され、現在Taskへ到達しにくい
 3. 通常BulletをTask扱いしたため、説明・確認記録までProgress総数へ混入する
 4. User確認結果にTested commit / Godot Versionが残らず、後から何を確認したEvidenceか曖昧になる
 5. Roadmap手順更新後も古い確認結果を再利用すると誤Evidenceになる

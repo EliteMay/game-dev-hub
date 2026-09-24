@@ -137,3 +137,13 @@
 - Problem: Top-levelの通常BulletまでTask扱いすると、確認記録や説明文が進捗数へ混ざり、Roadmapの完了率とTask一覧が膨らむ。
 - Decision: Checkboxが存在するRoadmapでは `[ ] / [x]` だけをTracked Taskとする。Checkboxが一切ないLegacy Roadmapのみplain bullet fallbackを残す。
 - Prevention: Progressを表示するDataは明示的なTracked stateだけから計算する。
+
+
+## GL-015 — Human verificationはTaskごとに送らずProject単位でBatch handoffする
+
+- Date: 2026-09-24
+- Type: UX / AI Handoff
+- Status: Adopted
+- Problem: Step resultをTaskごとに保存できても、TaskごとにChatGPTへ共有させるとUserは同じFlowを何度も繰り返すことになり、Phase単位の確認が分断される。
+- Decision: 各TaskではResult captureだけ行い、右側のChatGPT連携PanelへGame内のUser確認結果を集約する。共有Packは全User Task結果を1回で含める。
+- Prevention: Human verificationのCapture頻度とAI handoff頻度を分離する。Captureは細かく、HandoffはProject/Phase単位でまとめる。

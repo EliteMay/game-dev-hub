@@ -209,3 +209,24 @@ Game Repositoryの修正 / Roadmap completion update
 Task signatureはSection / Task text / Owner / Steps / Completion criteriaから作る。Roadmap側の手順が変わってSignatureが変わった場合、保存済みResultはstaleとして再確認対象にする。
 
 Hub verification stateはRoadmap completionの第二Source of Truthではない。
+
+
+## Verification Batch Handoff
+
+Task verification stateはTask単位で保存するが、ChatGPT共有Pack生成時はCurrent Roadmapにある全 `owner=user` Taskを集約する。
+
+```text
+task-verifications/<project>.json
++
+Current Roadmap user-owned tasks
+↓
+allUserTaskResults[]
+↓
+verification.summary
+↓
+ChatGPT panel preview
+↓
+1 shared pack / 1 handoff
+```
+
+共有PackはActive Task Resultだけに依存せず、未確認Taskも `result: null` として含める。これによりChatGPTは「できた・問題あり・未確認」をGame単位でまとめて判断できる。

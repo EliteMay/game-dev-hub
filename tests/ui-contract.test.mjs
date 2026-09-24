@@ -121,9 +121,9 @@ test("ChatGPT pack uses app data and tells ChatGPT to execute repository-side wo
     mainSource,
     /app\.getPath\("documents"\),\s*"Game Dev Hub",\s*"ChatGPT Packs"/
   );
-  assert.match(mainSource, /現在選択中のタスクを最優先で進めてください/);
+  assert.match(mainSource, /User実機確認結果まとめ/);
   assert.match(mainSource, /そのままRepositoryへ反映してください/);
-  assert.match(mainSource, /Userにしかできない確認だけをUserへ依頼してください/);
+  assert.match(mainSource, /Userに必要最小限の操作だけ案内してください/);
   assert.match(mainSource, /chatgptAction/);
 });
 
@@ -170,4 +170,22 @@ test("completed and future roadmap tasks use progressive disclosure", async () =
   assert.match(source, /今後のタスクを表示/);
   assert.match(source, /futureOpenCount/);
   assert.match(source, /visibleTasks = section\.tasks\.filter/);
+});
+
+
+test("ChatGPT panel aggregates all user verification results into one shared pack", async () => {
+  const html = await fs.readFile(new URL("src/renderer/index.html", root), "utf8");
+  const renderer = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
+  const mainSource = await fs.readFile(new URL("src/main.mjs", root), "utf8");
+
+  assert.match(html, /id="verification-overview-counts"/);
+  assert.match(html, /id="verification-overview-list"/);
+  assert.match(html, /確認結果をまとめてChatGPTへ/);
+  assert.match(renderer, /renderVerificationOverview/);
+  assert.match(renderer, /allUserVerificationRows/);
+  assert.match(renderer, /複数タスクを確認したあと/);
+  assert.match(mainSource, /allUserTaskResults/);
+  assert.match(mainSource, /verificationSummary/);
+  assert.match(mainSource, /User実機確認結果まとめ/);
+  assert.match(mainSource, /schemaVersion: 2/);
 });

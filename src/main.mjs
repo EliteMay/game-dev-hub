@@ -952,6 +952,27 @@ async function exportChatGptPack(payload) {
   const activeVerification = activeTask
     ? taskVerifications[activeTask.id] || null
     : null;
+  const allUserTaskResults = allTasks
+    .filter((task) => task.owner === "user")
+    .map((task) => ({
+      taskId: task.id,
+      section: task.section,
+      text: task.text,
+      doneInRoadmap: task.done === true,
+      completionCriteria: task.completionCriteria || "",
+      result: taskVerifications[task.id] || null
+    }));
+
+  const verificationSummary = {
+    totalUserTasks: allUserTaskResults.length,
+    recorded: allUserTaskResults.filter((item) => item.result && item.result.overall !== "untested").length,
+    passed: allUserTaskResults.filter((item) => item.result?.overall === "passed").length,
+    failed: allUserTaskResults.filter((item) => item.result?.overall === "failed").length,
+    blocked: allUserTaskResults.filter((item) => item.result?.overall === "blocked").length,
+    inProgress: allUserTaskResults.filter((item) => item.result?.overall === "in-progress").length,
+    stale: allUserTaskResults.filter((item) => item.result?.overall === "stale").length,
+    untested: allUserTaskResults.filter((item) => !item.result || item.result.overall === "untested").length
+  };
 
   const capturedAt = new Date();
   const stamp = capturedAt.toISOString().replace(/[:.]/g, "-");
@@ -973,10 +994,10 @@ async function exportChatGptPack(payload) {
   const homePath = app.getPath("home");
 
   const pack = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     kind: "game-dev-hub-chatgpt-pack",
     capturedAt: capturedAt.toISOString(),
-    purpose: "このJSONと同じFolderの画像をChatGPTへ添付し、現在のGame開発状態を共有する。",
+    purpose: "このゲームで保存したUser実機確認結果を全部まとめ、現在のGame開発状態と一緒にChatGPTへ共有する。",
     app: {
       name: "Game Dev Hub",
       version: app.getVersion()
@@ -1002,7 +1023,7 @@ async function exportChatGptPack(payload) {
     roadmap: tasks,
     activeTask,
     handoff: {
-      goal: "現在選択中のタスクを前へ進める。",
+      goal: "Game内のUser実機確認結果をまとめて評価し、Current TaskとRepositoryを前へ進める。",
       chatgptAction:
         "GitHub Repositoryと共有情報だけで完了できる作業は、説明だけで終わらせずChatGPTがそのままRepositoryへ反映する。必要な文書更新やTask完了更新も含む。",
       userAction:
@@ -1013,6 +1034,8 @@ async function exportChatGptPack(payload) {
     verification: {
       source: "Game Dev Hub runtime snapshot",
       note: "Gameの実プレイ結果はUserがHubで選択した確認結果、画像、User messageをEvidenceとして判断する。",
+      summary: verificationSummary,
+      allUserTaskResults,
       activeTaskResult: activeVerification
     },
     diagnostics: {
@@ -1028,7 +1051,7 @@ async function exportChatGptPack(payload) {
     },
     privacy: {
       automaticSecretsIncluded: false,
-      userEnteredVerificationNoteIncluded: Boolean(activeVerification?.note),
+      userEnteredVerificationNoteIncluded: allUserTaskResults.some((item) => Boolean(item.result?.note)),
       sourceFileContentsIncluded: false,
       homePathRedacted: true,
       note: "HubはToken/Secretを自動収集しません。ただしUserが確認メモへ入力した文字列はそのまま共有パックへ含まれます。"
@@ -1041,31 +1064,53 @@ async function exportChatGptPack(payload) {
     "utf8"
   );
 
+  const verificationStatusLabel = (status) => {
+    if (status === "passed") return "できた";
+    if (status === "failed") return "できなかった項目あり";
+    if (status === "blocked") return "確認できない項目あり";
+    if (status === "in-progress") return "確認途中";
+    if (status === "stale") return "再確認が必要";
+    return "未確認";
+  };
+
+  const verificationStepStatusLabel = (status) => {
+    if (status === "passed") return "できた";
+    if (status === "failed") return "できなかった";
+    if (status === "blocked") return "今は確認できない";
+    return "未選択";
+  };
+
+  const verificationLines = allUserTaskResults.map((item) => {
+    const status = verificationStatusLabel(item.result?.overall || "untested");
+    const note = item.result?.note ? " / メモ: " + item.result.note : "";
+    const steps = item.result?.steps?.length
+      ? " / " + item.result.steps.map((step) => verificationStepStatusLabel(step.status)).join(", ")
+      : "";
+    return "- " + item.section + " / " + item.text + ": " + status + steps + note;
+  });
+
   const promptLines = [
-    "この共有パックは、現在選択中のタスクをChatGPTと続けるための引き継ぎです。",
+    "この共有パックは、このゲームで保存した実機確認結果を全部まとめたChatGPT引き継ぎです。",
     "",
     "ChatGPTへの依頼:",
-    activeTask?.owner === "chatgpt"
-      ? "- このタスクはChatGPT担当です。共有情報とRepositoryで実行できる作業をそのまま進めてください。"
-      : activeTask?.owner === "user"
-        ? "- このタスクはUser担当の実機確認です。必要な操作だけ具体的に案内し、結果を待ってください。"
-        : "- 現在選択中のタスクを最優先で進めてください。",
+    "- 下の「User実機確認結果」をまとめて確認してください。",
+    "- できた結果はEvidenceとして扱い、必要ならRoadmapの完了状態をRepositoryへ反映してください。",
+    "- できなかった結果がある場合は、該当TaskのRepository実装を調査して修正してください。",
+    "- 確認できない / 再確認が必要な項目は、Userに必要最小限の操作だけ案内してください。",
     "- GitHub Repositoryと共有情報だけで完了できる作業は、手順を説明するだけで終わらせず、そのままRepositoryへ反映してください。",
     "- 必要ならREADME / Roadmap /仕様書など関連文書も実装と一致するよう更新してください。",
-    "- Windows実機操作、Godot上の目視確認、プレイ結果など、Userにしかできない確認だけをUserへ依頼してください。",
-    "- 共有情報とRepositoryから合理的に判断できることは、不要に聞き返さず進めてください。",
     "",
-    "確認してほしい内容:",
-    "- 現在のRepository状態が開発を続けられる状態か",
-    "- 選択中タスクのどこまで完了しているか",
-    "- 添付画像から確認できる実装・見た目・不具合",
-    "- ChatGPT側で今すぐRepositoryへ反映できる変更",
+    "User実機確認結果まとめ:",
+    verificationLines.length ? verificationLines.join("\n") : "- まだ確認結果はありません。",
     "",
     activeTask ? "現在選択中のタスク: " + activeTask.section + " / " + activeTask.text : "現在選択中のタスク: 未選択",
-    activeVerification
-      ? "User確認結果: " + activeVerification.overall + " / " + activeVerification.steps.map((step) => step.status).join(", ")
-      : "User確認結果: なし",
-    activeVerification?.note ? "Userメモ: " + activeVerification.note : "",
+    "",
+    "確認してほしい内容:",
+    "- User実機確認結果をまとめて評価する",
+    "- Repository状態とRoadmapを確認する",
+    "- 問題があるTaskは原因を調査して修正する",
+    "- できたTaskはEvidenceが十分ならRoadmapへ反映する",
+    "- 添付画像から確認できる実装・見た目・不具合も確認する",
     "",
     "※ HubはTokenやFile本文を自動収集しません。User確認メモへ入力した文字列はそのままJSONへ入ります。必要なCodeはGitHub RepositoryをSource of Truthとして確認してください。"
   ];
@@ -1081,7 +1126,9 @@ async function exportChatGptPack(payload) {
 
   return {
     ok: true,
-    message: "ChatGPT共有パックをGame Dev Hubのアプリデータ内へ作成しました。開いたFolderのJSONと画像をそのまま送れます。",
+    message: verificationSummary.recorded > 0
+      ? verificationSummary.recorded + "件の確認結果をまとめたChatGPT共有パックを作成しました。"
+      : "現在状態のChatGPT共有パックを作成しました。",
     fileCount: 2 + referenceImages.length + (mainWindow && !mainWindow.isDestroyed() ? 1 : 0)
   };
 }

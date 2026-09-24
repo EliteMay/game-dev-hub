@@ -256,3 +256,34 @@ GitHub Markdownでは進捗追跡するTaskを `- [ ]` / `- [x]` で明示する
 → 必要な修正 / Roadmap更新
 → Repository同期
 ```
+
+
+## 2026-09-24 Verification Batch Handoff
+
+### Trigger
+
+Step単位のResult captureを実装した後、Userから「これ一個ずつ結果送らなあかんの？」というFeedbackがあった。Taskごとの確認UIは必要だが、AI handoffまでTaskごとに分ける必要はない。
+
+### Decision
+
+```text
+Task Aを確認 → Hubへ保存
+Task Bを確認 → Hubへ保存
+Task Cを確認 → Hubへ保存
+        ↓
+右側 ChatGPT連携
+        ↓
+全結果を一覧確認
+        ↓
+1回の共有パック
+```
+
+- Capture granularity: Step / Task
+- Handoff granularity: Project内の全User verification result
+- Current active taskは補助Contextとして残す
+- Individual User Task cardのShare CTAはPrimary Flowから外す
+- ChatGPT panelで未確認Taskも含め全体状況を見えるようにする
+
+### Rationale
+
+確認のたびにAIへ送るとContext switchingと操作回数が増える。ResultはLocalにDurable保存されているため、複数確認後にBatchしてもEvidenceを失わない。

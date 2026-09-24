@@ -69,7 +69,10 @@ Hub側へ各ゲームの詳細仕様を複製しない。
 - User確認結果はTask IDだけでなく手順Signatureと結び付け、Roadmap手順変更時はstaleとして再確認させる
 - User確認結果には確認時点のRepository commit / branch / Godot Version / App Version / timestampを保持する
 - User確認TaskにはTask Card内からGame起動とScreenshot追加のActionを出す
-- ChatGPT共有パックへ選択中TaskのUser確認結果とメモを含める
+- ChatGPT連携PanelはGame内の全User担当Taskについて確認結果Summaryを一覧表示する
+- User担当Taskの結果は個別送信をPrimary Flowにせず、ChatGPT連携Panelから複数Task分を1回でまとめて共有する
+- ChatGPT共有パックへ全User担当Taskの確認結果・Step result・メモ・確認Contextを含める
+- 選択中Taskの情報も共有パックへ残し、全体結果とCurrent focusを両方伝える
 - 完了済みTaskは初期状態で折りたたみ、必要時だけ表示できる
 - Current Phase以降のFuture Taskは初期状態で折りたたみ、必要時だけ表示できる
 - Checkbox Taskが1件以上あるRoadmapではTop-level通常Bulletを進捗Taskに数えない。Checkboxが一切ないLegacy Roadmapだけplain bullet fallbackを許可する
@@ -235,3 +238,5 @@ v0.1は、Windows実機で次を確認して初めて完成扱いとする。
 38. Checkbox Roadmapの説明BulletがTask進捗へ混入しない
 39. 完了済みTaskを折りたたんだ状態でも現在の未完了Taskへ到達できる
 40. Future Phaseを折りたたんだ状態でもCurrent PhaseのTaskへ集中でき、必要時にFuture Taskを展開できる
+41. ChatGPT連携Panelで全User確認Taskの結果をまとめて確認できる
+42. 複数のUser確認Task結果を1回のChatGPT共有パックへまとめて送れる

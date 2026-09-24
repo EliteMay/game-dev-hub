@@ -303,17 +303,26 @@
               <div class="dev-panel-heading">
                 <div>
                   <p class="section-kicker">ChatGPT連携</p>
-                  <h3>確認用データ・参考画像</h3>
+                  <h3>確認結果・参考画像</h3>
                 </div>
               </div>
 
               <div class="share-callout">
-                <strong>今の状態をそのままChatGPTへ</strong>
+                <strong>確認結果をまとめてChatGPTへ</strong>
                 <p>
-                  選択中タスク、Repository状態、Roadmap、直近ログ、Hub画面のPNG、参考画像を1つのFolderへまとめます。
+                  このゲームで保存した実機確認結果を全部まとめます。選択中タスク、Repository状態、Roadmap、直近ログ、Hub画面、参考画像も同じFolderへ入ります。
                 </p>
+
+                <div class="verification-overview" id="verification-overview">
+                  <div class="verification-overview-counts" id="verification-overview-counts"></div>
+                  <div class="verification-overview-list" id="verification-overview-list"></div>
+                  <p class="verification-overview-empty hidden" id="verification-overview-empty">
+                    まだ確認結果はありません。左の「担当: あなた」タスクで結果を選ぶと、ここへ自動でまとまります。
+                  </p>
+                </div>
+
                 <button class="button button-primary" id="export-chatgpt-pack-button" type="button">
-                  ChatGPT共有パックを作る
+                  確認結果をまとめてChatGPTへ
                 </button>
               </div>
 

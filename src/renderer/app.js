@@ -608,9 +608,16 @@ function renderDevelopmentTasks(project) {
   }
 
   el.taskEmpty.classList.add("hidden");
-  el.taskProgressBadge.textContent = tasks.done + " / " + tasks.total + " 完了";
+  const currentSection = tasks.sections.find((section) => section.title === tasks.currentSection);
+  const currentTotal = currentSection?.tasks?.length || 0;
+  const currentDone = currentSection?.tasks?.filter((task) => task.done).length || 0;
+
+  el.taskProgressBadge.textContent = currentTotal
+    ? currentDone + " / " + currentTotal + " 完了"
+    : tasks.done + " / " + tasks.total + " 完了";
   el.taskCurrentPhase.textContent = tasks.currentSection || "Roadmap";
-  el.taskSource.textContent = tasks.sourceFile + " をRepositoryから読込";
+  el.taskSource.textContent =
+    tasks.sourceFile + " • Roadmap全体 " + tasks.done + " / " + tasks.total + " 完了";
 
   el.taskToggleCompleted.classList.toggle("hidden", tasks.done === 0);
   el.taskToggleCompleted.textContent = showCompletedTasks

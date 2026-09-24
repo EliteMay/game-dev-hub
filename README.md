@@ -13,6 +13,7 @@
 - ChatGPT共有パックへ選択結果・メモ・確認Versionを同梱
 - User確認Taskの共有Buttonを結果に応じて「できた結果を送る / できなかった結果を送る」等へ変更
 - 完了済みTaskは初期状態で非表示にし、必要な時だけ展開
+- 今後のPhaseも初期状態では隠し、現在Phaseへ集中できるようにする
 - Checkbox TaskがあるRoadmapでは通常Bulletを進捗Taskとして数えない
 - Current Phaseの進捗を優先表示し、Roadmap全体数は補助情報にする
 

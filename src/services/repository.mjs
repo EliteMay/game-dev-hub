@@ -340,41 +340,29 @@ export async function saveRepositoryChanges(project, commitMessage) {
     );
   }
 
-  if (!state.dirty) {
-    return {
-      repository: state,
-      commit: state.commit,
-      message: "保存する変更はありません。"
-    };
-  }
-
-  const status = await fullRepositoryStatus(project);
-  const sensitive = status.files.filter((file) => isSensitiveRepositoryPath(file.path));
-
-  if (sensitive.length) {
-    throw new HubError(
-      "SENSITIVE_FILE_BLOCKED",
-      "秘密情報の可能性があるファイルが含まれているため自動保存を止めました: " +
-        sensitive.slice(0, 3).map((file) => file.path).join(", ")
-    );
-  }
-
   await git(["fetch", "--prune", "origin"], project.localPath, 120_000);
-  await ensureRepositoryCommitIdentity(project);
 
-  await git(["add", "-A"], project.localPath, 60_000);
-  const staged = await git(["diff", "--cached", "--name-only"], project.localPath, 15_000);
+  if (state.dirty) {
+    const status = await fullRepositoryStatus(project);
+    const sensitive = status.files.filter((file) => isSensitiveRepositoryPath(file.path));
 
-  if (!staged.stdout) {
-    return {
-      repository: await inspectRepository(project),
-      commit: state.commit,
-      message: "保存する変更はありません。"
-    };
+    if (sensitive.length) {
+      throw new HubError(
+        "SENSITIVE_FILE_BLOCKED",
+        "秘密情報の可能性があるファイルが含まれているため自動保存を止めました: " +
+          sensitive.slice(0, 3).map((file) => file.path).join(", ")
+      );
+    }
+
+    await ensureRepositoryCommitIdentity(project);
+    await git(["add", "-A"], project.localPath, 60_000);
+    const staged = await git(["diff", "--cached", "--name-only"], project.localPath, 15_000);
+
+    if (staged.stdout) {
+      const message = normalizeCommitMessage(commitMessage);
+      await git(["commit", "-m", message], project.localPath, 120_000);
+    }
   }
-
-  const message = normalizeCommitMessage(commitMessage);
-  await git(["commit", "-m", message], project.localPath, 120_000);
 
   const delta = parseAheadBehind(
     (await git(
@@ -385,8 +373,32 @@ export async function saveRepositoryChanges(project, commitMessage) {
   );
 
   let mergedRemote = false;
-  if (delta.behind > 0) {
+
+  if (delta.ahead === 0 && delta.behind === 0) {
+    const repository = await inspectRepository(project);
+    return {
+      repository,
+      commit: repository.commit,
+      mergedRemote: false,
+      message: "GitHubへ送る変更はありません。"
+    };
+  }
+
+  if (delta.behind > 0 && delta.ahead > 0) {
     mergedRemote = await mergeRemoteBranch(project);
+  } else if (delta.behind > 0 && delta.ahead === 0) {
+    await git(
+      ["pull", "--ff-only", "origin", project.defaultBranch],
+      project.localPath,
+      120_000
+    );
+    const repository = await inspectRepository(project);
+    return {
+      repository,
+      commit: repository.commit,
+      mergedRemote: true,
+      message: "GitHubの新しい変更をPCへ取り込みました。"
+    };
   }
 
   await pushCurrentBranch(project);

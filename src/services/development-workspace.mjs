@@ -31,6 +31,9 @@ function taskKey(section, text, occurrence) {
 
 export function parseRoadmapMarkdown(markdown, sourceFile = "") {
   const lines = String(markdown ?? "").split(/\r?\n/);
+  const hasExplicitTasks = lines.some((line) =>
+    /^\s*[-*]\s+\[[ xX]\]\s+/.test(line)
+  );
   const sections = [];
   const sectionMap = new Map();
   const occurrenceMap = new Map();
@@ -97,6 +100,12 @@ export function parseRoadmapMarkdown(markdown, sourceFile = "") {
         lastTask.steps.push(
           text.replace(/^(?:やること|手順|確認|完了の目安)\s*[:：]\s*/, "")
         );
+        completionSection = null;
+        continue;
+      }
+
+      if (hasExplicitTasks && !item[2]) {
+        lastTask = null;
         completionSection = null;
         continue;
       }

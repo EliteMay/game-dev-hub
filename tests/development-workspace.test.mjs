@@ -109,3 +109,25 @@ test("roadmap parser keeps nested guidance with its task and captures section co
   assert.equal(parsed.sections[0].completionCriteria, "同じGodotバージョンでProjectを開ける。");
   assert.equal(parsed.nextTask.completionCriteria, "同じGodotバージョンでProjectを開ける。");
 });
+
+
+test("roadmap parser separates task ownership from action steps", () => {
+  const parsed = parseRoadmapMarkdown(`
+## Phase 1
+- [ ] Windows実機確認
+  - 担当: あなた
+  - ゲームを起動して視点操作を確認する
+- [ ] 岩シーン
+  - 担当: ChatGPT
+  - 岩SceneをRepositoryへ追加する
+`, "docs/ROADMAP.md");
+
+  assert.equal(parsed.sections[0].tasks[0].owner, "user");
+  assert.deepEqual(parsed.sections[0].tasks[0].steps, [
+    "ゲームを起動して視点操作を確認する"
+  ]);
+  assert.equal(parsed.sections[0].tasks[1].owner, "chatgpt");
+  assert.deepEqual(parsed.sections[0].tasks[1].steps, [
+    "岩SceneをRepositoryへ追加する"
+  ]);
+});

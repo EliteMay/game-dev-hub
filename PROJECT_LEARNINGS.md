@@ -96,3 +96,14 @@
 - Problem: `M` / `??`、dirty、Commit等のGit用語を表示しても、Gitに詳しくないUserには次の判断材料にならない。
 - Decision: Git内部状態はApp側で「内容が変更」「新しく作成」「GitHubへの保存待ち」等のUser語彙へ翻訳し、必要な技術詳細はProgressive Disclosureへ分離する。
 - Prevention: Owner向け主要Flowでは、内部Status codeだけを説明なしで表示しない。File種別を安全に説明できる場合は役割も補足する。
+
+
+## GL-011 — Beginner向けGitHub連携は「止める」だけでなく安全な完了経路を持つ
+
+- Date: 2026-09-24
+- Type: UX / Git Safety
+- Status: Adopted
+- Problem: dirty worktreeを保護して同期停止するだけでは、Gitを使わないUserに「何を残す・消す・Commitするか」を判断させることになりPrimary Taskが止まる。
+- Decision: 明示確認付きの「GitHubに保存」でCurrent worktreeをLocal Commitへ保存し、通常Merge + PushまでHubが扱う。Push失敗時はLocal Commitを保持して再試行可能にする。
+- Safety Boundary: reset / clean / rebase / force pushは禁止。秘密情報らしいFileはstage前に停止し、CredentialはHubへ保存しない。
+- Prevention: Git内部状態を表示するだけでRecovery完了とせず、初心者が同じApp内で安全に完了できるHappy PathとFailure recoveryを持つ。

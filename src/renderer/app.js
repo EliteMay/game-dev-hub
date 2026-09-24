@@ -1348,6 +1348,8 @@ el.taskVerificationAddImage.addEventListener("click", async () => {
     } else if (result?.code !== "CANCELED") {
       addLog(result?.message || "スクショを追加できませんでした。", "error");
     }
+  } catch (error) {
+    addLog(String(error?.message || error), "error");
   } finally {
     setBusy(false);
   }

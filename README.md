@@ -5,6 +5,7 @@
 - ChatGPT共有パックをDocuments配下へ作らず、ElectronのApp Data内 `hub-data/chatgpt-packs` へ保存
 - 共有パック作成後は従来どおり生成FolderをExplorerで開く
 - JSONへChatGPT / Userの役割分担を明記
+- Taskの担当をRoadmapから表示できるようにし、`担当: あなた` / `担当: ChatGPT` / `担当: Hub` をサポート
 - 選択中TaskでGitHub上だけで完了できる作業は、ChatGPTが説明だけで止めずRepositoryへ反映するよう引き継ぎ指示を追加
 - Userへ依頼するのはWindows実機操作・Godot目視・Playtest等、Userにしか確認できない内容を基本とする
 - 共有情報とCurrent Repositoryで判断可能な内容は不要に聞き返さない

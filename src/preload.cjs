@@ -4,6 +4,8 @@ contextBridge.exposeInMainWorld("gameDevHub", {
   getState: () => ipcRenderer.invoke("hub:get-state"),
   chooseGodot: () => ipcRenderer.invoke("hub:choose-godot"),
   addGitHubProject: (payload) => ipcRenderer.invoke("hub:add-github-project", payload),
+  createFoundationProject: (payload) => ipcRenderer.invoke("hub:create-foundation-project", payload),
+  updateProjectFoundation: (projectId) => ipcRenderer.invoke("hub:update-project-foundation", projectId),
   importExistingProject: () => ipcRenderer.invoke("hub:import-existing-project"),
   startDevelopment: (projectId) => ipcRenderer.invoke("hub:start-development", projectId),
   syncProject: (projectId) => ipcRenderer.invoke("hub:sync-project", projectId),

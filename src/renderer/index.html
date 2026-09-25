@@ -77,9 +77,14 @@
 
         <div class="project-list" id="project-list" aria-label="登録ゲーム"></div>
 
-        <button class="import-button" id="import-project-button" type="button">
-          既存のゲームRepositoryを登録
-        </button>
+        <div class="project-pane-actions">
+          <button class="import-button foundation-create-button" id="create-foundation-project-button" type="button">
+            Foundationから新しいゲームを作る
+          </button>
+          <button class="import-button" id="import-project-button" type="button">
+            既存のゲームRepositoryを登録
+          </button>
+        </div>
       </aside>
 
       <section class="detail-pane">
@@ -127,6 +132,18 @@
               </div>
               <strong id="branch-value">確認中</strong>
               <p id="branch-description"></p>
+            </article>
+
+            <article class="status-card foundation-status-card">
+              <div class="status-card-title">
+                <span class="status-dot" id="foundation-dot"></span>
+                <span>Game Foundation</span>
+              </div>
+              <strong id="foundation-value">確認中</strong>
+              <p id="foundation-description"></p>
+              <button class="button button-muted button-small hidden" id="foundation-update-button" type="button">
+                基盤を更新
+              </button>
             </article>
           </div>
 
@@ -363,6 +380,63 @@
       <span>ゲーム本体はそれぞれのGitHub Repositoryで管理します。</span>
     </footer>
   </main>
+
+  <dialog class="dialog" id="foundation-create-dialog">
+    <form method="dialog" id="foundation-create-form">
+      <div class="dialog-heading">
+        <div>
+          <p class="section-kicker">Godot Game Foundation</p>
+          <h2>新しいゲームを作る</h2>
+        </div>
+        <button class="icon-button" id="foundation-create-close-button" type="button" aria-label="閉じる">×</button>
+      </div>
+
+      <div class="foundation-template-choice" aria-label="使用するテンプレート">
+        <span>テンプレート</span>
+        <strong>Godot Game Foundation</strong>
+        <small>作成時にGitHubから最新版を取得</small>
+      </div>
+
+      <label class="field">
+        <span>ゲーム名</span>
+        <input
+          id="foundation-game-name-input"
+          name="gameName"
+          required
+          maxlength="100"
+          placeholder="例: My Game"
+          autocomplete="off"
+        >
+      </label>
+
+      <label class="field">
+        <span>空のGitHub Repository</span>
+        <input
+          id="foundation-repository-url-input"
+          name="repositoryUrl"
+          type="url"
+          required
+          placeholder="https://github.com/EliteMay/my-game"
+          autocomplete="off"
+        >
+      </label>
+
+      <p class="dialog-note">
+        GitHub側でFileのない空Repositoryを先に作ってください。HubがStarter FileとFoundationを生成し、最初のCommitをGitHubへ保存してからゲーム一覧へ登録します。
+      </p>
+      <p class="dialog-note">
+        GitHub Tokenは保存しません。PCのGit認証を使用します。既存FileがあるRepositoryは上書きせず停止します。
+      </p>
+      <p class="dialog-error hidden" id="foundation-create-error" aria-live="polite"></p>
+
+      <div class="dialog-actions">
+        <button class="button button-muted" id="foundation-create-cancel-button" type="button">キャンセル</button>
+        <button class="button button-primary" id="foundation-create-submit-button" type="submit" value="default">
+          Foundationから作成
+        </button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog class="dialog" id="add-dialog">
     <form method="dialog" id="add-form">

@@ -20,6 +20,10 @@ const el = {
   branchDot: document.querySelector("#branch-dot"),
   branchValue: document.querySelector("#branch-value"),
   branchDescription: document.querySelector("#branch-description"),
+  foundationDot: document.querySelector("#foundation-dot"),
+  foundationValue: document.querySelector("#foundation-value"),
+  foundationDescription: document.querySelector("#foundation-description"),
+  foundationUpdate: document.querySelector("#foundation-update-button"),
   safetyRecovery: document.querySelector("#safety-recovery"),
   safetyRecoveryTitle: document.querySelector("#safety-recovery-title"),
   safetyRecoverySummary: document.querySelector("#safety-recovery-summary"),
@@ -42,6 +46,7 @@ const el = {
   updateProgress: document.querySelector("#update-progress"),
   godot: document.querySelector("#godot-button"),
   addProject: document.querySelector("#add-project-button"),
+  createFoundationProject: document.querySelector("#create-foundation-project-button"),
   importProject: document.querySelector("#import-project-button"),
   start: document.querySelector("#start-button"),
   sync: document.querySelector("#sync-button"),
@@ -87,6 +92,13 @@ const el = {
   logList: document.querySelector("#log-list"),
   taskStatus: document.querySelector("#task-status"),
   appVersion: document.querySelector("#app-version"),
+  foundationCreateDialog: document.querySelector("#foundation-create-dialog"),
+  foundationCreateClose: document.querySelector("#foundation-create-close-button"),
+  foundationCreateCancel: document.querySelector("#foundation-create-cancel-button"),
+  foundationCreateForm: document.querySelector("#foundation-create-form"),
+  foundationGameNameInput: document.querySelector("#foundation-game-name-input"),
+  foundationRepositoryUrlInput: document.querySelector("#foundation-repository-url-input"),
+  foundationCreateError: document.querySelector("#foundation-create-error"),
   addDialog: document.querySelector("#add-dialog"),
   addDialogClose: document.querySelector("#add-dialog-close-button"),
   addDialogCancel: document.querySelector("#add-dialog-cancel-button"),
@@ -134,6 +146,7 @@ const actionButtons = [
   el.update,
   el.godot,
   el.addProject,
+  el.createFoundationProject,
   el.importProject,
   el.start,
   el.sync,
@@ -161,6 +174,21 @@ function setBusy(value, label = "") {
   busy = value;
   for (const button of actionButtons) {
     if (button) button.disabled = value;
+  }
+
+  const project = selectedProject();
+  const repository = project?.repository || {};
+  const foundation = project?.foundation || {};
+  if (el.foundationUpdate) {
+    el.foundationUpdate.disabled =
+      value ||
+      !foundation.installed ||
+      !foundation.valid ||
+      !repository.valid ||
+      repository.dirty ||
+      (repository.ahead || 0) > 0 ||
+      repository.branch !== project?.defaultBranch ||
+      !state?.network?.online;
   }
 
   el.taskStatus.textContent = value && label ? "処理中: " + label : "待機中";
@@ -1188,6 +1216,35 @@ function renderDetail() {
     el.branchDescription.textContent = delta;
   }
 
+  const foundation = project.foundation || {};
+  if (!foundation.installed) {
+    setDot(el.foundationDot, "warning");
+    el.foundationValue.textContent = "未導入";
+    el.foundationDescription.textContent =
+      "既存Gameです。Phase 8のPilotまでは自動導入しません。";
+    el.foundationUpdate.classList.add("hidden");
+  } else if (!foundation.valid) {
+    setDot(el.foundationDot, "error");
+    el.foundationValue.textContent = "導入情報を確認";
+    el.foundationDescription.textContent =
+      ".game-foundation.json が現在のFoundation Contractと一致しません。";
+    el.foundationUpdate.classList.add("hidden");
+  } else {
+    setDot(el.foundationDot, "ok");
+    el.foundationValue.textContent = "v" + foundation.version;
+    el.foundationDescription.textContent =
+      "導入Commit " + String(foundation.commit || "").slice(0, 8) +
+      " / 更新対象: addons/game_foundation";
+    el.foundationUpdate.classList.remove("hidden");
+    el.foundationUpdate.disabled =
+      busy ||
+      !repo.valid ||
+      repo.dirty ||
+      (repo.ahead || 0) > 0 ||
+      repo.branch !== project.defaultBranch ||
+      !state?.network?.online;
+  }
+
   renderSafetyRecovery(project);
 
   const ready =
@@ -1291,7 +1348,8 @@ async function refreshState(log = false) {
 }
 
 async function runAction(label, action, options = {}) {
-  if (busy) return;
+  if (busy) return null;
+  let finalResult = null;
   setBusy(true, label);
   addLog(label + "を開始しました。");
 
@@ -1326,11 +1384,13 @@ async function runAction(label, action, options = {}) {
       addLog(result?.message || label + "に失敗しました。", "error");
       await refreshState(false);
     }
+    finalResult = result;
   } catch (error) {
     addLog(String(error?.message || error), "error");
   } finally {
     setBusy(false);
   }
+  return finalResult;
 }
 
 function closeDialog(dialog, returnValue = "cancel") {
@@ -1655,6 +1715,56 @@ el.refresh.addEventListener("click", () => runAction("状態更新", async () =>
 }));
 
 el.godot.addEventListener("click", () => runAction("Godot設定", () => api.chooseGodot()));
+
+el.createFoundationProject.addEventListener("click", () => {
+  el.foundationGameNameInput.value = "";
+  el.foundationRepositoryUrlInput.value = "";
+  el.foundationCreateError.textContent = "";
+  el.foundationCreateError.classList.add("hidden");
+  el.foundationCreateDialog.showModal();
+  el.foundationGameNameInput.focus();
+});
+
+el.foundationCreateClose.addEventListener("click", () => closeDialog(el.foundationCreateDialog));
+el.foundationCreateCancel.addEventListener("click", () => closeDialog(el.foundationCreateDialog));
+
+el.foundationCreateForm.addEventListener("submit", async (event) => {
+  const submitter = event.submitter;
+  if (!submitter || submitter.value !== "default") return;
+
+  event.preventDefault();
+  el.foundationCreateError.textContent = "";
+  el.foundationCreateError.classList.add("hidden");
+
+  const result = await runAction(
+    "Foundation付きゲーム作成",
+    () => api.createFoundationProject({
+      name: el.foundationGameNameInput.value,
+      repositoryUrl: el.foundationRepositoryUrlInput.value
+    })
+  );
+
+  if (result?.ok) {
+    closeDialog(el.foundationCreateDialog, "default");
+    return;
+  }
+
+  if (result?.code && result.code !== "CANCELED") {
+    el.foundationCreateError.textContent =
+      result.message || "Foundation付きGameを作成できませんでした。";
+    el.foundationCreateError.classList.remove("hidden");
+    el.foundationGameNameInput.focus();
+  }
+});
+
+el.foundationUpdate.addEventListener("click", () => {
+  const project = requireSelected();
+  if (!project || busy || !project.foundation?.valid) return;
+  runAction(
+    "Foundation更新",
+    () => api.updateProjectFoundation(project.id)
+  );
+});
 
 el.addProject.addEventListener("click", () => {
   el.nameInput.value = "";

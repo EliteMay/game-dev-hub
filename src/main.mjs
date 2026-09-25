@@ -18,6 +18,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { createProjectRecord, parseGitHubRepositoryUrl } from "./core/project-model.mjs";
 import { detectGodot, inspectSelectedGodot, openGodotEditor, runGodotProject } from "./services/godot.mjs";
 import { addProject, loadProjects, removeProject, saveProjects } from "./services/project-registry.mjs";
+import {
+  bootstrapFoundationProject,
+  inspectFoundationInstallation,
+  updateProjectFoundation as updateManagedFoundationProject
+} from "./services/foundation-template.mjs";
 import { HubError, inspectGit, inspectRepository, prepareProject, saveRepositoryChanges, syncProject } from "./services/repository.mjs";
 import { loadSettings, saveSettings } from "./services/settings.mjs";
 import {
@@ -275,6 +280,8 @@ function safeError(error) {
 const LOGGED_IPC_CHANNELS = new Set([
   "hub:choose-godot",
   "hub:add-github-project",
+  "hub:create-foundation-project",
+  "hub:update-project-foundation",
   "hub:import-existing-project",
   "hub:start-development",
   "hub:sync-project",
@@ -397,6 +404,16 @@ async function getState() {
       ? await inspectRepository(project)
       : { exists: false, valid: false };
 
+    const foundation = repository.exists
+      ? await inspectFoundationInstallation(project.localPath)
+      : {
+          installed: false,
+          valid: false,
+          version: "",
+          commit: "",
+          managedPaths: []
+        };
+
     const developmentTasks = repository.exists
       ? await loadDevelopmentTasks(project)
       : {
@@ -417,6 +434,7 @@ async function getState() {
     projects.push({
       ...project,
       repository,
+      foundation,
       development: {
         tasks: developmentTasks,
         activeTaskId: settings.activeTaskByProject?.[project.id] || "",
@@ -498,6 +516,61 @@ async function addGitHubProject(payload) {
     state: await getState()
   };
 }
+
+async function createFoundationProject(payload) {
+  requireNetwork();
+
+  if (!payload || typeof payload !== "object") {
+    throw new HubError("INVALID_INPUT", "新しいGameの指定が正しくありません。");
+  }
+
+  const parsed = parseGitHubRepositoryUrl(payload.repositoryUrl);
+  if (!parsed) {
+    throw new HubError(
+      "INVALID_REPOSITORY_URL",
+      "空のGitHub Repository URLを https://github.com/owner/repository の形で入力してください。"
+    );
+  }
+
+  const settings = await getSettings();
+  const registry = await getRegistry();
+  const duplicate = registry.projects.find(
+    (item) => item.repositoryWebUrl.toLowerCase() === parsed.webUrl.toLowerCase()
+  );
+
+  if (duplicate) {
+    throw new HubError("PROJECT_ALREADY_REGISTERED", "このRepositoryはすでにHubへ登録されています。");
+  }
+
+  const project = createProjectRecord({
+    name: String(payload.name ?? "").trim() || parsed.repo,
+    repositoryUrl: parsed.cloneUrl,
+    localPath: path.join(settings.projectsRoot, parsed.repo),
+    defaultBranch: "main",
+    engine: "godot"
+  });
+
+  const generated = await bootstrapFoundationProject(project, appDataRoot());
+
+  await addProject(
+    appDataRoot(),
+    settings.projectsRoot,
+    project
+  );
+
+  return {
+    ok: true,
+    message:
+      project.name +
+      " をGodot Game Foundation " +
+      generated.metadata.foundationVersion +
+      " から作成してGitHubへ保存しました。",
+    projectId: project.id,
+    foundation: generated.metadata,
+    state: await getState()
+  };
+}
+
 
 async function importExistingProject() {
   const result = await dialog.showOpenDialog(mainWindow, {
@@ -647,6 +720,54 @@ async function syncSelected(projectId) {
     state: await getState()
   };
 }
+
+async function updateSelectedFoundation(projectId) {
+  requireNetwork();
+
+  const project = await findProject(projectId);
+  const repository = await inspectRepository(project);
+
+  if (!repository.valid) {
+    throw new HubError(
+      "REPOSITORY_INVALID",
+      "Foundation更新前にLocal Repositoryを正しい状態へ準備してください。"
+    );
+  }
+
+  if (repository.dirty) {
+    throw new HubError(
+      "DIRTY_WORKTREE",
+      "PC側に未保存の変更があります。先に「GitHubに保存」するか、変更を確認してからFoundationを更新してください。"
+    );
+  }
+
+  if (repository.branch !== project.defaultBranch) {
+    throw new HubError(
+      "WRONG_BRANCH",
+      "現在のBranchが " + project.defaultBranch + " ではないためFoundation更新を停止しました。"
+    );
+  }
+
+  if ((repository.ahead || 0) > 0) {
+    throw new HubError(
+      "UNPUSHED_COMMITS",
+      "GitHubへの送信待ちがあります。先に「GitHubに保存」を完了してからFoundationを更新してください。"
+    );
+  }
+
+  await syncProject(project);
+  const updated = await updateManagedFoundationProject(project, appDataRoot());
+
+  return {
+    ok: true,
+    message: updated.changed
+      ? "Foundationを " + updated.foundationVersion + " へ更新しました。Game固有Fileは変更していません。内容を確認して「GitHubに保存」してください。"
+      : "Foundationはすでに最新版です。",
+    foundation: updated,
+    state: await getState()
+  };
+}
+
 
 async function saveSelectedRepositoryChanges(payload) {
   requireNetwork();
@@ -1423,6 +1544,8 @@ if (!singleInstanceLock) {
     registerIpc("hub:get-state", getState);
     registerIpc("hub:choose-godot", chooseGodot);
     registerIpc("hub:add-github-project", addGitHubProject);
+    registerIpc("hub:create-foundation-project", createFoundationProject);
+    registerIpc("hub:update-project-foundation", updateSelectedFoundation);
     registerIpc("hub:import-existing-project", importExistingProject);
     registerIpc("hub:start-development", startDevelopment);
     registerIpc("hub:sync-project", syncSelected);

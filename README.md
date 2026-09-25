@@ -1,5 +1,20 @@
 # Game Dev Hub
 
+## v0.1.12 Godot Game Foundation Starter
+
+共通基盤を使った新しいGodot Gameを、Game Dev Hubから作成・追跡・更新できるようにします。
+
+- 左の「Foundationから新しいゲームを作る」からStarter生成
+- Userが用意した空のGitHub Repositoryへ初期Projectを生成して最初のCommitをPush
+- Godot Game FoundationのVersion / CommitをGame詳細へ表示
+- Foundation更新は `addons/game_foundation/` だけを対象にする
+- Game固有のRoadmap / Scene / Script / AssetはFoundation更新で自動上書きしない
+- 更新前にRepositoryがclean / expected branchであることを確認
+- 更新後のCommit / Pushは既存の「GitHubに保存」FlowでUserが明示実行
+- GitHub Tokenや汎用File/Shell APIをRendererへ追加しない
+- Template展開とManaged Path限定更新をNode Testで検証
+
+
 ## v0.1.11 完了済み確認Taskの誤「再確認」を防止
 
 Roadmapへ確認済みTaskを反映した後に説明文や確認記録が追記されても、完了済みTaskをもう一度Userへ確認させないよう修正しました。

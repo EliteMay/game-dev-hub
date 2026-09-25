@@ -243,3 +243,55 @@ v0.1は、Windows実機で次を確認して初めて完成扱いとする。
 41. ChatGPT連携Panelで全User確認Taskの結果をまとめて確認できる
 42. 複数のUser確認Task結果を1回のChatGPT共有パックへまとめて送れる
 43. Roadmapで完了済みのUser確認Taskは後続の説明追記だけで「再確認」に戻らない
+
+## Godot Game Foundation Starter
+
+### User Goal
+
+新しいゲームを始めるたびにSave / Settings / Input / Game Flow / Diagnostics / Windows Buildの基盤を作り直さず、Game Dev Hubから共通Foundation付きのGodot Projectを安全に作成する。
+
+### Primary Flow
+
+```text
+Foundationから新しいゲームを作る
+→ ゲーム名 + 空のGitHub Repository URL
+→ GitHub Repositoryが空であることを確認
+→ Godot Game Foundation最新版を取得
+→ Starter + Managed Foundationを生成
+→ Initial Commit / Push
+→ Hubへ登録
+→ Godotで開発開始
+```
+
+### Existing Game / Update Flow
+
+```text
+Foundation導入済みGameを選択
+→ 導入Version / Commitを確認
+→ 基盤を更新
+→ clean / expected branch / GitHub同期を確認
+→ addons/game_foundationだけ更新
+→ Game固有Fileは保持
+→ 既存「GitHubに保存」でDiff確認・Commit / Push
+```
+
+### Constraints
+
+- Foundation Source of Truthは `EliteMay/godot-game-foundation`
+- 配布ContractはFoundation Repositoryの `foundation-template.json`
+- 生成先GitHub Repositoryは既存Fileのない空Repositoryに限定する
+- HubからGitHub Repositoryそのものを新規作成するためのTokenは保持しない
+- Foundation更新対象はManifestで許可されたManaged Pathだけ
+- 現在のManaged Pathは `addons/game_foundation/`
+- `project.godot`、Roadmap、Game Scene / Script / Data / Assetsは更新対象外
+- Rendererへ汎用Filesystem / Shell / Git Command Capabilityを公開しない
+- Offline時はCreate / Updateを開始せず、既存GameのLocal開発は維持する
+
+### Completion
+
+- Starter生成のPure Logic Testが通る
+- Foundation Version / CommitをHub上で確認できる
+- Managed Pathだけ更新されるRegression Testが通る
+- Existing FileをStarter生成で上書きしない
+- Hub CI / Windows installer buildが成功する
+- Windows実機のCreate / Update操作はCIとは分離して未確認事項として扱う

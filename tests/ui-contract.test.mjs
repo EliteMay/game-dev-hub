@@ -201,3 +201,32 @@ test("completed user verification tasks are not shown as actionable re-checks", 
   assert.match(mainSource, /Roadmap完了済み（再確認不要）/);
   assert.match(mainSource, /!item\.doneInRoadmap && item\.result\?\.overall === "stale"/);
 });
+
+test("Foundation starter flow is explicit and preserves required-field cancel recovery", async () => {
+  const html = await fs.readFile(new URL("src/renderer/index.html", root), "utf8");
+  const source = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
+
+  assert.match(html, /id="create-foundation-project-button"/);
+  assert.match(html, /id="foundation-create-dialog"/);
+  assert.match(html, /id="foundation-game-name-input"[^>]*required/);
+  assert.match(html, /id="foundation-repository-url-input"[^>]*required/);
+  assert.match(html, /id="foundation-create-close-button"[^>]*type="button"/);
+  assert.match(html, /id="foundation-create-cancel-button"[^>]*type="button"/);
+  assert.match(html, /Fileのない空Repository/);
+  assert.match(html, /既存FileがあるRepositoryは上書きせず停止/);
+  assert.match(source, /createFoundationProject/);
+  assert.match(source, /foundationCreateError/);
+  assert.match(source, /Foundation付きゲーム作成/);
+});
+
+test("selected game shows installed Foundation version and explicit update action", async () => {
+  const html = await fs.readFile(new URL("src/renderer/index.html", root), "utf8");
+  const source = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
+
+  assert.match(html, /id="foundation-value"/);
+  assert.match(html, /id="foundation-description"/);
+  assert.match(html, /id="foundation-update-button"/);
+  assert.match(source, /project\.foundation/);
+  assert.match(source, /導入Commit/);
+  assert.match(source, /updateProjectFoundation/);
+});

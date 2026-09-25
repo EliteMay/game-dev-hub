@@ -341,8 +341,14 @@ h3 {
   white-space: nowrap;
 }
 
+.project-pane-actions {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+}
+
 .import-button {
-  margin: 8px;
+  margin: 0;
   padding: 11px 12px;
   border: 1px dashed var(--border-strong);
   border-radius: 9px;
@@ -352,6 +358,14 @@ h3 {
 
 .import-button:hover {
   background: #121b24;
+}
+
+.foundation-create-button {
+  border-style: solid;
+  border-color: #31566e;
+  background: #101a23;
+  color: #d7e8f3;
+  font-weight: 700;
 }
 
 .detail-pane {
@@ -422,7 +436,7 @@ h3 {
 
 .status-cards {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-top: 10px;
 }
@@ -452,6 +466,10 @@ h3 {
   margin: 5px 0 0;
   font-size: 11px;
   line-height: 1.5;
+}
+
+.foundation-status-card .button {
+  margin-top: 12px;
 }
 
 .action-grid {
@@ -602,6 +620,37 @@ h3 {
 .dialog-note {
   font-size: 11px;
   line-height: 1.55;
+}
+
+.dialog-error {
+  margin: 12px 0 0;
+  padding: 10px 11px;
+  border: 1px solid #7e3e43;
+  border-radius: 8px;
+  background: #291519;
+  color: #f0b4b8;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.foundation-template-choice {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: #0d141b;
+}
+
+.foundation-template-choice span,
+.foundation-template-choice small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.foundation-template-choice strong {
+  font-size: 13px;
 }
 
 .dialog-actions {

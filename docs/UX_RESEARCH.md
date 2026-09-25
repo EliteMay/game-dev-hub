@@ -308,3 +308,43 @@ Roadmapの `[x]` はGame RepositoryのCanonical completionであり、Hub側のD
 - Shared packにはCompleted taskをHistoryとして残せるが、Userへの再確認依頼には含めない
 
 これにより「完了記録を追記したせいで再確認」という循環を防ぐ。
+
+## 2026-09-25 Foundation Starter Flow
+
+### Goal
+
+「新しいゲームを始める」を、Repository登録後に基盤を手作業で準備するFlowではなく、Foundation付きPlayable StarterがGitHubへ保存された状態まで1 Taskとして扱う。
+
+### Task-first Flow
+
+```text
+新しいゲームを作りたい
+→ Foundation Starterを選ぶ
+→ ゲーム名を入力
+→ 空のGitHub Repositoryを指定
+→ 何が作成・Pushされるか確認
+→ 作成
+→ 成功したGameを自動選択
+→ Foundation Versionを確認
+→ 開発開始
+```
+
+Recovery:
+
+- Repositoryに既存Fileあり → 上書きせず停止し、空Repositoryを案内
+- Git認証 / Network失敗 → 入力値をDialogへ残し再試行可能
+- Foundation導入情報不正 → Update CTAを隠し「導入情報を確認」と表示
+- Local変更あり → Foundation更新を開始せず既存Safety Recoveryへつなぐ
+- Foundation更新成功 → 自動Pushせず「GitHubに保存」でDiff確認へつなぐ
+
+### UI Decision
+
+既存のDark master-detail構造は維持する。
+
+- 左Project Pane: Foundation Starter Createを既存Importと同じProject入口Groupへ置く
+- Create Dialog: Template名、必須入力、Remote mutation、空Repository条件を操作前に表示
+- Detail Status: Repository / Branchと並列でFoundation Versionを表示
+- Foundation UpdateはFoundation Status Card内のContextual Actionとし、通常の5つのGame Actionへ混ぜない
+- ErrorはDialogを閉じず入力を保持して表示する
+
+全面Redesignは行わず、既存Hierarchy / Surface / Button styleを再利用する。

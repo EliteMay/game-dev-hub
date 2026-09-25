@@ -253,3 +253,55 @@ Stored signature differs?
 ```
 
 本当に再確認が必要な変更では、Game Repository側でTaskを `[ ]` へ戻す。これによりRepository Source of TruthとHubのDerived Evidenceが競合しない。
+
+## Godot Game Foundation Integration
+
+```text
+EliteMay/godot-game-foundation
+├─ foundation-template.json
+├─ starter/*.template
+└─ addons/game_foundation/
+        ↓ dedicated Main-process service
+Game Dev Hub
+        ↓ explicit create
+Empty GitHub Game Repository
+├─ Game-specific starter files
+├─ addons/game_foundation/
+└─ .game-foundation.json
+```
+
+### Create boundary
+
+Rendererはゲーム名とGitHub Repository URLだけをoperation-specific IPCへ渡す。
+
+Main Process側で:
+
+1. URLを既存GitHub URL Parserで正規化
+2. Registry duplicateを確認
+3. RemoteにRefがない空Repositoryであることを確認
+4. Local保存先が未使用であることを確認
+5. Foundation SourceをApp Data配下の一時Checkoutへ取得
+6. ManifestをValidation
+7. Starter File / Managed Pathを生成
+8. Local Commitを作成してUser指定RemoteへPush
+9. 成功後にRegistryへ登録
+
+Create失敗かつRemote未変更の場合だけ、Hub自身が新規作成したLocal cloneをCleanupする。既存User Directoryを削除対象にしない。
+
+### Update boundary
+
+```text
+Selected Game
+→ expected origin / branch
+→ clean worktree
+→ unpushed commitなし
+→ normal ff-only sync
+→ .game-foundation.json validation
+→ latest Manifest validation
+→ managedPaths contract一致
+→ addons/game_foundationのみ更新
+→ working tree dirty
+→ Userが既存「GitHubに保存」で確認
+```
+
+Foundation Update IPCは任意PathやCommandを受け取らない。Managed Pathが将来変わった場合は自動で権限を拡大せず停止する。

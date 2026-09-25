@@ -157,3 +157,12 @@
 - Problem: ChatGPTが確認済みTaskへEvidence説明を追記しただけでTask signatureが変化し、Roadmapでは完了済みなのにHubが「再確認」を要求した。
 - Decision: Roadmapの `[x]` をCanonical completionとして優先し、完了済みUser Taskはstale扱いしない。再確認が必要な仕様変更ではGame Repository側でTaskを `[ ]` に戻す。
 - Prevention: Verification signatureは「未完了Taskの手順が変わった」ことを検出するGuardとして使い、完了済み状態をDerived verification stateで上書きしない。
+
+## GL-017 — Foundation配布はManaged Pathを明示してGame固有領域と分離する
+
+- Date: 2026-09-25
+- Type: Architecture / Cross-Repository Foundation
+- Status: Adopted
+- Problem: 共通Foundationを各Gameへ導入すると、後のFoundation更新がGame固有のRoadmap・Scene・Scriptまで上書きする危険がある。Submodule等をPrimary Flowにすると、Gitに詳しくないUserへ追加概念も要求する。
+- Decision: Foundation側のmachine-readable ManifestとGame側の `.game-foundation.json` でManaged Pathを明示し、Hubは現在 `addons/game_foundation/` だけを生成後更新する。Starter Fileは初回だけ生成し、その後はGame固有領域として扱う。
+- Prevention: Shared Foundationの更新権限をRepository全体へ広げず、Version / Commit / Managed Pathを記録してBoundary変更時は自動更新を停止する。

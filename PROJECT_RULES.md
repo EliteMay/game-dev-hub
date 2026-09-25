@@ -80,3 +80,16 @@ Primary Taskは「ゲームを選んで開発を開始する」。
 - ChatGPT共有パックはUserの明示操作でのみ生成する
 - ChatGPT共有JSONにCredential / Token / Secret / Source File本文を含めない
 - 実プレイ結果はRuntime snapshotやStatic stateだけから完了扱いにしない
+
+## Foundation Integration Boundary
+
+- Godot共通基盤のSource of Truthは `EliteMay/godot-game-foundation` とする。
+- HubはFoundation Repositoryの `foundation-template.json` をValidationしてから利用する。
+- 生成Gameの `.game-foundation.json` はFoundation Version / Commit / Managed Pathを記録するIntegration Metadataであり、Game固有仕様のSource of Truthにしない。
+- Foundation更新は `.game-foundation.json` と最新ManifestのManaged Pathが一致する時だけ実行する。
+- 現在Hubが自動更新してよいGame Repository内Pathは `addons/game_foundation/` だけ。
+- Foundation更新でGame固有の `project.godot`、Roadmap、Scene、Script、Data、Assetを自動上書きしない。
+- Update前にExpected origin / branch / clean worktree /未Push Commitなしを確認する。
+- Update後のCommit / Pushは既存のUser明示「GitHubに保存」Flowへ分離する。
+- Starter CreateはUserが明示した空Repositoryだけを対象にし、既存Remote Contentを上書きしない。
+- GitHub Tokenを保存せず、既存のGit Credentialを利用する。

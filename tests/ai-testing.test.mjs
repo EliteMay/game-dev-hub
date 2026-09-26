@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   buildReproductionSteps,
   buildUiTarsTestPrompt,
+  computerActionSource,
   parseUiTarsFinished,
   sanitizeAiTestConfig,
   summarizeAiTestResults,
@@ -87,4 +88,24 @@ test("failed action log can be turned into deterministic reproduction steps", ()
     "1. press(key='w')",
     "2. click(x=20,y=30)"
   ]);
+});
+
+test("UI-TARS execute params ignore model thought text during safety validation", () => {
+  const params = {
+    prediction: "hotkey(key='w')",
+    parsedPrediction: {
+      action_type: "hotkey",
+      action_inputs: { key: "w" },
+      thought: "I might mention password or GitHub here, but this is not the executable action.",
+      reflection: null
+    },
+    screenWidth: 1280,
+    screenHeight: 720
+  };
+
+  assert.equal(validateComputerAction(params).ok, true);
+  assert.equal(
+    computerActionSource(params),
+    JSON.stringify({ action_type: "hotkey", action_inputs: { key: "w" } })
+  );
 });

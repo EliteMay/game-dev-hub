@@ -200,3 +200,25 @@
 - Decision: Tab切替専用の `.project-tab-hidden` を使い、`.hidden` はComponent自身の条件表示に残す。
 - Recurrence Guard: `tests/ui-contract.test.mjs` で `renderProjectTab()` が汎用 `.hidden` を変更しないことを検証する。
 - Prevention: Navigation / Tab / Accordion等の親表示Stateと、Error / Empty / Safety / Loading等の子Component Stateを同一Flag・Classで上書きしない。
+
+
+## GL-021 — Loopback URLとModel readinessを同一視しない
+
+- Date: 2026-09-27
+- Type: AI Integration / Diagnostics
+- Status: Adopted
+- Problem: `127.0.0.1:1234/v1` のようなLocal URLへHTTP接続できるだけで「UI-TARS接続OK」と表示すると、別Model Serverや404応答でも準備完了に見える。
+- Root Cause: Transport reachabilityとConfigured Model availabilityを同じDiagnostic stateへまとめていた。
+- Decision: OpenAI互換 `/models` を確認し、設定したModel IDが実際に存在するまでUI-TARS Ready扱いにしない。HTTP Error responseをSuccess扱いしない。
+- Recurrence Guard: `tests/ai-testing.test.mjs` でModel一致 / Model mismatch / HTTP 404を検証する。
+- Prevention: External/Local AI integrationでは Endpoint / Authentication / Model identity / Inference capabilityを別段階として診断する。
+
+## GL-022 — 開発中GameのAIテストをWindows Export完成まで待たせない
+
+- Date: 2026-09-27
+- Type: Game Development / Test Harness
+- Status: Adopted
+- Problem: AI自動テストがWindows game.exe必須だと、Export工程前のGodot GameでComputer Use検証を開始できない。
+- Decision: Godot ProjectではHubが既に検証・保存しているGodot executableを開発用Runnerとして再利用し、`--path <project>` で実Game Windowを起動する。明示的なgame.exeが選ばれた場合はそちらを優先する。
+- Boundary: Godot direct runは開発用Playtestであり、最終Windows Export artifactの検証を置き換えない。
+- Recurrence Guard: Config sanitizer testとUI contract testでGodot fallbackを保持する。

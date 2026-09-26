@@ -295,3 +295,42 @@ Foundation導入済みGameを選択
 - Existing FileをStarter生成で上書きしない
 - Hub CI / Windows installer buildが成功する
 - Windows実機のCreate / Update操作はCIとは分離して未確認事項として扱う
+
+## AI Windows Game Auto Test
+
+### Goal
+
+Game更新後のWindows実機PlaytestをGame Dev Hubから開始し、指定Game Window内でAIがScreenを確認しながらMouse / Keyboardを操作してEvidenceを残す。
+
+### Required
+
+- Projectごとにexe path / launch args / window title / timeout / AI engine / UI-TARS connection / Test listを保存する
+- AI engineはUI-TARSをPrimary、Agent-SをFallback候補として扱う
+- Fixed TestはProjectごとに id / name / description / expected / timeout / enabled を持つ
+- Resultは PASS / FAIL / WARNING / UNKNOWN とConfidenceを持つ
+- 判断Evidenceが不足する場合はPASS/FAILを推測せずUNKNOWNとする
+- Testごとに可能な限りBefore / After / FAIL screenshotとAction logを保存する
+- FAILからReproduction stepsを生成する
+- Previous FAILだけ再実行できる
+- Exploration modeを持つ
+- Run historyをLocal App Dataへ保存する
+- Latest AI Test resultを既存ChatGPT shared packへ含める
+- ProgressはCurrent test / state / elapsed / current actionを表示する
+
+### Computer Control Safety
+
+- Rendererへarbitrary shell / filesystem / raw mouse-keyboard APIを公開しない
+- AI actionはMain側のdedicated serviceでvalidationしてから実行する
+- Default allow scopeはconfigured target game windowだけ
+- File delete / uninstall / GitHub push-release / external send / purchase / password / admin / system settings / PowerShell-Terminal / personal data accessをAIへ許可しない
+- Allowed scope以外のactive windowを検知した場合は停止する
+- Same action repetition / timeoutを停止する
+- UI emergency stopとglobal shortcutを持つ
+- API Keyはplain settingsへ保存しない
+- Screenshotはtarget windowが見つからない時にdesktop full-screen captureへFallbackしない
+
+### Phase 1 Completion
+
+Game Dev Hub → AI test start → configured game.exe launch → target window detection/focus → UI-TARS sees game → allowed WASD/mouse action → evidence screenshot → PASS/FAIL/WARNING/UNKNOWN → result display/history → JSON report → ChatGPT pack integration.
+
+Windows actual game operation remains a real-device validation gate and must not be considered verified from Node tests/installer build alone.

@@ -440,6 +440,15 @@ export async function runUiTarsTest({
   const { GUIAgent } = await import("@ui-tars/sdk");
   const { NutJSOperator } = await import("@ui-tars/operator-nut-js");
 
+  const localController = new AbortController();
+  const effectiveSignal = localController.signal;
+  const forwardAbort = () => localController.abort(signal?.reason || "parent-abort");
+  if (signal?.aborted) {
+    forwardAbort();
+  } else {
+    signal?.addEventListener("abort", forwardAbort, { once: true });
+  }
+
   const rawOperator = new NutJSOperator();
   const actions = [];
   let repeated = 0;
@@ -453,7 +462,7 @@ export async function runUiTarsTest({
       }
 
       return async (...args) => {
-        if (signal?.aborted) throw new Error("AI_TEST_ABORTED");
+        if (effectiveSignal.aborted) throw new Error("AI_TEST_ABORTED");
         const action = args[0];
         const validation = validateComputerAction(action);
         if (!validation.ok) throw new Error("AI_TEST_BLOCKED_ACTION: " + validation.reason);
@@ -493,6 +502,7 @@ export async function runUiTarsTest({
       model: config.uiTars.model
     },
     operator: safeOperator,
+    signal: effectiveSignal,
     onData: ({ data }) => {
       const serialized = text(typeof data === "string" ? data : JSON.stringify(data), 5000);
       if (serialized) lastData = serialized;
@@ -510,19 +520,24 @@ export async function runUiTarsTest({
   });
 
   const prompt = buildUiTarsTestPrompt(test, { windowTitle: config.windowTitle });
-  const runPromise = agent.run(prompt, signal ? { signal } : undefined);
+  const runPromise = agent.run(prompt);
   const timeoutMs = finiteTimeout(test.timeout, config.timeout) * 1000;
   let timeoutId;
 
   try {
     const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error("AI_TEST_TIMEOUT")), timeoutMs);
+      timeoutId = setTimeout(() => {
+        localController.abort("timeout");
+        reject(new Error("AI_TEST_TIMEOUT"));
+      }, timeoutMs);
     });
     const result = await Promise.race([runPromise, timeoutPromise]);
     const parsed = parseUiTarsFinished(lastData || result);
     return { ...parsed, actions };
   } finally {
     clearTimeout(timeoutId);
+    signal?.removeEventListener("abort", forwardAbort);
+    if (!effectiveSignal.aborted) localController.abort("test-finished");
   }
 }
 

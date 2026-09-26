@@ -294,3 +294,12 @@ test("AI first-run UI explains Godot direct launch and model diagnostics", async
   assert.match(mainSource, /UI_TARS_MODEL_NOT_FOUND/);
   assert.match(mainSource, /AI_TEST_EMERGENCY_SHORTCUT_DISPLAY = "Ctrl \+ Shift \+ F12"/);
 });
+
+
+test("AI test runtime uses the resolved model id without manual config edits", async () => {
+  const mainSource = await fs.readFile(new URL("src/main.mjs", root), "utf8");
+  assert.match(mainSource, /const runtimeConfig = endpoint\.resolvedModel/);
+  assert.match(mainSource, /config: runtimeConfig/);
+  assert.match(mainSource, /configuredModel: config\.uiTars\.model/);
+  assert.match(mainSource, /resolvedModel: endpoint\.resolvedModel/);
+});

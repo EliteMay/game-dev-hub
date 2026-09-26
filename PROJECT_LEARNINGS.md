@@ -166,3 +166,14 @@
 - Problem: 共通Foundationを各Gameへ導入すると、後のFoundation更新がGame固有のRoadmap・Scene・Scriptまで上書きする危険がある。Submodule等をPrimary Flowにすると、Gitに詳しくないUserへ追加概念も要求する。
 - Decision: Foundation側のmachine-readable ManifestとGame側の `.game-foundation.json` でManaged Pathを明示し、Hubは現在 `addons/game_foundation/` だけを生成後更新する。Starter Fileは初回だけ生成し、その後はGame固有領域として扱う。
 - Prevention: Shared Foundationの更新権限をRepository全体へ広げず、Version / Commit / Managed Pathを記録してBoundary変更時は自動更新を停止する。
+
+
+## GL-018 — Computer UseはTarget Window Capabilityとして閉じ込める
+
+- Date: 2026-09-26
+- Type: AI Automation / Electron Security
+- Status: Adopted
+- Problem: Desktop AIへ画面全体のMouse / Keyboard権限をそのまま渡すと、Test対象Gameを越えてOS・個人Data・GitHub等へ操作範囲が広がる。AgentがTask完了したこととTest成功も同一ではない。
+- Decision: Computer UseはMain Processの専用Auto Test Serviceへ隔離し、Active Window / Window Bounds / Blocked Hotkey / Abort / Loop GuardをOperator境界で毎Action検査する。ResultはPASS / FAIL / WARNING / UNKNOWN専用Actionで明示させ、判定不能をUNKNOWNとして保持する。
+- Secret Boundary: API keyはRuntime-only。Settings / Log / Report / ChatGPT Packへ保存しない。
+- Prevention: Desktop AIを追加する時は「AIへPC権限を与える」のではなく「特定Taskへ最小Capabilityを貸す」として設計し、Evidence / Stop / Scope / External Sendを独立Contractにする。

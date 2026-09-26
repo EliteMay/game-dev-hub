@@ -59,6 +59,9 @@
         "owner": "EliteMay",
         "repo": "game-dev-hub"
       }
+    ],
+    "asarUnpack": [
+      "node_modules/@computer-use/**/*"
     ]
   },
   "dependencies": {

@@ -2,12 +2,14 @@
 
 ## 今回変更した内容
 
-- Game Dev Hub v0.1.14にWindowsゲーム向けAI自動テストの第1段階を追加。
+- Game Dev Hub v0.1.15にWindowsゲーム向けAI自動テストの第1段階を追加。
 - UI-TARSをPrimary Computer Use engineとして統合。
 - Game exe起動、対象Window検出、WASD / Mouse操作、Screenshot Evidence、PASS / FAIL / WARNING / UNKNOWN、履歴、FAIL再テスト、探索テスト、診断、緊急停止を追加。
 - 最新AI Test JSONとEvidence Screenshotを既存ChatGPT共有Packへ統合。
 - 外部AI endpoint利用時はScreenshot / test instructionの外部送信とProvider課金可能性を開始前に明示し、User確認なしでは実行しない。
 - API KeyはElectron safeStorageで暗号化し、plain settings / Repository / Log / ChatGPT Packへ保存しない。
+- AIへ渡すScreenshotはActive Target Game Window領域以外を黒塗りし、Maskに失敗した場合はDesktop全体を送らず停止する。
+- UI-TARS公式NutJS Operatorのcurrent action vocabularyへAllowlistを同期し、正常なGame操作を誤停止しないよう修正。
 
 ## 変更したファイル
 
@@ -44,6 +46,8 @@
 - Computer Use安全判定がAI thought全文を解析して通常Game操作を誤停止し得る問題を修正し、実行対象の `action_type / action_inputs` だけを判定するよう変更。
 - System shortcut、範囲外Window、同一操作反復を停止するGuardを追加。
 - External UI-TARS endpointでUser確認なしに画面送信が始まり得る経路を閉鎖。
+- Action scopeだけを制限し、AI visual inputがDesktop全体のままだったPrivacy gapを修正。
+- UI-TARS標準Action名の一部がAllowlist外だったCompatibility gapを修正。
 
 ## 追加した機能
 
@@ -62,6 +66,8 @@
 - External AI consent
 - Service / Local・External / API Key state / Cost guidance / Local alternative display
 - ChatGPT PackへのAI Test Evidence統合
+- Target Game Window外Pixel Mask
+- UI-TARS official NutJS action vocabulary compatibility
 
 ## 削除した内容
 
@@ -75,6 +81,7 @@
 - 該当Learning: GL-018 Computer UseをRendererへ直接公開しない
 - 今回のPrevention: operation-specific IPC / Main Process Safe Operator / Target Window allowlist / action validation / AbortController / safeStorage / external consent
 - Regression Guard: `tests/ai-testing.test.mjs` / `tests/security-contract.test.mjs` / `tests/ui-contract.test.mjs`
+- 追加Prevention: Action Scope / Visual Scope / Data Egress Scopeを別Boundaryとして検証
 
 ## 保存・互換性への影響
 
@@ -106,11 +113,13 @@
 - [x] Unit Test
 - [x] Windows installer build
 - [x] Updater artifact verification
+- [x] UI-TARS official action vocabulary regression
+- [x] Target-window screenshot pixel masking unit test
 - [ ] Real Windows Game E2E
 
 ## 実ブラウザ・実機確認
 
-- [ ] Windows上でv0.1.14をインストール
+- [ ] Windows上でv0.1.15をインストール
 - [ ] UI-TARS Model Serverへ接続
 - [ ] 実Game .exeを起動
 - [ ] Target Window検出
@@ -126,8 +135,8 @@
 - PR #20 final CIでNode tests / Windows installer build / updater artifact verification / artifact uploadがすべて成功。
 - PR #20をmainへmerge。
 - main CI成功。
-- Release workflow成功。
-- v0.1.14 Releaseと `game_dev_hub_0.1.14_setup.exe` / blockmap / latest.yml の生成を確認。
+- v0.1.14までのRelease workflow成功を確認。
+- v0.1.15はこのBranchのCI / Merge / Release後に最終確認する。
 
 ## 確認できていないこと
 
@@ -153,7 +162,7 @@
 
 ## 今後必要な作業
 
-1. v0.1.14をWindowsへ更新 / install。
+1. v0.1.15をWindowsへ更新 / install。
 2. 自動テストタブでLocal UI-TARS endpointを設定。
 3. Test target .exe / Window titleを設定。
 4. 診断を実行。

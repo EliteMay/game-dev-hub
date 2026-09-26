@@ -1,10 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { Jimp } from "jimp";
 
 import {
   buildReproductionSteps,
   buildUiTarsTestPrompt,
   computerActionSource,
+  maskScreenshotToWindow,
+  normalizeMaskRegion,
   parseUiTarsFinished,
   sanitizeAiTestConfig,
   summarizeAiTestResults,
@@ -108,4 +111,82 @@ test("UI-TARS execute params ignore model thought text during safety validation"
     computerActionSource(params),
     JSON.stringify({ action_type: "hotkey", action_inputs: { key: "w" } })
   );
+});
+
+
+test("official UI-TARS NutJS action names stay compatible with the safety allowlist", () => {
+  const action = (action_type, action_inputs = {}) => ({
+    parsedPrediction: { action_type, action_inputs }
+  });
+
+  for (const type of [
+    "wait",
+    "mouse_move",
+    "hover",
+    "click",
+    "left_click",
+    "left_single",
+    "left_double",
+    "double_click",
+    "right_click",
+    "right_single",
+    "drag",
+    "left_click_drag",
+    "select",
+    "scroll",
+    "finished",
+    "call_user",
+    "user_stop",
+    "error_env"
+  ]) {
+    const inputs = type === "scroll" ? { direction: "down" } : {};
+    assert.equal(validateComputerAction(action(type, inputs)).ok, true, type);
+  }
+
+  assert.equal(validateComputerAction(action("press", { key: "w" })).ok, true);
+  assert.equal(validateComputerAction(action("release", { key: "w" })).ok, true);
+  assert.equal(validateComputerAction(action("hotkey", { key: "ctrl+s" })).ok, true);
+  assert.equal(validateComputerAction(action("hotkey", { key: "ctrl+shift+esc" })).ok, false);
+  assert.equal(validateComputerAction(action("type", { content: "secret" })).ok, false);
+  assert.equal(validateComputerAction(action("middle_click")).ok, false);
+});
+
+test("mask region is clamped to screenshot dimensions", () => {
+  assert.deepEqual(
+    normalizeMaskRegion({ left: -20, top: 5, width: 100, height: 80 }, 60, 40),
+    { left: 0, top: 5, right: 60, bottom: 40 }
+  );
+  assert.throws(
+    () => normalizeMaskRegion({ left: 10, top: 10, width: 0, height: 0 }, 100, 100),
+    /AI_TEST_SCREEN_MASK_FAILED/
+  );
+});
+
+test("AI screenshot blacks out every pixel outside the active game window", async () => {
+  const image = new Jimp({ width: 4, height: 4, color: 0xffffffff });
+  const png = await image.getBuffer("image/png");
+
+  const masked = await maskScreenshotToWindow(
+    { base64: png.toString("base64"), scaleFactor: 1 },
+    { left: 1, top: 1, width: 2, height: 2 }
+  );
+
+  const result = await Jimp.read(Buffer.from(masked.base64, "base64"));
+  assert.equal(result.getPixelColor(0, 0), 0x000000ff);
+  assert.equal(result.getPixelColor(3, 3), 0x000000ff);
+  assert.equal(result.getPixelColor(1, 1), 0xffffffff);
+  assert.equal(result.getPixelColor(2, 2), 0xffffffff);
+});
+
+
+test("non-executable final report text does not trigger action safety false positives", () => {
+  const result = validateComputerAction({
+    parsedPrediction: {
+      action_type: "finished",
+      action_inputs: {
+        content: "GitHubやpasswordという単語を結果説明に含むだけで、操作は実行しない"
+      }
+    }
+  });
+  assert.equal(result.ok, true);
 });

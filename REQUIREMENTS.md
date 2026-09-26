@@ -328,6 +328,7 @@ Game更新後のWindows実機PlaytestをGame Dev Hubから開始し、指定Game
 - UI emergency stopとglobal shortcutを持つ
 - API Keyはplain settingsへ保存しない
 - Screenshotはtarget windowが見つからない時にdesktop full-screen captureへFallbackしない
+- AI Modelへ渡すComputer screenshotもtarget Game Window領域以外をMaskし、Mask不能時は送信せず停止する
 
 ### Phase 1 Completion
 

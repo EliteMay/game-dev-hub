@@ -1,6 +1,6 @@
 # Game Dev Hub
 
-## v0.1.14 AI Windows Game Auto Test Foundation
+## v0.1.15 AI Windows Game Auto Test Foundation
 
 Game Dev HubからWindowsゲームを起動し、UI-TARS系Computer Useで実プレイ確認する第1段階を追加します。
 
@@ -16,6 +16,8 @@ Game Dev HubからWindowsゲームを起動し、UI-TARS系Computer Useで実プ
 - 「AI操作を緊急停止」Button + Ctrl + Shift + F12
 - API Keyは通常Settingsへ平文保存せずElectron safeStorageで暗号化
 - localhost / 127.0.0.1 以外の外部AI endpointは、画面送信と課金可能性を開始前に毎回確認
+- AIへ渡すComputer Screenshotは対象Game Window領域以外を黒塗りし、Maskに失敗した場合は送信せず停止
+- UI-TARS公式NutJS action名（left_double / right_single / hover / press / release等）を安全Allowlistへ同期
 - 最新AI Test結果を既存ChatGPT共有Packへ統合
 
 ### UI-TARS接続
@@ -24,7 +26,7 @@ DefaultはOpenAI互換のLocal endpoint http://127.0.0.1:1234/v1 と ui-tars-1.5
 
 Game Dev Hub自体は外部API課金を行いません。Cloud Providerを設定した場合だけProvider側の料金条件が適用されます。Local / self-hosted UI-TARSなら外部API Keyなしでも構成できます。
 
-### v0.1.14の境界
+### v0.1.15の境界
 
 - Agent-Sは予備EngineとしてUI選択肢を用意するが、まだ実行Adapter未接続
 - Screenshotは対象Windowだけを保存し、Desktop全体へFallbackしない

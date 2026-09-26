@@ -329,7 +329,18 @@ export async function diagnoseAutoTest({ config: rawConfig, apiKey = "" } = {}) 
       message: process.platform === "win32" ? "Windowsを検出しました。" : "Windows専用機能です。"
     },
     uiTars: { status: "NG", message: "未確認" },
+    python: {
+      status: "OK",
+      message: "現在の実装はNode/Electron版UI-TARS SDKを使うためPythonサービスは不要です。"
+    },
+    gpu: {
+      status: "WARNING",
+      message: "GPU要件はUI-TARS Model endpointの実行先に依存します。Hubだけでは正常性を断定しません。"
+    },
     computerOperator: { status: "NG", message: "未確認" },
+    screenshot: { status: "NG", message: "未確認" },
+    keyboard: { status: "NG", message: "未確認" },
+    mouse: { status: "NG", message: "未確認" },
     windowDetection: { status: "NG", message: "未確認" },
     exe: { status: "NG", message: "実行ファイルを設定してください。" },
     modelEndpoint: { status: "NG", message: "未確認" }
@@ -362,8 +373,14 @@ export async function diagnoseAutoTest({ config: rawConfig, apiKey = "" } = {}) 
     await import("@ui-tars/operator-nut-js");
     await import("@computer-use/nut-js");
     result.computerOperator = { status: "OK", message: "スクリーンショット・マウス・キーボード操作を利用できます。" };
+    result.screenshot = { status: "OK", message: "UI-TARS Computer Operatorの画面取得機能を読み込めます。" };
+    result.keyboard = { status: "OK", message: "UI-TARS Computer Operatorのキーボード操作機能を読み込めます。" };
+    result.mouse = { status: "OK", message: "UI-TARS Computer Operatorのマウス操作機能を読み込めます。" };
   } catch (error) {
     result.computerOperator = { status: "NG", message: "Computer Operatorを読み込めません: " + cleanText(error?.message, 200) };
+    result.screenshot = { status: "NG", message: "画面取得機能を利用できません。" };
+    result.keyboard = { status: "NG", message: "キーボード操作機能を利用できません。" };
+    result.mouse = { status: "NG", message: "マウス操作機能を利用できません。" };
   }
 
   try {

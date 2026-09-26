@@ -104,7 +104,12 @@
             <button class="button button-danger-quiet" id="remove-project-button" type="button">Hubから外す</button>
           </div>
 
-          <div class="hero-action">
+          <nav class="project-tabs" aria-label="ゲーム開発機能">
+            <button class="project-tab selected" id="development-tab-button" type="button">開発</button>
+            <button class="project-tab" id="auto-test-tab-button" type="button">自動テスト</button>
+          </nav>
+
+          <div class="hero-action" data-project-tab="development">
             <div>
               <p class="hero-status" id="hero-status">状態確認中</p>
               <h3 id="hero-title">準備を確認しています</h3>
@@ -115,7 +120,7 @@
             </button>
           </div>
 
-          <div class="status-cards">
+          <div class="status-cards" data-project-tab="development">
             <article class="status-card">
               <div class="status-card-title">
                 <span class="status-dot" id="repo-dot"></span>
@@ -147,7 +152,7 @@
             </article>
           </div>
 
-          <section class="safety-recovery hidden" id="safety-recovery" aria-live="polite">
+          <section class="safety-recovery hidden" id="safety-recovery" data-project-tab="development" aria-live="polite">
             <div class="safety-recovery-heading">
               <div>
                 <p class="section-kicker">GitHubへの保存待ち</p>
@@ -196,7 +201,7 @@
             </details>
           </section>
 
-          <div class="action-grid">
+          <div class="action-grid" data-project-tab="development">
             <button class="action-card" id="sync-button" type="button">
               <strong>最新版にする</strong>
               <span>GitHubから安全に更新</span>
@@ -219,7 +224,7 @@
             </button>
           </div>
 
-          <section class="development-workspace" aria-label="開発ワークスペース">
+          <section class="development-workspace" data-project-tab="development" aria-label="開発ワークスペース">
             <article class="dev-panel task-panel">
               <div class="dev-panel-heading">
                 <div>
@@ -360,7 +365,144 @@
             </article>
           </section>
 
-          <section class="log-section">
+          <section class="auto-test-panel hidden" id="auto-test-panel" data-project-tab-panel="auto-test" aria-label="AI自動テスト">
+            <div class="auto-test-header">
+              <div>
+                <p class="section-kicker">Windows Computer Use</p>
+                <h3>AI自動テスト</h3>
+                <p>実際のゲーム.exeを起動し、UI-TARSが画面を見ながらゲームだけを操作します。</p>
+              </div>
+              <button class="button button-danger" id="ai-test-emergency-stop" type="button">
+                AI操作を緊急停止
+              </button>
+            </div>
+
+            <div class="auto-test-target-grid">
+              <article class="status-card">
+                <span>現在のプロジェクト</span>
+                <strong id="ai-test-project-name">確認中</strong>
+                <p id="ai-test-project-commit">Git commit: -</p>
+              </article>
+              <article class="status-card">
+                <span>実行ファイル</span>
+                <strong id="ai-test-exe-name">未設定</strong>
+                <p id="ai-test-exe-path">テスト対象.exeを選択してください。</p>
+              </article>
+              <article class="status-card">
+                <span>AI操作エンジン</span>
+                <strong id="ai-test-engine-label">UI-TARS</strong>
+                <p id="ai-test-last-run">まだ実行していません。</p>
+              </article>
+            </div>
+
+            <div class="auto-test-primary-actions">
+              <button class="button button-primary button-large" id="ai-test-start" type="button">AIテスト開始</button>
+              <button class="button button-muted" id="ai-test-retest-failed" type="button">失敗項目を再テスト</button>
+              <button class="button button-muted" id="ai-test-exploration" type="button">AI探索テスト</button>
+            </div>
+
+            <section class="ai-test-progress-card" aria-live="polite">
+              <div class="ai-test-progress-top">
+                <strong id="ai-test-progress-count">待機中</strong>
+                <span id="ai-test-progress-elapsed">00:00</span>
+              </div>
+              <h4 id="ai-test-progress-title">AIテストは停止しています</h4>
+              <p id="ai-test-progress-state">設定と診断を確認してから開始してください。</p>
+              <code id="ai-test-progress-action">操作: -</code>
+              <p class="ai-test-safety-note" id="ai-test-safety-note">
+                操作範囲: テスト対象ゲームのみ / 緊急停止: Ctrl + Shift + F12
+              </p>
+            </section>
+
+            <details class="ai-test-settings" open>
+              <summary>プロジェクトごとの自動テスト設定</summary>
+              <div class="ai-test-settings-grid">
+                <label class="field">
+                  <span>テスト対象.exe</span>
+                  <div class="inline-field">
+                    <input id="ai-test-exe-path-input" readonly placeholder="未設定">
+                    <button class="button button-muted button-small" id="ai-test-choose-exe" type="button">選択</button>
+                  </div>
+                </label>
+                <label class="field">
+                  <span>ウィンドウ名</span>
+                  <input id="ai-test-window-title" maxlength="180" placeholder="例: Deep Factory">
+                </label>
+                <label class="field">
+                  <span>AI操作エンジン</span>
+                  <select id="ai-test-engine">
+                    <option value="ui-tars">UI-TARS</option>
+                    <option value="agent-s">Agent-S（予備・未接続）</option>
+                    <option value="disabled">無効</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>1テストの基本タイムアウト（秒）</span>
+                  <input id="ai-test-timeout" type="number" min="5" max="600" step="1">
+                </label>
+                <label class="field">
+                  <span>UI-TARS Base URL</span>
+                  <input id="ai-test-base-url" maxlength="500" placeholder="http://127.0.0.1:1234/v1">
+                </label>
+                <label class="field">
+                  <span>UI-TARS Model</span>
+                  <input id="ai-test-model" maxlength="180" placeholder="ui-tars-1.5">
+                </label>
+                <label class="field ai-test-api-key-field">
+                  <span>APIキー（必要なProviderだけ）</span>
+                  <input id="ai-test-api-key" type="password" autocomplete="off" placeholder="未入力なら保存済みキーを維持">
+                  <small id="ai-test-api-key-status">Windows暗号化ストレージへ保存します。ローカル接続なら不要です。</small>
+                </label>
+              </div>
+
+              <label class="field">
+                <span>テスト定義（JSON）</span>
+                <textarea id="ai-test-definitions" rows="12" spellcheck="false"></textarea>
+              </label>
+              <p class="dialog-note">
+                各テストは id / name / description / expected / timeout / enabled を持ちます。画面だけで判断できない場合はUNKNOWNになります。
+              </p>
+              <div class="dialog-actions ai-test-config-actions">
+                <button class="button button-muted" id="ai-test-diagnostics-button" type="button">自動テスト診断</button>
+                <button class="button button-primary" id="ai-test-save-config" type="button">設定を保存</button>
+              </div>
+            </details>
+
+            <section class="ai-test-diagnostics hidden" id="ai-test-diagnostics">
+              <div class="dev-panel-heading">
+                <div>
+                  <p class="section-kicker">環境確認</p>
+                  <h3>自動テスト診断</h3>
+                </div>
+              </div>
+              <div class="ai-test-diagnostic-list" id="ai-test-diagnostic-list"></div>
+              <p class="dialog-note" id="ai-test-cost-note"></p>
+            </section>
+
+            <section class="ai-test-results">
+              <div class="dev-panel-heading">
+                <div>
+                  <p class="section-kicker">最新結果</p>
+                  <h3>テスト結果</h3>
+                </div>
+                <span class="dev-badge" id="ai-test-summary">未実行</span>
+              </div>
+              <div class="ai-test-result-list" id="ai-test-result-list"></div>
+              <p class="dev-empty" id="ai-test-result-empty">まだAI自動テスト結果はありません。</p>
+            </section>
+
+            <section class="ai-test-history">
+              <div class="dev-panel-heading">
+                <div>
+                  <p class="section-kicker">改善状況</p>
+                  <h3>テスト履歴</h3>
+                </div>
+              </div>
+              <div class="ai-test-history-list" id="ai-test-history-list"></div>
+            </section>
+          </section>
+
+          <section class="log-section" data-project-tab="development">
             <div class="log-heading">
               <div>
                 <p class="section-kicker">実行履歴</p>

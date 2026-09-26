@@ -153,6 +153,8 @@ const el = {
   aiTestExePathInput: document.querySelector("#ai-test-exe-path-input"),
   aiTestChooseExe: document.querySelector("#ai-test-choose-exe"),
   aiTestWindowTitle: document.querySelector("#ai-test-window-title"),
+  aiTestTargetVersion: document.querySelector("#ai-test-target-version"),
+  aiTestLaunchArgs: document.querySelector("#ai-test-launch-args"),
   aiTestEngine: document.querySelector("#ai-test-engine"),
   aiTestTimeout: document.querySelector("#ai-test-timeout"),
   aiTestBaseUrl: document.querySelector("#ai-test-base-url"),
@@ -1407,6 +1409,8 @@ function renderAiTestState() {
 
   el.aiTestExePathInput.value = config.exePath || "";
   el.aiTestWindowTitle.value = config.windowTitle || "";
+  el.aiTestTargetVersion.value = config.targetVersion || "";
+  el.aiTestLaunchArgs.value = (config.launchArgs || []).join("\n");
   el.aiTestEngine.value = config.engine || "ui-tars";
   el.aiTestTimeout.value = String(config.timeout || 60);
   el.aiTestBaseUrl.value = config.uiTars?.baseUrl || "";
@@ -1525,6 +1529,11 @@ function aiTestConfigPayload() {
   return {
     exePath: el.aiTestExePathInput.value,
     windowTitle: el.aiTestWindowTitle.value,
+    targetVersion: el.aiTestTargetVersion.value,
+    launchArgs: el.aiTestLaunchArgs.value
+      .split(/\r?\n/)
+      .map((value) => value.trim())
+      .filter(Boolean),
     engine: el.aiTestEngine.value,
     timeout: Number(el.aiTestTimeout.value || 60),
     uiTars: {

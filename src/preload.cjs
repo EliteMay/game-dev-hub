@@ -24,6 +24,19 @@ contextBridge.exposeInMainWorld("gameDevHub", {
   removeReferenceImage: (payload) => ipcRenderer.invoke("hub:reference-image-remove", payload),
   openReferenceImage: (payload) => ipcRenderer.invoke("hub:reference-image-open", payload),
   exportChatGptPack: (payload) => ipcRenderer.invoke("hub:chatgpt-pack-export", payload),
+  getAutoTestState: (projectId) => ipcRenderer.invoke("hub:auto-test-get", projectId),
+  chooseAutoTestExe: (projectId) => ipcRenderer.invoke("hub:auto-test-choose-exe", projectId),
+  saveAutoTestConfig: (payload) => ipcRenderer.invoke("hub:auto-test-save-config", payload),
+  diagnoseAutoTest: (payload) => ipcRenderer.invoke("hub:auto-test-diagnose", payload),
+  startAutoTest: (payload) => ipcRenderer.invoke("hub:auto-test-start", payload),
+  retestFailedAutoTests: (payload) => ipcRenderer.invoke("hub:auto-test-retest-failed", payload),
+  stopAutoTest: () => ipcRenderer.invoke("hub:auto-test-stop"),
+  openAutoTestFolder: (projectId) => ipcRenderer.invoke("hub:auto-test-open-folder", projectId),
+  onAutoTestProgress: (callback) => {
+    const listener = (_event, progress) => callback(progress);
+    ipcRenderer.on("hub:auto-test-progress", listener);
+    return () => ipcRenderer.removeListener("hub:auto-test-progress", listener);
+  },
   getDiagnostics: () => ipcRenderer.invoke("hub:get-diagnostics"),
   exportDiagnostics: () => ipcRenderer.invoke("hub:diagnostics-export"),
   openLogsFolder: () => ipcRenderer.invoke("hub:diagnostics-open-logs"),

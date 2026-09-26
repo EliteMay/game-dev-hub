@@ -2,6 +2,7 @@ import {
   app,
   BrowserWindow,
   dialog,
+  globalShortcut,
   ipcMain,
   nativeImage,
   nativeTheme,
@@ -47,6 +48,17 @@ import {
   referenceImagePath,
   removeReferenceImage
 } from "./services/development-workspace.mjs";
+import {
+  copyLatestAutoTestForPack,
+  diagnoseAutoTest,
+  getActiveAutoTestState,
+  listAutoTestRuns,
+  loadAutoTestConfig,
+  loadLatestAutoTestReport,
+  runAutoTests,
+  saveAutoTestConfig,
+  stopActiveAutoTest
+} from "./services/auto-test.mjs";
 import updaterPackage from "electron-updater";
 
 const { autoUpdater } = updaterPackage;
@@ -299,7 +311,14 @@ const LOGGED_IPC_CHANNELS = new Set([
   "hub:task-verification-clear",
   "hub:reference-images-add",
   "hub:reference-image-remove",
-  "hub:chatgpt-pack-export"
+  "hub:chatgpt-pack-export",
+  "hub:auto-test-choose-exe",
+  "hub:auto-test-save-config",
+  "hub:auto-test-diagnose",
+  "hub:auto-test-start",
+  "hub:auto-test-retest-failed",
+  "hub:auto-test-stop",
+  "hub:auto-test-open-folder"
 ]);
 
 function registerIpc(channel, handler) {
@@ -456,6 +475,7 @@ async function getState() {
     },
     git,
     godot,
+    autoTest: getActiveAutoTestState(),
     projects
   };
 }
@@ -820,6 +840,137 @@ async function runGame(projectId) {
   return { ok: true, message: project.name + " を起動しました。" };
 }
 
+
+function publishAutoTestProgress(progress) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("hub:auto-test-progress", progress);
+  }
+}
+
+async function getAutoTestState(projectId) {
+  const project = await findProject(projectId);
+  const [config, history, latest] = await Promise.all([
+    loadAutoTestConfig(appDataRoot(), project.id),
+    listAutoTestRuns(appDataRoot(), project.id),
+    loadLatestAutoTestReport(appDataRoot(), project.id)
+  ]);
+  return {
+    ok: true,
+    project: { id: project.id, name: project.name },
+    config,
+    history,
+    latest,
+    active: getActiveAutoTestState()
+  };
+}
+
+async function chooseAutoTestExe(projectId) {
+  const project = await findProject(projectId);
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: project.name + " のテスト対象exeを選ぶ",
+    properties: ["openFile"],
+    filters: [{ name: "Windowsアプリ", extensions: ["exe"] }]
+  });
+  if (result.canceled || !result.filePaths[0]) {
+    return { ok: false, code: "CANCELED", message: "exe選択をキャンセルしました。" };
+  }
+  return { ok: true, exePath: path.normalize(result.filePaths[0]) };
+}
+
+async function saveAutoTestConfigAction(payload) {
+  if (!payload || typeof payload !== "object") {
+    throw new HubError("INVALID_INPUT", "自動テスト設定が正しくありません。");
+  }
+  const project = await findProject(payload.projectId);
+  const config = await saveAutoTestConfig(appDataRoot(), project.id, payload.config || {});
+  return { ok: true, message: "自動テスト設定を保存しました。", config };
+}
+
+async function diagnoseProjectAutoTest(payload) {
+  if (!payload || typeof payload !== "object") {
+    throw new HubError("INVALID_INPUT", "自動テスト診断の指定が正しくありません。");
+  }
+  const project = await findProject(payload.projectId);
+  const saved = await loadAutoTestConfig(appDataRoot(), project.id);
+  const config = payload.config && typeof payload.config === "object"
+    ? { ...saved, ...payload.config, model: { ...saved.model, ...(payload.config.model || {}) } }
+    : saved;
+  const diagnostics = await diagnoseAutoTest({
+    config,
+    apiKey: typeof payload.apiKey === "string" ? payload.apiKey.slice(0, 2000) : ""
+  });
+  return { ok: true, diagnostics };
+}
+
+async function executeProjectAutoTest(payload, failedOnly = false) {
+  if (!payload || typeof payload !== "object") {
+    throw new HubError("INVALID_INPUT", "自動テストの指定が正しくありません。");
+  }
+  const project = await findProject(payload.projectId);
+  const repository = await inspectRepository(project);
+  if (!repository.valid) {
+    throw new HubError("REPOSITORY_INVALID", "Local Repositoryを先に準備してください。");
+  }
+
+  const config = await saveAutoTestConfig(appDataRoot(), project.id, payload.config || {});
+  let onlyTestIds = null;
+  if (failedOnly) {
+    const latest = await loadLatestAutoTestReport(appDataRoot(), project.id);
+    onlyTestIds = (latest?.tests || [])
+      .filter((test) => test.status === "FAIL")
+      .map((test) => test.id);
+    if (!onlyTestIds.length) {
+      return { ok: false, code: "NO_FAILED_TESTS", message: "前回FAILしたテストはありません。" };
+    }
+  }
+
+  const result = await runAutoTests({
+    userDataPath: appDataRoot(),
+    project,
+    config,
+    apiKey: typeof payload.apiKey === "string" ? payload.apiKey.slice(0, 2000) : "",
+    gitCommit: repository.commit || "",
+    appVersion: app.getVersion(),
+    onlyTestIds,
+    onProgress: publishAutoTestProgress
+  });
+
+  return {
+    ok: true,
+    message: failedOnly ? "失敗項目の再テストが完了しました。" : "AI自動テストが完了しました。",
+    report: result.report,
+    summary: result.summary,
+    autoTestState: await getAutoTestState(project.id)
+  };
+}
+
+async function startProjectAutoTest(payload) {
+  return executeProjectAutoTest(payload, false);
+}
+
+async function retestFailedProjectAutoTests(payload) {
+  return executeProjectAutoTest(payload, true);
+}
+
+async function stopProjectAutoTest() {
+  const stopped = await stopActiveAutoTest("emergency-button");
+  publishAutoTestProgress({
+    phase: stopped ? "stopped" : "idle",
+    message: stopped ? "AI操作を緊急停止しました。" : "実行中のAIテストはありません。",
+    lastAction: ""
+  });
+  return { ok: true, stopped, message: stopped ? "AI操作を緊急停止しました。" : "実行中のAIテストはありません。" };
+}
+
+async function openAutoTestFolder(projectId) {
+  const project = await findProject(projectId);
+  const folder = path.join(appDataRoot(), "auto-tests", project.id);
+  await fs.mkdir(folder, { recursive: true });
+  const errorMessage = await shell.openPath(folder);
+  if (errorMessage) throw new HubError("OPEN_FOLDER_FAILED", "自動テスト保存先を開けませんでした。");
+  return { ok: true };
+}
+
 async function openFolder(projectId) {
   const project = await findProject(projectId);
 
@@ -1127,6 +1278,7 @@ async function exportChatGptPack(payload) {
   }
 
   const referenceImages = await copyReferenceImages(appDataRoot(), project.id, packRoot);
+  const autoTest = await copyLatestAutoTestForPack(appDataRoot(), project.id, packRoot);
   const diagnostics = await diagnosticsSnapshot();
   const homePath = app.getPath("home");
 
@@ -1175,6 +1327,14 @@ async function exportChatGptPack(payload) {
       allUserTaskResults,
       activeTaskResult: activeVerification
     },
+    autoTest: autoTest
+      ? {
+          source: "Game Dev Hub UI-TARS automated Windows playtest",
+          summary: autoTest.summary,
+          reportFile: autoTest.report,
+          evidenceFiles: autoTest.evidence
+        }
+      : null,
     diagnostics: {
       network: diagnostics.network,
       capabilities: diagnostics.capabilities,
@@ -1184,7 +1344,9 @@ async function exportChatGptPack(payload) {
     },
     files: {
       hubScreenshot: screenshotFile,
-      referenceImages
+      referenceImages,
+      autoTestReport: autoTest?.report || "",
+      autoTestEvidence: autoTest?.evidence || []
     },
     privacy: {
       automaticSecretsIncluded: false,
@@ -1244,6 +1406,12 @@ async function exportChatGptPack(payload) {
     "User実機確認結果まとめ:",
     verificationLines.length ? verificationLines.join("\n") : "- まだ確認結果はありません。",
     "",
+    "AI自動テスト:",
+    autoTest
+      ? "- " + autoTest.summary.passed + " PASS / " + autoTest.summary.failed + " FAIL / " +
+        autoTest.summary.warning + " WARNING / " + autoTest.summary.unknown + " UNKNOWN"
+      : "- まだAI自動テスト結果はありません。",
+    "",
     activeTask ? "現在選択中のタスク: " + activeTask.section + " / " + activeTask.text : "現在選択中のタスク: 未選択",
     "",
     "確認してほしい内容:",
@@ -1270,7 +1438,8 @@ async function exportChatGptPack(payload) {
     message: verificationSummary.recorded > 0
       ? verificationSummary.recorded + "件の未完了Task確認結果をまとめたChatGPT共有パックを作成しました。"
       : "現在状態のChatGPT共有パックを作成しました。",
-    fileCount: 2 + referenceImages.length + (mainWindow && !mainWindow.isDestroyed() ? 1 : 0)
+    fileCount: 2 + referenceImages.length + (mainWindow && !mainWindow.isDestroyed() ? 1 : 0) +
+      (autoTest ? 1 + autoTest.evidence.length : 0)
   };
 }
 
@@ -1564,6 +1733,14 @@ if (!singleInstanceLock) {
     registerIpc("hub:reference-image-remove", removeProjectReferenceImage);
     registerIpc("hub:reference-image-open", openProjectReferenceImage);
     registerIpc("hub:chatgpt-pack-export", exportChatGptPack);
+    registerIpc("hub:auto-test-get", getAutoTestState);
+    registerIpc("hub:auto-test-choose-exe", chooseAutoTestExe);
+    registerIpc("hub:auto-test-save-config", saveAutoTestConfigAction);
+    registerIpc("hub:auto-test-diagnose", diagnoseProjectAutoTest);
+    registerIpc("hub:auto-test-start", startProjectAutoTest);
+    registerIpc("hub:auto-test-retest-failed", retestFailedProjectAutoTests);
+    registerIpc("hub:auto-test-stop", stopProjectAutoTest);
+    registerIpc("hub:auto-test-open-folder", openAutoTestFolder);
     registerIpc("hub:get-diagnostics", getDiagnostics);
     registerIpc("hub:diagnostics-export", exportDiagnostics);
     registerIpc("hub:diagnostics-open-logs", openLogsFolder);
@@ -1575,6 +1752,24 @@ if (!singleInstanceLock) {
 
     configureUpdater();
     await createWindow();
+
+    const shortcutRegistered = globalShortcut.register("CommandOrControl+Shift+F12", () => {
+      void stopActiveAutoTest("emergency-shortcut").then((stopped) => {
+        if (stopped) {
+          publishAutoTestProgress({
+            phase: "stopped",
+            message: "緊急停止ショートカットでAI操作を停止しました。",
+            lastAction: ""
+          });
+        }
+      });
+    });
+    if (!shortcutRegistered) {
+      void writeFoundationLog("auto-test.shortcut-unavailable", {
+        level: "warning",
+        code: "GLOBAL_SHORTCUT_UNAVAILABLE"
+      });
+    }
 
     setTimeout(() => {
       if (app.isPackaged) checkForUpdates().catch(() => {});
@@ -1594,6 +1789,8 @@ if (!singleInstanceLock) {
 }
 
 app.on("before-quit", () => {
+  void stopActiveAutoTest("app-quit");
+  globalShortcut.unregisterAll();
   void persistWindowState();
   void writeFoundationLog("app.quit");
 });

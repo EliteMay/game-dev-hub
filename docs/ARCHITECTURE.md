@@ -321,6 +321,12 @@ UI-TARS SDK / NutJSはRendererへ公開しない。PreloadはrunAiTest / stopAiT
 
 AIが生成した操作は直接Computerへ渡さず、Safe Operator AdapterでAction type・Key・Active Windowを再検証する。Target Game以外がActiveになった場合はOperationを拒否する。
 
+### Visual Scope
+
+UI-TARS公式NutJS Operatorは通常Desktop全体をScreenshotするため、Game Dev HubのSafe OperatorはModelへ返す直前にactive target Game WindowのRegionを取得し、それ以外のPixelを黒塗りする。Screenshot Maskに失敗した場合は `AI_TEST_SCREEN_MASK_FAILED` でfail-closedし、unmasked Desktop Screenshotへfallbackしない。
+
+Computer action allowlistはUI-TARS NutJS Operatorのcurrent action vocabularyに合わせ、click / left_single / left_double / right_single / hover / drag / scroll / press / release / hotkey等のGame操作だけを許可する。Text typing、System shortcut、Shell / File / GitHub等は引き続き拒否する。
+
 Game Processはconfigured absolute .exeだけをshell=falseで起動し、arbitrary command stringは受け取らない。
 
 ### External AI Consent

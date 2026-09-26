@@ -57,6 +57,7 @@ import {
   inspectExecutable,
   inspectUiTarsDependencies,
   latestAiTestReport,
+  probeOpenAiModelEndpoint,
   launchTestExecutable,
   listAiTestHistory,
   loadAiTestConfig,
@@ -86,6 +87,7 @@ let windowStateSaveTimer = null;
 let activeAiTestRun = null;
 
 const AI_TEST_EMERGENCY_SHORTCUT = "CommandOrControl+Shift+F12";
+const AI_TEST_EMERGENCY_SHORTCUT_DISPLAY = "Ctrl + Shift + F12";
 const UPDATE_RELEASES_URL = "https://github.com/EliteMay/game-dev-hub/releases/latest";
 let updateState = {
   status: "idle",
@@ -415,23 +417,43 @@ async function saveUiTarsApiKey(projectId, apiKey) {
 }
 
 async function aiTestProjectDefaults(project) {
+  const settings = await getSettings();
+  const godot = await detectGodot(settings.godotPath);
+
+  if (godot.available) {
+    return {
+      exePath: godot.path,
+      launchArgs: ["--path", project.localPath],
+      windowTitle: project.name,
+      targetVersion: "dev"
+    };
+  }
+
   return {
     exePath: "",
-    windowTitle: project.name
+    launchArgs: [],
+    windowTitle: project.name,
+    targetVersion: "dev"
   };
 }
 
 async function aiTestState(projectId) {
   const project = await findProject(projectId);
+  const defaults = await aiTestProjectDefaults(project);
   const config = await loadAiTestConfig(
     appDataRoot(),
     project.id,
-    await aiTestProjectDefaults(project)
+    defaults
   );
   const repository = await inspectRepository(project);
   const history = await listAiTestHistory(appDataRoot(), project.id, 20);
   const latestReport = await latestAiTestReport(appDataRoot(), project.id);
   const apiKeyConfigured = Boolean(await loadUiTarsApiKey(project.id));
+  const usingGodotProject =
+    Boolean(defaults.exePath) &&
+    config.exePath === defaults.exePath &&
+    config.launchArgs?.includes("--path") &&
+    config.launchArgs?.includes(project.localPath);
 
   return {
     ok: true,
@@ -439,11 +461,13 @@ async function aiTestState(projectId) {
       id: project.id,
       name: project.name,
       commit: repository.commit || "",
-      branch: repository.branch || ""
+      branch: repository.branch || "",
+      launchMode: usingGodotProject ? "godot-project" : "executable"
     },
     config,
     apiKeyConfigured,
     emergencyShortcut: AI_TEST_EMERGENCY_SHORTCUT,
+    emergencyShortcutDisplay: AI_TEST_EMERGENCY_SHORTCUT_DISPLAY,
     history,
     latestReport
   };
@@ -468,7 +492,7 @@ async function chooseAiTestExecutable(projectId) {
   const config = await saveAiTestConfig(
     appDataRoot(),
     project.id,
-    { ...current, exePath: result.filePaths[0] },
+    { ...current, exePath: result.filePaths[0], launchArgs: [] },
     await aiTestProjectDefaults(project)
   );
   return { ok: true, message: "テスト対象.exeを設定しました。", config };
@@ -645,6 +669,21 @@ async function runAiTestSuite(payload = {}) {
     };
   }
 
+  const apiKey = await loadUiTarsApiKey(project.id);
+  const endpoint = await probeAiEndpoint(config.uiTars.baseUrl, config.uiTars.model, apiKey);
+  if (!endpoint.endpointOk) {
+    throw new HubError(
+      "UI_TARS_ENDPOINT_UNAVAILABLE",
+      endpoint.detail || "UI-TARS Model Serverへ接続できません。"
+    );
+  }
+  if (endpoint.modelFound === false) {
+    throw new HubError(
+      "UI_TARS_MODEL_NOT_FOUND",
+      endpoint.detail || "設定したUI-TARS Modelが接続先に読み込まれていません。"
+    );
+  }
+
   const repository = await inspectRepository(project);
   const runId = makeTestRunId();
   const controller = new AbortController();
@@ -704,8 +743,6 @@ async function runAiTestSuite(payload = {}) {
       total: selectedTests.length,
       message: "AIテストを開始します。"
     });
-
-    const apiKey = await loadUiTarsApiKey(project.id);
 
     for (let index = 0; index < selectedTests.length; index += 1) {
       if (controller.signal.aborted) break;
@@ -885,50 +922,33 @@ async function confirmExternalAiEndpoint(config) {
   return result.response === 1;
 }
 
-async function probeAiEndpoint(baseUrl) {
-  let target;
-  try {
-    target = new URL(String(baseUrl || ""));
-    if (!["http:", "https:"].includes(target.protocol)) {
-      return { ok: false, detail: "HTTP/HTTPSのBase URLではありません。" };
-    }
-  } catch {
-    return { ok: false, detail: "Base URLが正しくありません。" };
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort("diagnostic-timeout"), 4000);
-  try {
-    const response = await fetch(target, {
-      method: "GET",
-      redirect: "manual",
-      signal: controller.signal
-    });
-    return {
-      ok: true,
-      detail: "Endpointへ到達しました（HTTP " + response.status + "）。Model推論は実行していません。"
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      detail: "Endpointへ接続できません: " + String(error?.message || error).slice(0, 220)
-    };
-  } finally {
-    clearTimeout(timeout);
-  }
+async function probeAiEndpoint(baseUrl, model, apiKey = "") {
+  return probeOpenAiModelEndpoint({
+    baseUrl,
+    model,
+    apiKey,
+    timeoutMs: 4000
+  });
 }
 
 async function aiTestDiagnostics(projectId) {
   const project = await findProject(projectId);
+  const defaults = await aiTestProjectDefaults(project);
   const config = await loadAiTestConfig(
     appDataRoot(),
     project.id,
-    await aiTestProjectDefaults(project)
+    defaults
   );
   const deps = await inspectUiTarsDependencies();
-  const endpoint = await probeAiEndpoint(config.uiTars.baseUrl);
+  const apiKey = await loadUiTarsApiKey(project.id);
+  const endpoint = await probeAiEndpoint(config.uiTars.baseUrl, config.uiTars.model, apiKey);
   const executable = await inspectExecutable(config.exePath);
   const secureStorage = safeStorage.isEncryptionAvailable();
+  const usingGodotProject =
+    Boolean(defaults.exePath) &&
+    config.exePath === defaults.exePath &&
+    config.launchArgs?.includes("--path") &&
+    config.launchArgs?.includes(project.localPath);
 
   return {
     ok: true,
@@ -939,14 +959,25 @@ async function aiTestDiagnostics(projectId) {
       uiTars: {
         ok: deps.sdk && deps.operator && endpoint.ok,
         label: deps.sdk && deps.operator && endpoint.ok
-          ? "SDK / Operator / Endpoint OK"
+          ? "SDK / Operator / Endpoint / Model OK"
           : (deps.error || endpoint.detail || "NG"),
         cause: !deps.sdk || !deps.operator
           ? "UI-TARS SDKまたはNutJS Operatorを読み込めません。"
-          : (!endpoint.ok ? endpoint.detail : ""),
+          : (!endpoint.endpointOk
+              ? endpoint.detail
+              : (endpoint.modelFound === false
+                  ? "接続先に設定Modelが読み込まれていません。"
+                  : (!endpoint.ok ? endpoint.detail : ""))),
         action: !deps.sdk || !deps.operator
           ? "Game Dev Hubを最新版へ更新・再インストールして依存関係を復旧してください。"
-          : (!endpoint.ok ? "UI-TARS Model Serverを起動し、Base URLを確認してください。" : "")
+          : (!endpoint.endpointOk
+              ? "UI-TARS Model Serverを起動し、Base URLを確認してください。"
+              : (endpoint.modelFound === false
+                  ? "UI-TARS Model Serverで設定したModelを読み込み、Model名を一致させてください。"
+                  : (!endpoint.ok
+                      ? "Model Serverの /models 応答とModel名を確認してください。"
+                      : ""))),
+        models: endpoint.models || []
       },
       python: {
         ok: true,
@@ -958,9 +989,13 @@ async function aiTestDiagnostics(projectId) {
       },
       executable: {
         ok: executable.ok,
-        label: executable.ok ? "OK" : executable.message,
+        label: executable.ok
+          ? (usingGodotProject ? "GodotからProjectを直接起動" : "Windows .exeを直接起動")
+          : executable.message,
         cause: executable.ok ? "" : executable.message,
-        action: executable.ok ? "" : "「テスト対象.exe」の選択から実際のWindowsゲーム.exeを設定してください。"
+        action: executable.ok
+          ? ""
+          : "Godotを設定するか、「テスト起動対象」からWindowsゲーム.exeを選択してください。"
       },
       screenshot: {
         ok: true,

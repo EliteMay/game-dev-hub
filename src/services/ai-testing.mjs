@@ -13,7 +13,7 @@ export const DEFAULT_AI_TESTS = Object.freeze([
   {
     id: "game_launch",
     name: "ゲーム起動",
-    description: "指定されたゲーム.exeを起動し、対象ウィンドウが表示されることを確認する",
+    description: "指定されたゲームまたはGodot開発実行を起動し、対象ウィンドウが表示されることを確認する",
     expected: "ゲームウィンドウが表示され、操作可能な状態になる",
     timeout: 30,
     enabled: true
@@ -166,17 +166,26 @@ export function sanitizeAiTestConfig(value = {}, defaults = {}) {
   });
 
   const engine = AI_TEST_ENGINES.includes(value.engine) ? value.engine : "ui-tars";
-  const exePath = typeof value.exePath === "string" && path.isAbsolute(value.exePath.trim())
-    ? value.exePath.trim()
-    : (typeof defaults.exePath === "string" ? defaults.exePath : "");
+  const explicitExePath = typeof value.exePath === "string" &&
+    value.exePath.trim() &&
+    path.isAbsolute(value.exePath.trim())
+      ? value.exePath.trim()
+      : "";
+  const exePath = explicitExePath ||
+    (typeof defaults.exePath === "string" && path.isAbsolute(defaults.exePath)
+      ? defaults.exePath
+      : "");
   const screenshotDirectory = typeof value.screenshotDirectory === "string" &&
     value.screenshotDirectory.trim() &&
     path.isAbsolute(value.screenshotDirectory.trim())
       ? value.screenshotDirectory.trim()
       : "";
 
-  const launchArgs = Array.isArray(value.launchArgs)
+  const launchArgsSource = explicitExePath
     ? value.launchArgs
+    : (Array.isArray(defaults.launchArgs) ? defaults.launchArgs : value.launchArgs);
+  const launchArgs = Array.isArray(launchArgsSource)
+    ? launchArgsSource
         .filter((item) => typeof item === "string")
         .map((item) => item.slice(0, 300))
         .slice(0, 20)
@@ -187,7 +196,7 @@ export function sanitizeAiTestConfig(value = {}, defaults = {}) {
     exePath,
     launchArgs,
     windowTitle: text(value.windowTitle || defaults.windowTitle || "", 180),
-    targetVersion: text(value.targetVersion || "", 100),
+    targetVersion: text(value.targetVersion || defaults.targetVersion || "", 100),
     engine,
     timeout: finiteTimeout(value.timeout, 60),
     screenshotDirectory,
@@ -197,6 +206,150 @@ export function sanitizeAiTestConfig(value = {}, defaults = {}) {
     },
     tests: uniqueTests.length ? uniqueTests : DEFAULT_AI_TESTS.map((item) => ({ ...item }))
   };
+}
+
+export function buildOpenAiModelsUrl(baseUrl) {
+  let target;
+  try {
+    target = new URL(String(baseUrl || ""));
+  } catch {
+    throw new Error("Base URLが正しくありません。");
+  }
+
+  if (!["http:", "https:"].includes(target.protocol)) {
+    throw new Error("Base URLはHTTP/HTTPSで指定してください。");
+  }
+
+  const basePath = target.pathname.replace(/\/+$/, "");
+  target.pathname = (basePath || "") + "/models";
+  target.search = "";
+  target.hash = "";
+  return target.toString();
+}
+
+export async function probeOpenAiModelEndpoint({
+  baseUrl,
+  model,
+  apiKey = "",
+  fetchImpl = globalThis.fetch,
+  timeoutMs = 4000
+} = {}) {
+  let modelsUrl;
+  try {
+    modelsUrl = buildOpenAiModelsUrl(baseUrl);
+  } catch (error) {
+    return {
+      ok: false,
+      endpointOk: false,
+      modelFound: null,
+      models: [],
+      detail: String(error?.message || error)
+    };
+  }
+
+  if (typeof fetchImpl !== "function") {
+    return {
+      ok: false,
+      endpointOk: false,
+      modelFound: null,
+      models: [],
+      detail: "HTTP接続機能を利用できません。"
+    };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort("diagnostic-timeout"), Math.max(250, Number(timeoutMs) || 4000));
+
+  try {
+    const headers = { accept: "application/json" };
+    if (apiKey) headers.authorization = "Bearer " + apiKey;
+
+    const response = await fetchImpl(modelsUrl, {
+      method: "GET",
+      redirect: "manual",
+      headers,
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        endpointOk: false,
+        modelFound: null,
+        models: [],
+        status: response.status,
+        detail: "Model一覧を取得できませんでした（HTTP " + response.status + "）。"
+      };
+    }
+
+    let payload;
+    try {
+      payload = await response.json();
+    } catch {
+      return {
+        ok: false,
+        endpointOk: true,
+        modelFound: null,
+        models: [],
+        status: response.status,
+        detail: "Endpointへ接続できましたが、Model一覧をJSONとして確認できませんでした。"
+      };
+    }
+
+    const models = Array.isArray(payload?.data)
+      ? payload.data
+          .map((item) => String(item?.id || "").trim())
+          .filter(Boolean)
+          .slice(0, 100)
+      : [];
+    const expected = String(model || "").trim();
+    const modelFound = expected ? models.includes(expected) : null;
+
+    if (!models.length) {
+      return {
+        ok: false,
+        endpointOk: true,
+        modelFound: null,
+        models,
+        status: response.status,
+        detail: "Endpointへ接続できましたが、利用可能なModel名を確認できませんでした。"
+      };
+    }
+
+    if (modelFound === false) {
+      return {
+        ok: false,
+        endpointOk: true,
+        modelFound: false,
+        models,
+        status: response.status,
+        detail:
+          "接続先は応答していますが、設定Model「" + expected +
+          "」は読み込まれていません。利用可能: " + models.slice(0, 6).join(", ")
+      };
+    }
+
+    return {
+      ok: modelFound === true,
+      endpointOk: true,
+      modelFound,
+      models,
+      status: response.status,
+      detail: modelFound === true
+        ? "Endpoint / Model確認OK: " + expected
+        : "Endpointへ接続できました。"
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      endpointOk: false,
+      modelFound: null,
+      models: [],
+      detail: "Endpointへ接続できません: " + String(error?.message || error).slice(0, 220)
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function loadAiTestConfig(dataRoot, projectId, defaults = {}) {

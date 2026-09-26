@@ -1,5 +1,16 @@
 # Game Dev Hub
 
+## v0.1.17 AI Test First-Run Readiness
+
+Deep FactoryのようにWindows Export前のGodot Projectでも、手動でexeを用意せず最初のAI実機テストへ進めるようにしました。
+
+- Game側exeが未設定なら、Hubで設定済みGodotを使い `Godot.exe --path <project>` でProjectを直接起動
+- Userが別のWindows game.exeを明示選択した場合はGodot用の起動引数を自動で外す
+- UI-TARS診断を単なるBase URL到達確認から、OpenAI互換 `/models` + 設定Model名の確認へ強化
+- HTTP 404等を「接続OK」と誤判定しない
+- localhost / 127.0.0.1 であってもUI-TARS Modelが実際に読み込まれているか診断で確認
+- Windows表示の緊急停止Shortcutを `Ctrl + Shift + F12` と分かりやすく表示
+
 ## v0.1.16 Safety Panel Visibility Fix
 
 Repositoryがclean（変更0件）なのに「GitHubへの保存待ち」が表示され続けるUI不具合を修正しました。
@@ -30,7 +41,7 @@ Game Dev HubからWindowsゲームを起動し、UI-TARS系Computer Useで実プ
 
 ### UI-TARS接続
 
-DefaultはOpenAI互換のLocal endpoint http://127.0.0.1:1234/v1 と ui-tars-1.5 を初期値にしています。実際のModel名 / endpointは利用環境に合わせて自動テスト設定から変更します。
+DefaultはOpenAI互換のLocal endpoint http://127.0.0.1:1234/v1 と ui-tars-1.5 を初期値にしています。これは接続例であり、同じPortで別Modelが動いているだけではUI-TARS利用可能とは扱いません。v0.1.17以降は「自動テスト診断」で `/models` と設定Model名を照合します。
 
 Game Dev Hub自体は外部API課金を行いません。Cloud Providerを設定した場合だけProvider側の料金条件が適用されます。Local / self-hosted UI-TARSなら外部API Keyなしでも構成できます。
 

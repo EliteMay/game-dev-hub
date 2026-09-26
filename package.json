@@ -59,9 +59,17 @@
         "owner": "EliteMay",
         "repo": "game-dev-hub"
       }
+    ],
+    "asarUnpack": [
+      "node_modules/@computer-use/nut-js/**/*",
+      "node_modules/get-windows/**/*"
     ]
   },
   "dependencies": {
-    "electron-updater": "6.8.9"
+    "electron-updater": "6.8.9",
+    "@computer-use/nut-js": "4.2.0",
+    "@ui-tars/operator-nut-js": "1.2.3",
+    "@ui-tars/sdk": "1.2.3",
+    "get-windows": "9.3.0"
   }
 }

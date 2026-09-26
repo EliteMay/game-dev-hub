@@ -90,3 +90,12 @@ test("AI desktop testing keeps privileged computer control behind operation-spec
   assert.match(aiSource, /shell: false/);
   assert.doesNotMatch(aiSource, /exec\(/);
 });
+
+test("external AI endpoints require explicit user consent before computer use", () => {
+  assert.match(mainSource, /isLoopbackAiEndpoint/);
+  assert.match(mainSource, /confirmExternalAiEndpoint/);
+  assert.match(mainSource, /外部AIへの画面送信を確認/);
+  assert.match(mainSource, /外部AIへ送信してテスト開始/);
+  assert.match(mainSource, /externalConsent/);
+  assert.match(mainSource, /code:\s*"CANCELED"/);
+});

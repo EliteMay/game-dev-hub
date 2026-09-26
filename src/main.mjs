@@ -566,6 +566,9 @@ function aiFailureResult(test, error, evidence = {}) {
   } else if (code.includes("AI_TEST_STUCK_REPEAT")) {
     status = "WARNING";
     reason = "同じ操作の繰り返しを検知したため停止しました。";
+  } else if (code.includes("AI_TEST_SCREEN_MASK_FAILED")) {
+    status = "WARNING";
+    reason = "対象ゲーム以外を隠すScreenshot保護に失敗したため、AIへ画面を送らず停止しました。";
   } else if (code.includes("AI_TEST_TIMEOUT")) {
     reason = "テストの制限時間を超えました。";
   } else if (code.includes("AI_TEST_ABORTED")) {
@@ -820,7 +823,8 @@ async function runAiTestSuite(payload = {}) {
         windowScope: [config.windowTitle],
         emergencyShortcut: AI_TEST_EMERGENCY_SHORTCUT,
         arbitraryShellAllowed: false,
-        externalSendAllowed: false
+        externalSendAllowed: false,
+        aiScreenshotScope: "target-window-region-only"
       }
     };
 
@@ -958,7 +962,7 @@ async function aiTestDiagnostics(projectId) {
       },
       screenshot: {
         ok: true,
-        label: "Electron window captureを実行時に確認"
+        label: "Evidenceは対象Window capture / AI入力は対象Window領域以外をMask"
       },
       keyboard: {
         ok: deps.nutJs,

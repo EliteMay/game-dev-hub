@@ -130,7 +130,45 @@ const el = {
   diagnosticsLastError: document.querySelector("#diagnostics-last-error"),
   diagnosticsExport: document.querySelector("#diagnostics-export-button"),
   diagnosticsOpenLogs: document.querySelector("#diagnostics-open-logs-button"),
-  diagnosticsClearLogs: document.querySelector("#diagnostics-clear-logs-button")
+  diagnosticsClearLogs: document.querySelector("#diagnostics-clear-logs-button"),
+  developmentTab: document.querySelector("#development-tab-button"),
+  autoTestTab: document.querySelector("#auto-test-tab-button"),
+  autoTestPanel: document.querySelector("#auto-test-panel"),
+  aiTestProjectName: document.querySelector("#ai-test-project-name"),
+  aiTestProjectCommit: document.querySelector("#ai-test-project-commit"),
+  aiTestExeName: document.querySelector("#ai-test-exe-name"),
+  aiTestExePath: document.querySelector("#ai-test-exe-path"),
+  aiTestEngineLabel: document.querySelector("#ai-test-engine-label"),
+  aiTestLastRun: document.querySelector("#ai-test-last-run"),
+  aiTestStart: document.querySelector("#ai-test-start"),
+  aiTestRetestFailed: document.querySelector("#ai-test-retest-failed"),
+  aiTestExploration: document.querySelector("#ai-test-exploration"),
+  aiTestEmergencyStop: document.querySelector("#ai-test-emergency-stop"),
+  aiTestProgressCount: document.querySelector("#ai-test-progress-count"),
+  aiTestProgressElapsed: document.querySelector("#ai-test-progress-elapsed"),
+  aiTestProgressTitle: document.querySelector("#ai-test-progress-title"),
+  aiTestProgressState: document.querySelector("#ai-test-progress-state"),
+  aiTestProgressAction: document.querySelector("#ai-test-progress-action"),
+  aiTestSafetyNote: document.querySelector("#ai-test-safety-note"),
+  aiTestExePathInput: document.querySelector("#ai-test-exe-path-input"),
+  aiTestChooseExe: document.querySelector("#ai-test-choose-exe"),
+  aiTestWindowTitle: document.querySelector("#ai-test-window-title"),
+  aiTestEngine: document.querySelector("#ai-test-engine"),
+  aiTestTimeout: document.querySelector("#ai-test-timeout"),
+  aiTestBaseUrl: document.querySelector("#ai-test-base-url"),
+  aiTestModel: document.querySelector("#ai-test-model"),
+  aiTestApiKey: document.querySelector("#ai-test-api-key"),
+  aiTestApiKeyStatus: document.querySelector("#ai-test-api-key-status"),
+  aiTestDefinitions: document.querySelector("#ai-test-definitions"),
+  aiTestDiagnosticsButton: document.querySelector("#ai-test-diagnostics-button"),
+  aiTestSaveConfig: document.querySelector("#ai-test-save-config"),
+  aiTestDiagnostics: document.querySelector("#ai-test-diagnostics"),
+  aiTestDiagnosticList: document.querySelector("#ai-test-diagnostic-list"),
+  aiTestCostNote: document.querySelector("#ai-test-cost-note"),
+  aiTestSummary: document.querySelector("#ai-test-summary"),
+  aiTestResultList: document.querySelector("#ai-test-result-list"),
+  aiTestResultEmpty: document.querySelector("#ai-test-result-empty"),
+  aiTestHistoryList: document.querySelector("#ai-test-history-list")
 };
 
 let state = null;
@@ -140,6 +178,11 @@ let referenceImages = [];
 let referenceImagesProjectId = "";
 let showCompletedTasks = false;
 let showFutureTasks = false;
+let activeProjectTab = "development";
+let aiTestState = null;
+let aiTestProjectId = "";
+let aiTestRunStartedAt = 0;
+let aiTestElapsedTimer = null;
 
 const actionButtons = [
   el.refresh,
@@ -167,7 +210,13 @@ const actionButtons = [
   el.taskOpenEditor,
   el.taskExport,
   el.taskVerificationAddImage,
-  el.taskVerificationClear
+  el.taskVerificationClear,
+  el.aiTestStart,
+  el.aiTestRetestFailed,
+  el.aiTestExploration,
+  el.aiTestChooseExe,
+  el.aiTestSaveConfig,
+  el.aiTestDiagnosticsButton
 ];
 
 function setBusy(value, label = "") {
@@ -1312,6 +1361,246 @@ function renderDetail() {
   }
 }
 
+function renderProjectTab() {
+  const development = activeProjectTab === "development";
+  el.developmentTab?.classList.toggle("selected", development);
+  el.autoTestTab?.classList.toggle("selected", !development);
+  for (const node of document.querySelectorAll('[data-project-tab="development"]')) {
+    node.classList.toggle("hidden", !development);
+  }
+  el.autoTestPanel?.classList.toggle("hidden", development);
+}
+
+function aiStatusLabel(status) {
+  if (status === "PASS") return "PASS";
+  if (status === "FAIL") return "FAIL";
+  if (status === "WARNING") return "WARNING";
+  return "UNKNOWN";
+}
+
+function confidenceLabel(value) {
+  if (value === "high") return "高";
+  if (value === "medium") return "中";
+  return "低";
+}
+
+function renderAiTestState() {
+  const project = selectedProject();
+  renderProjectTab();
+  if (!project || !aiTestState || aiTestProjectId !== project.id) return;
+
+  const config = aiTestState.config || {};
+  const latest = aiTestState.latestReport;
+  el.aiTestProjectName.textContent = project.name;
+  el.aiTestProjectCommit.textContent = "Git commit: " + (aiTestState.project?.commit || "-");
+  el.aiTestExeName.textContent = config.exePath ? config.exePath.split(/[\\/]/).pop() : "未設定";
+  el.aiTestExePath.textContent = config.exePath || "テスト対象.exeを選択してください。";
+  el.aiTestEngineLabel.textContent =
+    config.engine === "ui-tars" ? "UI-TARS" :
+    config.engine === "agent-s" ? "Agent-S" : "無効";
+  el.aiTestLastRun.textContent = latest?.completedAt
+    ? "最終: " + new Date(latest.completedAt).toLocaleString("ja-JP")
+    : "まだ実行していません。";
+  el.aiTestSafetyNote.textContent =
+    "操作範囲: " + (config.windowTitle || "対象ゲーム") +
+    " / 緊急停止: " + (aiTestState.emergencyShortcut || "Ctrl + Shift + F12");
+
+  el.aiTestExePathInput.value = config.exePath || "";
+  el.aiTestWindowTitle.value = config.windowTitle || "";
+  el.aiTestEngine.value = config.engine || "ui-tars";
+  el.aiTestTimeout.value = String(config.timeout || 60);
+  el.aiTestBaseUrl.value = config.uiTars?.baseUrl || "";
+  el.aiTestModel.value = config.uiTars?.model || "";
+  el.aiTestDefinitions.value = JSON.stringify(config.tests || [], null, 2);
+  el.aiTestApiKey.value = "";
+  el.aiTestApiKeyStatus.textContent = aiTestState.apiKeyConfigured
+    ? "APIキーはWindows暗号化ストレージに保存済みです。空欄のまま保存すると維持します。"
+    : "APIキーは未保存です。ローカル接続なら不要です。";
+
+  renderAiTestReport(latest);
+  renderAiTestHistory(aiTestState.history || []);
+}
+
+function renderAiTestReport(report) {
+  el.aiTestResultList.replaceChildren();
+  const tests = report?.tests || [];
+  el.aiTestResultEmpty.classList.toggle("hidden", tests.length > 0);
+
+  if (!tests.length) {
+    el.aiTestSummary.textContent = "未実行";
+    return;
+  }
+
+  const summary = report.summary || {};
+  el.aiTestSummary.textContent =
+    "PASS " + (summary.passed || 0) +
+    " / FAIL " + (summary.failed || 0) +
+    " / WARNING " + (summary.warning || 0) +
+    " / UNKNOWN " + (summary.unknown || 0);
+
+  for (const test of tests) {
+    const card = document.createElement("article");
+    card.className = "ai-test-result-card";
+    card.dataset.status = test.status || "UNKNOWN";
+
+    const heading = document.createElement("div");
+    heading.className = "ai-test-result-heading";
+    const title = document.createElement("strong");
+    title.textContent = test.name || test.id || "テスト";
+    const badge = document.createElement("span");
+    badge.className = "ai-test-status-badge";
+    badge.textContent = aiStatusLabel(test.status);
+    heading.append(title, badge);
+
+    const expected = document.createElement("p");
+    expected.textContent = "期待: " + (test.expected || "-");
+    const actual = document.createElement("p");
+    actual.textContent = "実際: " + (test.actual || test.reason || "確認できませんでした。");
+    const confidence = document.createElement("small");
+    confidence.textContent = "信頼度: " + confidenceLabel(test.confidence);
+
+    card.append(heading, expected, actual, confidence);
+
+    if (Array.isArray(test.reproductionSteps) && test.reproductionSteps.length) {
+      const details = document.createElement("details");
+      const summaryNode = document.createElement("summary");
+      summaryNode.textContent = "再現手順";
+      const pre = document.createElement("pre");
+      pre.textContent = test.reproductionSteps.join("\n");
+      details.append(summaryNode, pre);
+      card.append(details);
+    }
+
+    el.aiTestResultList.append(card);
+  }
+}
+
+function renderAiTestHistory(history) {
+  el.aiTestHistoryList.replaceChildren();
+  for (const item of history) {
+    const row = document.createElement("div");
+    row.className = "ai-test-history-row";
+    const date = document.createElement("strong");
+    date.textContent = item.completedAt || item.startedAt
+      ? new Date(item.completedAt || item.startedAt).toLocaleString("ja-JP")
+      : item.testRunId;
+    const summary = document.createElement("span");
+    summary.textContent =
+      "PASS " + (item.summary?.passed || 0) +
+      " / FAIL " + (item.summary?.failed || 0) +
+      " / UNKNOWN " + (item.summary?.unknown || 0);
+    const mode = document.createElement("small");
+    mode.textContent = item.mode === "exploration" ? "探索テスト" :
+      item.mode === "failed-retest" ? "失敗項目の再テスト" : "固定テスト";
+    row.append(date, summary, mode);
+    el.aiTestHistoryList.append(row);
+  }
+}
+
+async function refreshAiTestState() {
+  const project = selectedProject();
+  if (!project) return null;
+  const result = await api.getAiTestState(project.id);
+  if (result?.ok) {
+    aiTestState = result;
+    aiTestProjectId = project.id;
+    renderAiTestState();
+  } else {
+    addLog(result?.message || "自動テスト状態を取得できませんでした。", "error");
+  }
+  return result;
+}
+
+function aiTestConfigPayload() {
+  let tests;
+  try {
+    tests = JSON.parse(el.aiTestDefinitions.value || "[]");
+  } catch {
+    throw new Error("テスト定義JSONが正しくありません。");
+  }
+  if (!Array.isArray(tests)) {
+    throw new Error("テスト定義はJSON配列にしてください。");
+  }
+
+  return {
+    exePath: el.aiTestExePathInput.value,
+    windowTitle: el.aiTestWindowTitle.value,
+    engine: el.aiTestEngine.value,
+    timeout: Number(el.aiTestTimeout.value || 60),
+    uiTars: {
+      baseUrl: el.aiTestBaseUrl.value,
+      model: el.aiTestModel.value
+    },
+    tests
+  };
+}
+
+function startAiElapsedClock() {
+  aiTestRunStartedAt = Date.now();
+  clearInterval(aiTestElapsedTimer);
+  const update = () => {
+    const totalSeconds = Math.max(0, Math.floor((Date.now() - aiTestRunStartedAt) / 1000));
+    const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+    const seconds = String(totalSeconds % 60).padStart(2, "0");
+    el.aiTestProgressElapsed.textContent = minutes + ":" + seconds;
+  };
+  update();
+  aiTestElapsedTimer = setInterval(update, 1000);
+}
+
+function stopAiElapsedClock() {
+  clearInterval(aiTestElapsedTimer);
+  aiTestElapsedTimer = null;
+}
+
+async function runAiTestAction(label, action) {
+  if (busy) return;
+  startAiElapsedClock();
+  const result = await runAction(label, action);
+  stopAiElapsedClock();
+  if (result?.ok) {
+    aiTestState = {
+      ...(aiTestState || {}),
+      latestReport: result.report || aiTestState?.latestReport,
+      history: result.history || aiTestState?.history || []
+    };
+    renderAiTestState();
+  }
+}
+
+function renderAiDiagnostics(diagnostics) {
+  el.aiTestDiagnosticList.replaceChildren();
+  const labels = [
+    ["UI-TARS", diagnostics.uiTars],
+    ["Python", diagnostics.python],
+    ["GPU", diagnostics.gpu],
+    ["テスト対象exe", diagnostics.executable],
+    ["スクリーンショット", diagnostics.screenshot],
+    ["キーボード操作", diagnostics.keyboard],
+    ["マウス操作", diagnostics.mouse],
+    ["APIキー安全保存", diagnostics.secureStorage]
+  ];
+
+  for (const [name, value] of labels) {
+    const row = document.createElement("div");
+    row.className = "ai-test-diagnostic-row";
+    row.dataset.ok = value?.ok ? "true" : "false";
+    const title = document.createElement("strong");
+    title.textContent = name;
+    const status = document.createElement("span");
+    status.textContent = value?.ok ? "OK" : "NG";
+    const detail = document.createElement("p");
+    detail.textContent = value?.label || "";
+    row.append(title, status, detail);
+    el.aiTestDiagnosticList.append(row);
+  }
+
+  el.aiTestCostNote.textContent =
+    (diagnostics.service?.billing || "") + " " +
+    (diagnostics.service?.localAlternative ? "ローカル代替: " + diagnostics.service.localAlternative : "");
+  el.aiTestDiagnostics.classList.remove("hidden");
+}
+
 function render() {
   if (!state) return;
 
@@ -1332,6 +1621,8 @@ function render() {
   renderGlobal();
   renderProjectList();
   renderDetail();
+  renderProjectTab();
+  if (aiTestProjectId === selectedId) renderAiTestState();
 }
 
 async function refreshState(log = false) {
@@ -1340,6 +1631,7 @@ async function refreshState(log = false) {
     state = result;
     render();
     refreshReferenceImages().catch(() => {});
+    if (activeProjectTab === "auto-test") refreshAiTestState().catch(() => {});
     if (log) addLog("状態を更新しました。", "success");
   } else {
     addLog(result?.message || "状態確認に失敗しました。", "error");
@@ -1439,6 +1731,100 @@ function requireSelected() {
   }
   return project;
 }
+
+el.developmentTab.addEventListener("click", () => {
+  activeProjectTab = "development";
+  renderProjectTab();
+});
+
+el.autoTestTab.addEventListener("click", () => {
+  activeProjectTab = "auto-test";
+  renderProjectTab();
+  refreshAiTestState().catch((error) => {
+    addLog("自動テスト状態の取得に失敗しました: " + String(error?.message || error), "error");
+  });
+});
+
+el.aiTestChooseExe.addEventListener("click", async () => {
+  const project = requireSelected();
+  if (!project || busy) return;
+  const result = await api.chooseAiTestExecutable(project.id);
+  if (result?.ok) {
+    addLog(result.message, "success");
+    await refreshAiTestState();
+  } else if (result?.code !== "CANCELED") {
+    addLog(result?.message || "exeを選択できませんでした。", "error");
+  }
+});
+
+el.aiTestSaveConfig.addEventListener("click", async () => {
+  const project = requireSelected();
+  if (!project || busy) return;
+  try {
+    const config = aiTestConfigPayload();
+    const result = await api.saveAiTestConfig({
+      projectId: project.id,
+      config,
+      apiKey: el.aiTestApiKey.value
+    });
+    if (!result?.ok) {
+      addLog(result?.message || "自動テスト設定を保存できませんでした。", "error");
+      return;
+    }
+    addLog(result.message, "success");
+    await refreshAiTestState();
+  } catch (error) {
+    addLog(String(error?.message || error), "error");
+  }
+});
+
+el.aiTestDiagnosticsButton.addEventListener("click", async () => {
+  const project = requireSelected();
+  if (!project || busy) return;
+  const result = await api.getAiTestDiagnostics(project.id);
+  if (result?.ok) {
+    renderAiDiagnostics(result.diagnostics);
+  } else {
+    addLog(result?.message || "自動テスト診断に失敗しました。", "error");
+  }
+});
+
+el.aiTestStart.addEventListener("click", () => {
+  const project = requireSelected();
+  if (!project) return;
+  runAiTestAction("AI自動テスト", () => api.runAiTest(project.id));
+});
+
+el.aiTestRetestFailed.addEventListener("click", () => {
+  const project = requireSelected();
+  if (!project) return;
+  runAiTestAction("失敗項目の再テスト", () => api.retestFailedAiTests(project.id));
+});
+
+el.aiTestExploration.addEventListener("click", () => {
+  const project = requireSelected();
+  if (!project) return;
+  runAiTestAction("AI探索テスト", () => api.runAiExplorationTest(project.id));
+});
+
+el.aiTestEmergencyStop.addEventListener("click", async () => {
+  const result = await api.stopAiTest();
+  addLog(result?.message || "AI操作を停止しました。", "warning");
+  el.aiTestProgressState.textContent = result?.message || "AI操作を停止しました。";
+});
+
+api.onAiTestProgress((progress) => {
+  if (!progress || progress.projectId !== selectedId) return;
+  const current = Number(progress.current || 0);
+  const total = Number(progress.total || 0);
+  el.aiTestProgressCount.textContent = total ? "テスト " + current + " / " + total : "準備中";
+  el.aiTestProgressTitle.textContent = progress.testName || "AI自動テスト";
+  el.aiTestProgressState.textContent = progress.message || progress.phase || "実行中";
+  if (progress.action) el.aiTestProgressAction.textContent = "操作: " + progress.action;
+  if (progress.phase === "completed" || progress.phase === "stopped") {
+    stopAiElapsedClock();
+  }
+});
 
 el.safetySave.addEventListener("click", () => {
   const project = requireSelected();

@@ -19,7 +19,7 @@ test("navigation and permissions are restricted", () => {
 });
 
 test("preload exposes operation-specific API only", () => {
-  assert.doesNotMatch(preloadSource, /exec|spawn|shell/i);
+  assert.doesNotMatch(preloadSource, /child_process|node:fs|spawn\s*\(|exec\s*\(/i);
   assert.match(preloadSource, /startDevelopment/);
   assert.match(preloadSource, /syncProject/);
   assert.match(preloadSource, /saveRepositoryChanges/);

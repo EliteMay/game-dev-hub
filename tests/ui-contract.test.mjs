@@ -277,3 +277,20 @@ test("project tab visibility does not override conditional component hidden stat
   assert.doesNotMatch(match[1], /node\.classList\.toggle\("hidden", !development\)/);
   assert.match(css, /\.project-tab-hidden\s*\{[\s\S]*?display:\s*none\s*!important/);
 });
+
+
+test("AI first-run UI explains Godot direct launch and model diagnostics", async () => {
+  const html = await fs.readFile(new URL("src/renderer/index.html", root), "utf8");
+  const renderer = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
+  const mainSource = await fs.readFile(new URL("src/main.mjs", root), "utf8");
+
+  assert.match(html, /テスト起動対象/);
+  assert.match(html, /別の\.exeを選択/);
+  assert.match(renderer, /Godot開発実行/);
+  assert.match(renderer, /Windows Export不要/);
+  assert.match(renderer, /Model名まで確認/);
+  assert.match(renderer, /緊急停止: /);
+  assert.match(mainSource, /launchArgs: \["--path", project\.localPath\]/);
+  assert.match(mainSource, /UI_TARS_MODEL_NOT_FOUND/);
+  assert.match(mainSource, /AI_TEST_EMERGENCY_SHORTCUT_DISPLAY = "Ctrl \+ Shift \+ F12"/);
+});

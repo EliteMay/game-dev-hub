@@ -106,3 +106,10 @@ Primary Taskは「ゲームを選んで開発を開始する」。
 - AI Test resultはDerived Runtime Evidenceであり、Game Repositoryの仕様やRoadmap completionを自動変更しない。
 - Emergency stop / timeout / repetition guardをComputer Useより優先する。
 - Windows real-device behaviorをCIだけで確認済み扱いにしない。
+
+## AI Runtime Dependency Boundary
+
+- AI Computer Useで実行時にimportされるPackageは、dev-only / 偶然hoistされたtransitive dependencyへ依存させない。
+- Upstream Packageがruntime importをdependenciesへ宣言していない場合、Hub側のproduction dependencyとして明示しVersionを固定する。
+- CI / Releaseでproduction dependency graphを確認し、開発環境だけでimportできる状態を配布可能とみなさない。
+- Setup.exe build成功だけではruntime import成功を保証しないため、既知の必須runtime importはRegression Testへ含める。

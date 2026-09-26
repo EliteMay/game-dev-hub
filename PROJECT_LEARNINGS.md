@@ -222,3 +222,15 @@
 - Decision: Godot ProjectではHubが既に検証・保存しているGodot executableを開発用Runnerとして再利用し、`--path <project>` で実Game Windowを起動する。明示的なgame.exeが選ばれた場合はそちらを優先する。
 - Boundary: Godot direct runは開発用Playtestであり、最終Windows Export artifactの検証を置き換えない。
 - Recurrence Guard: Config sanitizer testとUI contract testでGodot fallbackを保持する。
+
+
+## GL-023 — 開発環境で見えるtransitive dependencyを配布Runtime契約にしない
+
+- Date: 2026-09-27
+- Type: Electron / Dependency Packaging
+- Status: Adopted
+- Problem: Windows配布版のUI-TARS診断で `Cannot find package 'uuid' imported from @ui-tars/sdk/dist/GUIAgent.mjs` が発生した。CIのNode testとinstaller buildは成功していた。
+- Root Cause: `@ui-tars/sdk@1.2.3` のGUIAgentは `uuid` をruntime importするが、SDK package.jsonのdependenciesに `uuid` が無い。開発時は他のdev/transitive dependency経由で `uuid` が見えていたためImportが成功し、Electron Builderのproduction packageでは欠落した。
+- Decision: `uuid@9.0.1` をGame Dev Hubのproduction dependencyとして直接固定する。
+- Recurrence Guard: Unit testでdirect production dependency + runtime importを確認し、CI / Releaseで `npm ls uuid --omit=dev --depth=0` を実行する。
+- Prevention: Electron配布で必要なruntime importは「local node_modulesに存在する」だけで確認済みとせず、production dependency graph上のownershipを確認する。

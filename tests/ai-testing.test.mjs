@@ -288,3 +288,17 @@ test("HTTP errors are not accepted as a healthy UI-TARS endpoint", async () => {
   assert.equal(result.endpointOk, false);
   assert.match(result.detail, /HTTP 404/);
 });
+
+
+test("UI-TARS undeclared runtime import is pinned as a production dependency", async () => {
+  const pkg = JSON.parse(
+    await (await import("node:fs/promises")).readFile(new URL("../package.json", import.meta.url), "utf8")
+  );
+
+  assert.equal(pkg.dependencies?.uuid, "9.0.1");
+  const uuid = await import("uuid");
+  assert.equal(typeof uuid.v4, "function");
+
+  const sdk = await import("@ui-tars/sdk");
+  assert.equal(typeof sdk.GUIAgent, "function");
+});

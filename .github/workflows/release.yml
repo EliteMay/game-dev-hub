@@ -51,6 +51,10 @@ jobs:
         if: steps.release.outputs.exists != 'true'
         run: npm test
 
+      - name: Verify production runtime dependencies
+        if: steps.release.outputs.exists != 'true'
+        run: npm ls uuid --omit=dev --depth=0
+
       - name: Build Windows update artifacts
         if: steps.release.outputs.exists != 'true'
         run: npm run build:win

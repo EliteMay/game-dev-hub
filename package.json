@@ -1,6 +1,6 @@
 {
   "name": "game-dev-hub",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "private": true,
   "type": "module",
   "description": "Windows desktop hub for managing multiple Godot game development repositories.",
@@ -65,10 +65,11 @@
     ]
   },
   "dependencies": {
-    "electron-updater": "6.8.9",
     "@computer-use/nut-js": "4.2.0",
     "@ui-tars/operator-nut-js": "1.2.3",
     "@ui-tars/sdk": "1.2.3",
-    "jimp": "1.6.0"
+    "electron-updater": "6.8.9",
+    "jimp": "1.6.0",
+    "uuid": "9.0.1"
   }
 }

@@ -236,3 +236,38 @@
 - Windows installer build: CIで確認
 - updater artifact verification: CIで確認
 - Deep Factory Godot direct run + actual UI-TARS Computer Use: Windows実機確認待ち
+
+
+---
+
+## v0.1.18 UI-TARS runtime dependency fix
+
+### User実機Evidence
+
+自動テスト診断で次を確認:
+
+- UI-TARS: NG
+- Error: `Cannot find package 'uuid' imported from .../resources/app.asar/node_modules/@ui-tars/sdk/dist/GUIAgent.mjs`
+- Godot direct test launch / screenshot / keyboard / mouse / safeStorageはOK
+
+### Root Cause
+
+`@ui-tars/sdk@1.2.3` の `GUIAgent` は `uuid` をruntime importするが、upstream SDK package.jsonは `uuid` をdependenciesへ宣言していない。
+
+Development installでは別依存から `uuid` が見えていたためNode testは通ったが、Electron Builderがproduction dependencyだけをPackageした結果、Setup.exe内では `uuid` が欠落した。
+
+### 修正
+
+- `uuid@9.0.1` をHubのproduction dependencyへ追加
+- Runtime import Regression Testを追加
+- CI / Releaseへproduction dependency graph checkを追加
+- Project Rule / LearningへPackaging boundaryを記録
+- Versionをv0.1.18へ更新
+
+### Validation
+
+- Node tests: CIで確認
+- Production dependency graph: CI / Releaseで確認
+- Windows installer build: CIで確認
+- updater artifact verification: CIで確認
+- v0.1.18実機のUI-TARS SDK診断: Release後にUser Windows環境で再確認

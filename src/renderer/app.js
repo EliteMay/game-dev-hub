@@ -1276,7 +1276,11 @@ function renderAutoTestDiagnostics(diagnostics) {
   const labels = {
     platform: "Windows",
     uiTars: "UI-TARS",
-    computerOperator: "画面・キーボード・マウス",
+    python: "Python",
+    gpu: "GPU",
+    screenshot: "スクリーンショット",
+    keyboard: "キーボード操作",
+    mouse: "マウス操作",
     windowDetection: "ウィンドウ制限",
     exe: "テスト対象exe",
     modelEndpoint: "Model接続"

@@ -266,8 +266,12 @@ Development installでは別依存から `uuid` が見えていたためNode tes
 
 ### Validation
 
-- Node tests: CIで確認
-- Production dependency graph: CI / Releaseで確認
-- Windows installer build: CIで確認
-- updater artifact verification: CIで確認
-- v0.1.18実機のUI-TARS SDK診断: Release後にUser Windows環境で再確認
+- Node tests: PASS
+- Production dependency graph: CI / ReleaseでPASS
+- Windows installer build: PASS
+- updater artifact verification: PASS
+- PR #24をmainへmerge済み
+- v0.1.18 main CI: PASS
+- v0.1.18 Release workflow: PASS
+- `game_dev_hub_0.1.18_setup.exe` / blockmap / latest.yml の生成を確認
+- v0.1.18実機のUI-TARS SDK診断: User Windows環境で再確認待ち

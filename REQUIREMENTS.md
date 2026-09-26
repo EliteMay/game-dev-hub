@@ -310,6 +310,10 @@ Game更新後のWindows実機PlaytestをGame Dev Hubから開始し、指定Game
 - AI engineはUI-TARSをPrimary、Agent-SをFallback候補として扱う
 - Fixed TestはProjectごとに id / name / description / expected / timeout / enabled を持つ
 - Resultは PASS / FAIL / WARNING / UNKNOWN とConfidenceを持つ
+- UI-TARS最終判定は公式SDKの `onData.data.conversations[].predictionParsed` をPrimaryとして読み、`finished(...)` の `action_inputs.content` を構造化Resultとして解析する
+- SDKのfinal status eventで `conversations: []` が届いても、直前のfinished resultを上書きして失わない
+- 固定のWASD / Mouse smoke testは探索を続けず最小Actionで終了し、Default timeoutはLocal 7Bモデルの実機速度を考慮して120秒とする
+- 旧Config v1のDefault 45秒だけをv2へMigrationし、Userが明示変更したtimeoutは保持する
 - 判断Evidenceが不足する場合はPASS/FAILを推測せずUNKNOWNとする
 - Testごとに可能な限りBefore / After / FAIL screenshotとAction logを保存する
 - FAILからReproduction stepsを生成する

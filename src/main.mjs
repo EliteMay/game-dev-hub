@@ -1667,10 +1667,11 @@ async function exportChatGptPack(payload) {
 
   const referenceImages = await copyReferenceImages(appDataRoot(), project.id, packRoot);
   const diagnostics = await diagnosticsSnapshot();
+  const latestAiTest = await latestAiTestReport(appDataRoot(), project.id);
   const homePath = app.getPath("home");
 
   const pack = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     kind: "game-dev-hub-chatgpt-pack",
     capturedAt: capturedAt.toISOString(),
     purpose: "このゲームで保存したUser実機確認結果を全部まとめ、現在のGame開発状態と一緒にChatGPTへ共有する。",
@@ -1709,11 +1710,23 @@ async function exportChatGptPack(payload) {
     },
     verification: {
       source: "Game Dev Hub runtime snapshot",
-      note: "Gameの実プレイ結果はUserがHubで選択した確認結果、画像、User messageをEvidenceとして判断する。",
+      note: "Gameの実プレイ結果はUserがHubで選択した確認結果、AI自動テスト結果、画像、User messageをEvidenceとして判断する。",
       summary: verificationSummary,
       allUserTaskResults,
       activeTaskResult: activeVerification
     },
+    aiTesting: latestAiTest ? {
+      testRunId: latestAiTest.testRunId,
+      mode: latestAiTest.mode,
+      engine: latestAiTest.engine,
+      targetVersion: latestAiTest.targetVersion,
+      gitCommit: latestAiTest.gitCommit,
+      startedAt: latestAiTest.startedAt,
+      completedAt: latestAiTest.completedAt,
+      stopped: latestAiTest.stopped === true,
+      summary: latestAiTest.summary,
+      tests: latestAiTest.tests
+    } : null,
     diagnostics: {
       network: diagnostics.network,
       capabilities: diagnostics.capabilities,
@@ -1782,6 +1795,14 @@ async function exportChatGptPack(payload) {
     "",
     "User実機確認結果まとめ:",
     verificationLines.length ? verificationLines.join("\n") : "- まだ確認結果はありません。",
+    "",
+    "AI自動テスト:",
+    latestAiTest
+      ? "- " + latestAiTest.testRunId + " / PASS " + (latestAiTest.summary?.passed || 0) +
+        " / FAIL " + (latestAiTest.summary?.failed || 0) +
+        " / WARNING " + (latestAiTest.summary?.warning || 0) +
+        " / UNKNOWN " + (latestAiTest.summary?.unknown || 0)
+      : "- まだAI自動テスト結果はありません。",
     "",
     activeTask ? "現在選択中のタスク: " + activeTask.section + " / " + activeTask.text : "現在選択中のタスク: 未選択",
     "",

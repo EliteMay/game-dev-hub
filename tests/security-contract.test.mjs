@@ -99,3 +99,13 @@ test("external AI endpoints require explicit user consent before computer use", 
   assert.match(mainSource, /externalConsent/);
   assert.match(mainSource, /code:\s*"CANCELED"/);
 });
+
+test("AI screenshots are masked to the active target game window before model use", () => {
+  const aiSource = fs.readFileSync(new URL("../src/services/ai-testing.mjs", import.meta.url), "utf8");
+
+  assert.match(aiSource, /property === "screenshot"/);
+  assert.match(aiSource, /maskScreenshotToWindow/);
+  assert.match(aiSource, /AI_TEST_SCREEN_MASK_FAILED/);
+  assert.match(aiSource, /targetWindowAllowed/);
+  assert.match(mainSource, /aiScreenshotScope: "target-window-region-only"/);
+});

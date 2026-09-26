@@ -1601,6 +1601,17 @@ function renderAiDiagnostics(diagnostics) {
     const detail = document.createElement("p");
     detail.textContent = value?.label || "";
     row.append(title, status, detail);
+
+    if (value?.cause) {
+      const cause = document.createElement("p");
+      cause.textContent = "原因: " + value.cause;
+      row.append(cause);
+    }
+    if (value?.action) {
+      const action = document.createElement("p");
+      action.textContent = "対処: " + value.action;
+      row.append(action);
+    }
     el.aiTestDiagnosticList.append(row);
   }
 

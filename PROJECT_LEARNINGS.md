@@ -166,3 +166,13 @@
 - Problem: 共通Foundationを各Gameへ導入すると、後のFoundation更新がGame固有のRoadmap・Scene・Scriptまで上書きする危険がある。Submodule等をPrimary Flowにすると、Gitに詳しくないUserへ追加概念も要求する。
 - Decision: Foundation側のmachine-readable ManifestとGame側の `.game-foundation.json` でManaged Pathを明示し、Hubは現在 `addons/game_foundation/` だけを生成後更新する。Starter Fileは初回だけ生成し、その後はGame固有領域として扱う。
 - Prevention: Shared Foundationの更新権限をRepository全体へ広げず、Version / Commit / Managed Pathを記録してBoundary変更時は自動更新を停止する。
+
+## GL-018 — Computer UseをRendererへ直接公開しない
+
+- Date: 2026-09-26
+- Type: Security / AI Automation
+- Status: Adopted
+- Problem: Desktop操作AIを便利さ優先でRendererへ直接つなぐと、任意Window・任意Key・任意ProcessへCapabilityが広がり、既存のElectron Security Boundaryを壊す。
+- Decision: UI-TARS / NutJSはMain Processのdedicated AI Test Service内だけで利用し、operation-specific IPC、Target Window allowlist、Action allowlist、AbortController、Repeat guardを必須にする。
+- Evidence: 自動テストはGame WindowのScreenshotと操作LogをLocal App Dataへ保存し、範囲外Windowを検知した操作は拒否する。
+- Prevention: 将来Agent-Sや別Computer Use Engineを追加するときも同じSafe Operator Contractの外側へ直接つながない。

@@ -177,3 +177,16 @@ test("AI screenshot blacks out every pixel outside the active game window", asyn
   assert.equal(result.getPixelColor(1, 1), 0xffffffff);
   assert.equal(result.getPixelColor(2, 2), 0xffffffff);
 });
+
+
+test("non-executable final report text does not trigger action safety false positives", () => {
+  const result = validateComputerAction({
+    parsedPrediction: {
+      action_type: "finished",
+      action_inputs: {
+        content: "GitHubやpasswordという単語を結果説明に含むだけで、操作は実行しない"
+      }
+    }
+  });
+  assert.equal(result.ok, true);
+});

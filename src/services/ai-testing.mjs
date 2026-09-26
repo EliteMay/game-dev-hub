@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { Jimp } from "jimp";
 import { readJsonRecovering, writeJsonAtomic } from "./storage.mjs";
 
 export const AI_TEST_CONFIG_VERSION = 1;
@@ -42,10 +43,50 @@ const MAX_ACTION_LOG = 240;
 const SAFE_KEY_NAMES = new Set([
   ..."abcdefghijklmnopqrstuvwxyz".split(""),
   "up", "down", "left", "right",
-  "space", "shift", "leftshift", "rightshift",
-  "ctrl", "control", "leftcontrol", "rightcontrol",
-  "esc", "escape", "enter", "return",
+  "space", "shift", "ctrl", "esc", "enter", "tab", "backspace",
   "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
+]);
+
+const SAFE_ACTION_TYPES = new Set([
+  "wait",
+  "mouse_move",
+  "hover",
+  "click",
+  "left_click",
+  "left_single",
+  "left_double",
+  "double_click",
+  "right_click",
+  "right_single",
+  "drag",
+  "left_click_drag",
+  "select",
+  "scroll",
+  "hotkey",
+  "press",
+  "release",
+  "finished",
+  "call_user",
+  "user_stop",
+  "error_env"
+]);
+
+const KEY_ACTION_TYPES = new Set(["hotkey", "press", "release"]);
+
+const KEY_ALIASES = new Map([
+  ["control", "ctrl"],
+  ["leftcontrol", "ctrl"],
+  ["rightcontrol", "ctrl"],
+  ["leftctrl", "ctrl"],
+  ["rightctrl", "ctrl"],
+  ["leftshift", "shift"],
+  ["rightshift", "shift"],
+  ["escape", "esc"],
+  ["return", "enter"],
+  ["arrowup", "up"],
+  ["arrowdown", "down"],
+  ["arrowleft", "left"],
+  ["arrowright", "right"]
 ]);
 
 function text(value, max = MAX_TEXT) {
@@ -249,50 +290,156 @@ export function computerActionSource(action) {
   return JSON.stringify(action);
 }
 
-export function validateComputerAction(action) {
-  const source = computerActionSource(action);
-  const normalized = source.toLowerCase();
-
-  const words = normalized.match(/[a-z0-9]+/g) || [];
-  const wordSet = new Set(words);
-  if (
-    (wordSet.has("ctrl") && wordSet.has("shift") && (wordSet.has("esc") || wordSet.has("escape"))) ||
-    (wordSet.has("alt") && wordSet.has("tab")) ||
-    (wordSet.has("windows") && wordSet.has("r"))
-  ) {
-    return { ok: false, reason: "システムShortcutは許可されていません。" };
+function parsedComputerAction(action) {
+  if (action && typeof action === "object" && action.parsedPrediction) {
+    const parsed = action.parsedPrediction;
+    return {
+      type: String(parsed.action_type || "").trim().toLowerCase(),
+      inputs: parsed.action_inputs && typeof parsed.action_inputs === "object"
+        ? parsed.action_inputs
+        : {},
+      source: computerActionSource(action)
+    };
   }
+
+  const source = computerActionSource(action);
+  const match = source.match(/^\s*([a-z_]+)\s*\(/i);
+  return {
+    type: String(match?.[1] || "").toLowerCase(),
+    inputs: {},
+    source
+  };
+}
+
+function normalizeKeyName(value) {
+  const key = String(value || "").trim().toLowerCase().replace(/\s+/g, "");
+  return KEY_ALIASES.get(key) || key;
+}
+
+function keyNamesForAction(action, parsed) {
+  const raw = parsed.inputs?.key ?? parsed.inputs?.hotkey ?? parsed.inputs?.keys;
+  if (Array.isArray(raw)) {
+    return raw.map(normalizeKeyName).filter(Boolean);
+  }
+  if (typeof raw === "string" && raw.trim()) {
+    return raw
+      .split(/[+\s]+/)
+      .map(normalizeKeyName)
+      .filter(Boolean);
+  }
+
+  const words = parsed.source.toLowerCase().match(/[a-z0-9]+/g) || [];
+  return words
+    .filter((word) =>
+      ![
+        "action", "type", "inputs", "press", "release", "key", "hotkey", "keys",
+        "duration", "seconds", "second", "down", "up"
+      ].includes(word) &&
+      !/^\d+(?:ms)?$/.test(word)
+    )
+    .map(normalizeKeyName)
+    .filter(Boolean);
+}
+
+function isBlockedSystemShortcut(keys) {
+  const set = new Set(keys);
+  return (
+    (set.has("ctrl") && set.has("shift") && set.has("esc")) ||
+    (set.has("alt") && set.has("tab")) ||
+    ((set.has("windows") || set.has("win") || set.has("meta")) && set.has("r")) ||
+    (set.has("ctrl") && set.has("alt") && (set.has("delete") || set.has("del")))
+  );
+}
+
+export function validateComputerAction(action) {
+  const parsed = parsedComputerAction(action);
+  const normalized = parsed.source.toLowerCase();
 
   const blockedFragments = [
     "powershell", "cmd.exe", "terminal", "shell",
     "delete", "remove_file", "unlink", "uninstall",
     "github", "push", "release", "purchase", "checkout",
     "password", "credential", "administrator", "run as administrator",
-    "win+r", "windows+r", "alt+tab", "ctrl+shift+esc", "control+shift+escape",
-    "meta", "super", "windowskey",
     "typewrite", "type_text", "insert_text", "paste", "clipboard"
   ];
   if (blockedFragments.some((fragment) => normalized.includes(fragment))) {
     return { ok: false, reason: "安全ポリシーで禁止された操作です。" };
   }
 
-  const allowedAction = /\b(click|double_click|right_click|move|drag|scroll|press|key|hotkey|wait|finished)\b/i.test(source);
-  if (!allowedAction) {
+  if (!SAFE_ACTION_TYPES.has(parsed.type)) {
     return { ok: false, reason: "許可されていないComputer Use操作です。" };
   }
 
-  const keyAction = /\b(press|key|hotkey)\b/i.test(source);
-  if (keyAction) {
-    const candidateKeys = words.filter((word) =>
-      !["action", "type", "inputs", "press", "key", "hotkey", "keys", "duration", "seconds", "second", "down", "up"].includes(word) &&
-      !/^\d+(?:ms)?$/.test(word)
-    );
-    if (candidateKeys.some((key) => !SAFE_KEY_NAMES.has(key))) {
+  if (KEY_ACTION_TYPES.has(parsed.type)) {
+    const keys = keyNamesForAction(action, parsed);
+    if (!keys.length) {
+      return { ok: false, reason: "キー入力の内容を確認できません。" };
+    }
+    if (isBlockedSystemShortcut(keys)) {
+      return { ok: false, reason: "システムShortcutは許可されていません。" };
+    }
+    if (keys.some((key) => !SAFE_KEY_NAMES.has(key))) {
       return { ok: false, reason: "許可されていないキー入力です。" };
     }
   }
 
+  if (parsed.type === "scroll") {
+    const direction = String(parsed.inputs?.direction || "").toLowerCase();
+    if (direction && !["up", "down"].includes(direction)) {
+      return { ok: false, reason: "許可されていないスクロール方向です。" };
+    }
+  }
+
   return { ok: true, reason: "" };
+}
+
+export function normalizeMaskRegion(region, imageWidth, imageHeight) {
+  const width = Math.max(1, Math.floor(Number(imageWidth) || 0));
+  const height = Math.max(1, Math.floor(Number(imageHeight) || 0));
+  const left = Math.max(0, Math.min(width, Math.floor(Number(region?.left ?? region?.x ?? 0))));
+  const top = Math.max(0, Math.min(height, Math.floor(Number(region?.top ?? region?.y ?? 0))));
+  const right = Math.max(
+    left,
+    Math.min(width, Math.ceil(left + Math.max(0, Number(region?.width) || 0)))
+  );
+  const bottom = Math.max(
+    top,
+    Math.min(height, Math.ceil(top + Math.max(0, Number(region?.height) || 0)))
+  );
+
+  if (right <= left || bottom <= top) {
+    throw new Error("AI_TEST_SCREEN_MASK_FAILED");
+  }
+
+  return { left, top, right, bottom };
+}
+
+export async function maskScreenshotToWindow(screenshot, region) {
+  if (!screenshot?.base64) throw new Error("AI_TEST_SCREEN_MASK_FAILED");
+
+  const image = await Jimp.read(Buffer.from(screenshot.base64, "base64"));
+  const bounds = normalizeMaskRegion(region, image.bitmap.width, image.bitmap.height);
+  const { data, width, height } = image.bitmap;
+
+  image.scan(0, 0, width, height, (x, y, index) => {
+    const visible =
+      x >= bounds.left &&
+      x < bounds.right &&
+      y >= bounds.top &&
+      y < bounds.bottom;
+    if (!visible) {
+      data[index] = 0;
+      data[index + 1] = 0;
+      data[index + 2] = 0;
+      data[index + 3] = 255;
+    }
+  });
+
+  const png = await image.getBuffer("image/png");
+  return {
+    ...screenshot,
+    base64: png.toString("base64")
+  };
 }
 
 export function buildUiTarsTestPrompt(test, context = {}) {
@@ -424,17 +571,29 @@ export async function findAndFocusTargetWindow(windowTitle, timeoutMs = 15000, s
   };
 }
 
-async function activeWindowTitle() {
+async function activeWindowContext() {
   const nut = await import("@computer-use/nut-js");
   const current = await nut.getActiveWindow();
+
+  let title = "";
   try {
-    const title = await current.title;
-    if (typeof title === "string") return title;
-  } catch {}
-  if (typeof current.getTitle === "function") {
-    return String(await current.getTitle());
+    title = await current.title;
+  } catch {
+    if (typeof current.getTitle === "function") {
+      title = String(await current.getTitle());
+    }
   }
-  return "";
+
+  let region = null;
+  try {
+    region = await current.region;
+  } catch {
+    if (typeof current.getRegion === "function") {
+      region = await current.getRegion();
+    }
+  }
+
+  return { title: String(title || ""), region };
 }
 
 function targetWindowAllowed(actualTitle, allowedTitles) {
@@ -473,6 +632,25 @@ export async function runUiTarsTest({
   const safeOperator = new Proxy(rawOperator, {
     get(target, property) {
       const value = target[property];
+
+      if (property === "screenshot" && typeof value === "function") {
+        return async (...args) => {
+          if (effectiveSignal.aborted) throw new Error("AI_TEST_ABORTED");
+
+          const active = await activeWindowContext();
+          if (!targetWindowAllowed(active.title, allowedWindowTitles) || !active.region) {
+            throw new Error("AI_TEST_WINDOW_SCOPE_VIOLATION");
+          }
+
+          const screenshot = await value.apply(target, args);
+          try {
+            return await maskScreenshotToWindow(screenshot, active.region);
+          } catch {
+            throw new Error("AI_TEST_SCREEN_MASK_FAILED");
+          }
+        };
+      }
+
       if (property !== "execute" || typeof value !== "function") {
         return typeof value === "function" ? value.bind(target) : value;
       }
@@ -483,8 +661,8 @@ export async function runUiTarsTest({
         const validation = validateComputerAction(action);
         if (!validation.ok) throw new Error("AI_TEST_BLOCKED_ACTION: " + validation.reason);
 
-        const activeTitle = await activeWindowTitle();
-        if (!targetWindowAllowed(activeTitle, allowedWindowTitles)) {
+        const active = await activeWindowContext();
+        if (!targetWindowAllowed(active.title, allowedWindowTitles)) {
           throw new Error("AI_TEST_WINDOW_SCOPE_VIOLATION");
         }
 
@@ -496,7 +674,7 @@ export async function runUiTarsTest({
         actions.push({
           at: new Date().toISOString(),
           action: actionText,
-          windowTitle: text(activeTitle, 180)
+          windowTitle: text(active.title, 180)
         });
         if (actions.length > MAX_ACTION_LOG) actions.shift();
 

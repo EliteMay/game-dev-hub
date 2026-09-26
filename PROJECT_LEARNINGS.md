@@ -188,3 +188,15 @@
 - Decision: UI-TARS Safe Operatorのscreenshot pathをWrapし、Active Target Game WindowのRegion以外を黒塗りしてからModelへ渡す。Region取得またはMaskに失敗した場合はfull-screen fallbackせずfail-closedする。
 - Recurrence Guard: `tests/ai-testing.test.mjs` でPixel Maskを検証し、`tests/security-contract.test.mjs` でSafe Operator screenshot wrapperをContract化する。
 - Prevention: 将来Agent-S等の別Computer Use Engineを追加するときも、Action Scope / Visual Scope / Data Egress Scopeを独立してReviewする。
+
+
+## GL-020 — Tab表示状態とComponent固有状態を同じhidden classで上書きしない
+
+- Date: 2026-09-27
+- Type: UI State / Electron Renderer
+- Status: Adopted
+- Problem: 開発Tabの表示切替が `data-project-tab="development"` の全要素へ汎用 `.hidden` を直接付け外しし、Safety panelがRepository cleanでも再表示された。
+- Root Cause: Tab visibilityとComponent visibilityという別Stateを同じCSS classへ書き込んでいた。
+- Decision: Tab切替専用の `.project-tab-hidden` を使い、`.hidden` はComponent自身の条件表示に残す。
+- Recurrence Guard: `tests/ui-contract.test.mjs` で `renderProjectTab()` が汎用 `.hidden` を変更しないことを検証する。
+- Prevention: Navigation / Tab / Accordion等の親表示Stateと、Error / Empty / Safety / Loading等の子Component Stateを同一Flag・Classで上書きしない。

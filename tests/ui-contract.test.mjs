@@ -250,3 +250,18 @@ test("AI auto-test tab exposes safe progress diagnostics evidence and retest con
   assert.match(source, /stopAiTest/);
   assert.match(preload, /hub:ai-test-stop/);
 });
+
+test("AI settings disclose provider cost key state and local alternative", async () => {
+  const html = await fs.readFile(new URL("src/renderer/index.html", root), "utf8");
+  const source = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
+
+  assert.match(html, /id="ai-test-service-name"/);
+  assert.match(html, /id="ai-test-service-mode"/);
+  assert.match(html, /id="ai-test-service-key"/);
+  assert.match(html, /id="ai-test-service-cost"/);
+  assert.match(html, /id="ai-test-service-local"/);
+  assert.match(source, /renderAiServiceCost/);
+  assert.match(source, /API課金 ¥0/);
+  assert.match(source, /Provider依存/);
+  assert.match(source, /開始前に毎回確認/);
+});

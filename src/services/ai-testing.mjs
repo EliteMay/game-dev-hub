@@ -233,8 +233,24 @@ export function parseUiTarsFinished(value) {
   }
 }
 
+export function computerActionSource(action) {
+  if (typeof action === "string") return action;
+  if (!action || typeof action !== "object") return "";
+
+  const parsed = action.parsedPrediction;
+  if (parsed && typeof parsed === "object") {
+    return JSON.stringify({
+      action_type: parsed.action_type || "",
+      action_inputs: parsed.action_inputs || {}
+    });
+  }
+
+  if (typeof action.prediction === "string") return action.prediction;
+  return JSON.stringify(action);
+}
+
 export function validateComputerAction(action) {
-  const source = typeof action === "string" ? action : JSON.stringify(action ?? {});
+  const source = computerActionSource(action);
   const normalized = source.toLowerCase();
 
   const words = normalized.match(/[a-z0-9]+/g) || [];
@@ -268,7 +284,7 @@ export function validateComputerAction(action) {
   const keyAction = /\b(press|key|hotkey)\b/i.test(source);
   if (keyAction) {
     const candidateKeys = words.filter((word) =>
-      !["press", "key", "hotkey", "keys", "duration", "seconds", "second", "down", "up"].includes(word) &&
+      !["action", "type", "inputs", "press", "key", "hotkey", "keys", "duration", "seconds", "second", "down", "up"].includes(word) &&
       !/^\d+(?:ms)?$/.test(word)
     );
     if (candidateKeys.some((key) => !SAFE_KEY_NAMES.has(key))) {
@@ -472,7 +488,7 @@ export async function runUiTarsTest({
           throw new Error("AI_TEST_WINDOW_SCOPE_VIOLATION");
         }
 
-        const actionText = text(typeof action === "string" ? action : JSON.stringify(action), 500);
+        const actionText = text(computerActionSource(action), 500);
         repeated = actionText === lastAction ? repeated + 1 : 0;
         lastAction = actionText;
         if (repeated >= 4) throw new Error("AI_TEST_STUCK_REPEAT");

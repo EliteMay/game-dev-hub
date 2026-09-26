@@ -323,6 +323,12 @@ AIが生成した操作は直接Computerへ渡さず、Safe Operator AdapterでA
 
 Game Processはconfigured absolute .exeだけをshell=falseで起動し、arbitrary command stringは受け取らない。
 
+### External AI Consent
+
+UI-TARS Base URLがlocalhost / 127.0.0.1 / ::1以外の場合はExternal Providerとして扱う。
+AI Test開始前にGame Dev HubのNative confirmationを必須とし、UserがCancelした場合はGame起動・Screenshot送信・Computer Useを開始しない。
+設定画面ではService / Local or External / API Key state / Cost guidance / Local alternativeを表示する。
+
 ### Result Ownership
 
 AI Test ResultはRuntime EvidenceとしてuserData/hub-data/ai-testingへ保存する。Game仕様やRoadmap completionのSource of Truthにはしない。ChatGPT pack生成時のみ最新Resultを明示Exportへ統合する。

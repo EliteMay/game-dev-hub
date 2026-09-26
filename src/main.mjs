@@ -633,6 +633,15 @@ async function runAiTestSuite(payload = {}) {
     throw new HubError("UI_TARS_CONFIG_REQUIRED", "UI-TARSの接続先とモデル名を設定してください。");
   }
 
+  const externalConsent = await confirmExternalAiEndpoint(config);
+  if (!externalConsent) {
+    return {
+      ok: false,
+      code: "CANCELED",
+      message: "外部AIへの画面送信をキャンセルしました。"
+    };
+  }
+
   const repository = await inspectRepository(project);
   const runId = makeTestRunId();
   const controller = new AbortController();
@@ -835,6 +844,41 @@ async function runAiTestSuite(payload = {}) {
   }
 }
 
+function isLoopbackAiEndpoint(baseUrl) {
+  try {
+    const url = new URL(String(baseUrl || ""));
+    const host = url.hostname.toLowerCase();
+    return host === "127.0.0.1" || host === "localhost" || host === "::1" || host === "[::1]";
+  } catch {
+    return false;
+  }
+}
+
+async function confirmExternalAiEndpoint(config) {
+  if (isLoopbackAiEndpoint(config?.uiTars?.baseUrl)) return true;
+
+  let endpointLabel = String(config?.uiTars?.baseUrl || "");
+  try {
+    endpointLabel = new URL(endpointLabel).origin;
+  } catch {}
+
+  const result = await dialog.showMessageBox(mainWindow, {
+    type: "warning",
+    buttons: ["キャンセル", "外部AIへ送信してテスト開始"],
+    defaultId: 0,
+    cancelId: 0,
+    title: "外部AIへの画面送信を確認",
+    message: "このAIテストはローカル接続ではありません。",
+    detail:
+      "接続先: " + endpointLabel + "\n\n" +
+      "ゲーム画面のScreenshotとテスト指示が、この接続先のAIサービスへ送信される可能性があります。" +
+      " 外部Providerを利用する場合はProvider側の料金が発生する可能性もあります。\n\n" +
+      "Game Dev HubはGitHub push、購入、Password入力、管理者操作などをAIへ許可しませんが、" +
+      "外部AIへの画面送信自体はこの確認後にだけ開始します。"
+  });
+  return result.response === 1;
+}
+
 async function probeAiEndpoint(baseUrl) {
   let target;
   try {
@@ -933,8 +977,12 @@ async function aiTestDiagnostics(projectId) {
       engine: config.engine,
       service: {
         name: "UI-TARS / configured OpenAI-compatible endpoint",
-        billing: "Hub自体は課金しません。外部Providerを設定した場合のみProvider側の料金が発生します。",
-        localAlternative: "UI-TARS-1.5等のローカル/自己ホストModelを利用可能"
+        endpoint: config.uiTars.baseUrl,
+        local: isLoopbackAiEndpoint(config.uiTars.baseUrl),
+        billing: isLoopbackAiEndpoint(config.uiTars.baseUrl)
+          ? "ローカル接続。Game Dev Hubからの外部API課金はありません。"
+          : "外部接続。Providerの料金体系はHubから判定できません。開始前に毎回確認を表示します。",
+        localAlternative: "localhost / 127.0.0.1 のOpenAI互換UI-TARS Model Server"
       }
     }
   };

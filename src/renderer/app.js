@@ -161,6 +161,12 @@ const el = {
   aiTestModel: document.querySelector("#ai-test-model"),
   aiTestApiKey: document.querySelector("#ai-test-api-key"),
   aiTestApiKeyStatus: document.querySelector("#ai-test-api-key-status"),
+  aiTestServiceName: document.querySelector("#ai-test-service-name"),
+  aiTestServiceMode: document.querySelector("#ai-test-service-mode"),
+  aiTestServiceKey: document.querySelector("#ai-test-service-key"),
+  aiTestServiceCost: document.querySelector("#ai-test-service-cost"),
+  aiTestServiceLocal: document.querySelector("#ai-test-service-local"),
+  aiTestServiceNote: document.querySelector("#ai-test-service-note"),
   aiTestDefinitions: document.querySelector("#ai-test-definitions"),
   aiTestDiagnosticsButton: document.querySelector("#ai-test-diagnostics-button"),
   aiTestSaveConfig: document.querySelector("#ai-test-save-config"),
@@ -1386,6 +1392,31 @@ function confidenceLabel(value) {
   return "低";
 }
 
+function isLocalAiBaseUrl(value) {
+  try {
+    const url = new URL(String(value || ""));
+    const host = url.hostname.toLowerCase();
+    return host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]";
+  } catch {
+    return false;
+  }
+}
+
+function renderAiServiceCost(config, apiKeyConfigured) {
+  const baseUrl = config?.uiTars?.baseUrl || "";
+  const local = isLocalAiBaseUrl(baseUrl);
+  el.aiTestServiceName.textContent = "UI-TARS / OpenAI互換Endpoint";
+  el.aiTestServiceMode.textContent = local ? "ローカル" : "外部Provider";
+  el.aiTestServiceKey.textContent = apiKeyConfigured ? "暗号化保存済み" : (local ? "不要" : "未設定");
+  el.aiTestServiceCost.textContent = local
+    ? "API課金 ¥0（PCの電気・GPU利用のみ）"
+    : "Provider依存（Hubでは金額を自動判定しません）";
+  el.aiTestServiceLocal.textContent = "あり（localhost / 127.0.0.1）";
+  el.aiTestServiceNote.textContent = local
+    ? "ローカル接続ではゲーム画面を外部Providerへ送信しません。"
+    : "外部接続ではUI-TARSのComputer screenshotがProviderへ送信される可能性があります。開始前に毎回確認します。";
+}
+
 function renderAiTestState() {
   const project = selectedProject();
   renderProjectTab();
@@ -1420,6 +1451,7 @@ function renderAiTestState() {
   el.aiTestApiKeyStatus.textContent = aiTestState.apiKeyConfigured
     ? "APIキーはWindows暗号化ストレージに保存済みです。空欄のまま保存すると維持します。"
     : "APIキーは未保存です。ローカル接続なら不要です。";
+  renderAiServiceCost(config, aiTestState.apiKeyConfigured);
 
   renderAiTestReport(latest);
   renderAiTestHistory(aiTestState.history || []);

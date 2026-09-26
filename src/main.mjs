@@ -823,7 +823,9 @@ async function runAiTestSuite(payload = {}) {
         windowScope: [config.windowTitle],
         emergencyShortcut: AI_TEST_EMERGENCY_SHORTCUT,
         arbitraryShellAllowed: false,
-        externalSendAllowed: false,
+        arbitraryExternalActionsAllowed: false,
+        modelEndpointExternal: !isLoopbackAiEndpoint(config.uiTars.baseUrl),
+        externalModelScreenSendConfirmed: !isLoopbackAiEndpoint(config.uiTars.baseUrl),
         aiScreenshotScope: "target-window-region-only"
       }
     };

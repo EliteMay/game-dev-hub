@@ -1413,7 +1413,7 @@ function renderAiServiceCost(config, apiKeyConfigured) {
     : "Provider依存（Hubでは金額を自動判定しません）";
   el.aiTestServiceLocal.textContent = "あり（localhost / 127.0.0.1）";
   el.aiTestServiceNote.textContent = local
-    ? "ローカル接続ではゲーム画面を外部Providerへ送信しません。"
+    ? "ローカル接続ではゲーム画面を外部Providerへ送信しません。ただしURLがローカルでもUI-TARS Modelが読み込まれているとは限らないため、開始前に「自動テスト診断」でModel名まで確認します。"
     : "外部接続ではUI-TARSのComputer screenshotがProviderへ送信される可能性があります。開始前に毎回確認します。";
 }
 
@@ -1426,8 +1426,13 @@ function renderAiTestState() {
   const latest = aiTestState.latestReport;
   el.aiTestProjectName.textContent = project.name;
   el.aiTestProjectCommit.textContent = "Git commit: " + (aiTestState.project?.commit || "-");
-  el.aiTestExeName.textContent = config.exePath ? config.exePath.split(/[\\/]/).pop() : "未設定";
-  el.aiTestExePath.textContent = config.exePath || "テスト対象.exeを選択してください。";
+  const godotProjectMode = aiTestState.project?.launchMode === "godot-project";
+  el.aiTestExeName.textContent = godotProjectMode
+    ? "Godot開発実行"
+    : (config.exePath ? config.exePath.split(/[\\/]/).pop() : "未設定");
+  el.aiTestExePath.textContent = godotProjectMode
+    ? "設定済みGodotからこのProjectを直接起動します（Windows Export不要）。"
+    : (config.exePath || "テスト起動対象を設定してください。");
   el.aiTestEngineLabel.textContent =
     config.engine === "ui-tars" ? "UI-TARS" :
     config.engine === "agent-s" ? "Agent-S" : "無効";
@@ -1436,7 +1441,7 @@ function renderAiTestState() {
     : "まだ実行していません。";
   el.aiTestSafetyNote.textContent =
     "操作範囲: " + (config.windowTitle || "対象ゲーム") +
-    " / 緊急停止: " + (aiTestState.emergencyShortcut || "Ctrl + Shift + F12");
+    " / 緊急停止: " + (aiTestState.emergencyShortcutDisplay || "Ctrl + Shift + F12");
 
   el.aiTestExePathInput.value = config.exePath || "";
   el.aiTestWindowTitle.value = config.windowTitle || "";
@@ -1615,7 +1620,7 @@ function renderAiDiagnostics(diagnostics) {
     ["UI-TARS", diagnostics.uiTars],
     ["Python", diagnostics.python],
     ["GPU", diagnostics.gpu],
-    ["テスト対象exe", diagnostics.executable],
+    ["テスト起動", diagnostics.executable],
     ["スクリーンショット", diagnostics.screenshot],
     ["キーボード操作", diagnostics.keyboard],
     ["マウス操作", diagnostics.mouse],

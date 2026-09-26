@@ -438,9 +438,14 @@ export function getActiveAutoTestState() {
 
 async function wait(ms, signal) {
   await new Promise((resolve, reject) => {
-    const timer = setTimeout(resolve, ms);
+    const finish = () => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    };
+    const timer = setTimeout(finish, ms);
     const onAbort = () => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
       reject(new Error("AIテストを停止しました。"));
     };
     if (signal?.aborted) return onAbort();
@@ -597,6 +602,7 @@ export async function runAutoTests({
   };
   child.stdout?.on("data", appendOutput);
   child.stderr?.on("data", appendOutput);
+  child.on("error", (error) => appendOutput("launch error: " + String(error?.message || error)));
 
   emit({ phase: "launch", index: 0, message: "ゲームを起動し、ウィンドウを探しています。", lastAction: "exe起動" });
 

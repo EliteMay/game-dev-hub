@@ -230,3 +230,22 @@ test("selected game shows installed Foundation version and explicit update actio
   assert.match(source, /導入Commit/);
   assert.match(source, /updateProjectFoundation/);
 });
+
+test("AI auto-test tab exposes safe progress diagnostics evidence and retest controls", async () => {
+  const html = await fs.readFile(new URL("src/renderer/index.html", root), "utf8");
+  const source = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
+  const preload = await fs.readFile(new URL("src/preload.cjs", root), "utf8");
+
+  assert.match(html, /id="auto-test-tab-button"/);
+  assert.match(html, /id="ai-test-start"/);
+  assert.match(html, /id="ai-test-retest-failed"/);
+  assert.match(html, /id="ai-test-exploration"/);
+  assert.match(html, /id="ai-test-emergency-stop"/);
+  assert.match(html, /id="ai-test-diagnostic-list"/);
+  assert.match(html, /id="ai-test-result-list"/);
+  assert.match(html, /id="ai-test-history-list"/);
+  assert.match(source, /renderAiTestReport/);
+  assert.match(source, /onAiTestProgress/);
+  assert.match(source, /AI操作を緊急停止/);
+  assert.match(preload, /hub:ai-test-stop/);
+});

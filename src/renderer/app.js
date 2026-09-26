@@ -1374,7 +1374,7 @@ function renderProjectTab() {
   el.developmentTab?.classList.toggle("selected", development);
   el.autoTestTab?.classList.toggle("selected", !development);
   for (const node of document.querySelectorAll('[data-project-tab="development"]')) {
-    node.classList.toggle("hidden", !development);
+    node.classList.toggle("project-tab-hidden", !development);
   }
   el.autoTestPanel?.classList.toggle("hidden", development);
 }

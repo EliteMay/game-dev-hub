@@ -1,5 +1,15 @@
 # Game Dev Hub
 
+## v0.1.19 UI-TARS Model ID Compatibility
+
+LM StudioなどのOpenAI互換Serverが返す実際のModel IDと、Game Dev Hubの旧初期値が少し違うだけでAIテストが止まる問題を修正します。
+
+- 新しいDefault Model IDを `ui-tars-1.5-7b` に更新
+- 既存Projectが旧設定 `ui-tars-1.5` のままでも、接続先に `ui-tars-1.5-*` が1つだけ存在すれば安全に自動解決
+- 自動解決した実際のModel IDをAI実行時に使用
+- 複数候補がある場合は推測せずNGのままにする
+- Test reportへconfigured / resolved Model IDを保存
+
 ## v0.1.18 UI-TARS Runtime Dependency Fix
 
 Windows配布版で「Cannot find package 'uuid' imported from @ui-tars/sdk」となり、自動テスト診断がUI-TARS NGになる問題を修正します。

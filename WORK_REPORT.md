@@ -347,9 +347,13 @@ WASDについては旧Default timeout 45秒がLocal UI-TARS 7Bの操作 + 次画
 
 ### Validation
 
-- Unit / contract tests: CIで確認
-- Official onData `predictionParsed` shape regression: CIで確認
-- Config migration regression: CIで確認
-- Windows installer build: CIで確認
-- updater artifact verification: CIで確認
-- v0.1.20 Windows実機でWASD / Mouseの再テスト: Release後にUser環境で確認
+- Unit / contract tests: PASS
+- Official onData `predictionParsed` shape regression: PASS
+- Config migration regression: PASS
+- Windows installer build: PASS
+- updater artifact verification: PASS
+- PR #26をmainへmerge済み
+- v0.1.20 main CI: PASS
+- v0.1.20 Release workflow: PASS
+- `game_dev_hub_0.1.20_setup.exe` / blockmap / latest.yml の生成を確認
+- v0.1.20 Windows実機でWASD / Mouseの再テスト: User環境で確認待ち

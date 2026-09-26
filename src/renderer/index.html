@@ -429,6 +429,14 @@
                   <input id="ai-test-window-title" maxlength="180" placeholder="例: Deep Factory">
                 </label>
                 <label class="field">
+                  <span>テスト対象バージョン</span>
+                  <input id="ai-test-target-version" maxlength="100" placeholder="例: 0.3.0 / dev">
+                </label>
+                <label class="field">
+                  <span>起動引数（1行に1つ）</span>
+                  <textarea id="ai-test-launch-args" rows="4" spellcheck="false" placeholder="--debug"></textarea>
+                </label>
+                <label class="field">
                   <span>AI操作エンジン</span>
                   <select id="ai-test-engine">
                     <option value="ui-tars">UI-TARS</option>
@@ -460,7 +468,7 @@
                 <textarea id="ai-test-definitions" rows="12" spellcheck="false"></textarea>
               </label>
               <p class="dialog-note">
-                各テストは id / name / description / expected / timeout / enabled を持ちます。画面だけで判断できない場合はUNKNOWNになります。
+                ScreenshotはGame Dev Hubの安全なApp Data内へ自動保存します。各テストは id / name / description / expected / timeout / enabled を持ち、画面だけで判断できない場合はUNKNOWNになります。
               </p>
               <div class="dialog-actions ai-test-config-actions">
                 <button class="button button-muted" id="ai-test-diagnostics-button" type="button">自動テスト診断</button>

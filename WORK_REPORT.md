@@ -300,7 +300,12 @@ HubがUI-TARS product/family名をOpenAI互換APIのModel IDとして固定し�
 
 ### Validation
 
-- Unit / contract tests: CIで確認
-- Windows installer build: CIで確認
-- updater artifact verification: CIで確認
-- v0.1.19実機でUI-TARS診断がOKになること: Release後にUser Windows環境で再確認
+- Unit / contract tests: PASS
+- Legacy alias / ambiguous alias regression: PASS
+- Windows installer build: PASS
+- updater artifact verification: PASS
+- PR #25をmainへmerge済み
+- v0.1.19 main CI: PASS
+- v0.1.19 Release workflow: PASS
+- `game_dev_hub_0.1.19_setup.exe` / blockmap / latest.yml の生成を確認
+- v0.1.19実機でUI-TARS診断がOKになること: User Windows環境で再確認待ち

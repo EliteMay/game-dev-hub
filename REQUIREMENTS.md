@@ -305,6 +305,8 @@ Game更新後のWindows実機PlaytestをGame Dev Hubから開始し、指定Game
 ### Required
 
 - Projectごとにexe path / launch args / window title / timeout / AI engine / UI-TARS connection / Test listを保存する
+- Windows Export前のGodot Projectでは、Hubに設定済みのGodot executable + `--path <project>` を安全な開発用Test targetとして自動利用できる
+- UserがWindows game.exeを明示選択した場合はGodot用launch argsを引き継がず、そのexeを直接起動する
 - AI engineはUI-TARSをPrimary、Agent-SをFallback候補として扱う
 - Fixed TestはProjectごとに id / name / description / expected / timeout / enabled を持つ
 - Resultは PASS / FAIL / WARNING / UNKNOWN とConfidenceを持つ
@@ -316,6 +318,8 @@ Game更新後のWindows実機PlaytestをGame Dev Hubから開始し、指定Game
 - Run historyをLocal App Dataへ保存する
 - Latest AI Test resultを既存ChatGPT shared packへ含める
 - ProgressはCurrent test / state / elapsed / current actionを表示する
+- UI-TARS診断はBase URLへの単純到達だけでOK扱いせず、OpenAI互換 `/models` から設定Model名の存在まで確認する
+- HTTP 404等のError responseを「Endpoint OK」と扱わない
 
 ### Computer Control Safety
 
@@ -332,6 +336,6 @@ Game更新後のWindows実機PlaytestをGame Dev Hubから開始し、指定Game
 
 ### Phase 1 Completion
 
-Game Dev Hub → AI test start → configured game.exe launch → target window detection/focus → UI-TARS sees game → allowed WASD/mouse action → evidence screenshot → PASS/FAIL/WARNING/UNKNOWN → result display/history → JSON report → ChatGPT pack integration.
+Game Dev Hub → AI test start → configured game.exe または Godot開発実行をlaunch → target window detection/focus → UI-TARS model readiness確認 → UI-TARS sees game → allowed WASD/mouse action → evidence screenshot → PASS/FAIL/WARNING/UNKNOWN → result display/history → JSON report → ChatGPT pack integration.
 
 Windows actual game operation remains a real-device validation gate and must not be considered verified from Node tests/installer build alone.

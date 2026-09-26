@@ -40,7 +40,7 @@ const MAX_HISTORY = 100;
 const MAX_TEXT = 2000;
 const MAX_ACTION_LOG = 240;
 const SAFE_KEY_NAMES = new Set([
-  "w", "a", "s", "d",
+  ..."abcdefghijklmnopqrstuvwxyz".split(""),
   "up", "down", "left", "right",
   "space", "shift", "leftshift", "rightshift",
   "ctrl", "control", "leftcontrol", "rightcontrol",

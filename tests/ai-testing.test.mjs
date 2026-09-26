@@ -3,12 +3,14 @@ import assert from "node:assert/strict";
 import { Jimp } from "jimp";
 
 import {
+  buildOpenAiModelsUrl,
   buildReproductionSteps,
   buildUiTarsTestPrompt,
   computerActionSource,
   maskScreenshotToWindow,
   normalizeMaskRegion,
   parseUiTarsFinished,
+  probeOpenAiModelEndpoint,
   sanitizeAiTestConfig,
   summarizeAiTestResults,
   validateComputerAction
@@ -189,4 +191,100 @@ test("non-executable final report text does not trigger action safety false posi
     }
   });
   assert.equal(result.ok, true);
+});
+
+
+test("AI test config falls back to Godot project launch defaults before Windows export exists", () => {
+  const config = sanitizeAiTestConfig(
+    {
+      exePath: "",
+      launchArgs: [],
+      windowTitle: "Deep Factory"
+    },
+    {
+      exePath: "C:/Tools/Godot/Godot_v4.7.2-stable_win64.exe",
+      launchArgs: ["--path", "C:/Games/deep-factory"],
+      windowTitle: "Deep Factory",
+      targetVersion: "dev"
+    }
+  );
+
+  assert.equal(config.exePath, "C:/Tools/Godot/Godot_v4.7.2-stable_win64.exe");
+  assert.deepEqual(config.launchArgs, ["--path", "C:/Games/deep-factory"]);
+  assert.equal(config.targetVersion, "dev");
+});
+
+test("explicit Windows executable keeps its own launch arguments instead of Godot defaults", () => {
+  const config = sanitizeAiTestConfig(
+    {
+      exePath: "C:/Games/deep-factory/deep-factory.exe",
+      launchArgs: ["--test"]
+    },
+    {
+      exePath: "C:/Tools/Godot/Godot.exe",
+      launchArgs: ["--path", "C:/Games/deep-factory"]
+    }
+  );
+
+  assert.equal(config.exePath, "C:/Games/deep-factory/deep-factory.exe");
+  assert.deepEqual(config.launchArgs, ["--test"]);
+});
+
+test("OpenAI-compatible model diagnostics check /models and configured model identity", async () => {
+  assert.equal(
+    buildOpenAiModelsUrl("http://127.0.0.1:1234/v1"),
+    "http://127.0.0.1:1234/v1/models"
+  );
+
+  const ok = await probeOpenAiModelEndpoint({
+    baseUrl: "http://127.0.0.1:1234/v1",
+    model: "ui-tars-1.5",
+    fetchImpl: async (url, options) => {
+      assert.equal(url, "http://127.0.0.1:1234/v1/models");
+      assert.equal(options.method, "GET");
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return { data: [{ id: "ui-tars-1.5" }, { id: "other-model" }] };
+        }
+      };
+    }
+  });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.modelFound, true);
+
+  const mismatch = await probeOpenAiModelEndpoint({
+    baseUrl: "http://127.0.0.1:1234/v1",
+    model: "ui-tars-1.5",
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      async json() {
+        return { data: [{ id: "bonsai-2-27b" }] };
+      }
+    })
+  });
+  assert.equal(mismatch.ok, false);
+  assert.equal(mismatch.endpointOk, true);
+  assert.equal(mismatch.modelFound, false);
+  assert.match(mismatch.detail, /bonsai-2-27b/);
+});
+
+test("HTTP errors are not accepted as a healthy UI-TARS endpoint", async () => {
+  const result = await probeOpenAiModelEndpoint({
+    baseUrl: "http://127.0.0.1:1234/v1",
+    model: "ui-tars-1.5",
+    fetchImpl: async () => ({
+      ok: false,
+      status: 404,
+      async json() {
+        return {};
+      }
+    })
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.endpointOk, false);
+  assert.match(result.detail, /HTTP 404/);
 });

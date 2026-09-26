@@ -7,10 +7,12 @@ import {
   buildReproductionSteps,
   buildUiTarsTestPrompt,
   computerActionSource,
+  DEFAULT_UI_TARS_MODEL,
   maskScreenshotToWindow,
   normalizeMaskRegion,
   parseUiTarsFinished,
   probeOpenAiModelEndpoint,
+  resolveUiTarsModelId,
   sanitizeAiTestConfig,
   summarizeAiTestResults,
   validateComputerAction
@@ -301,4 +303,55 @@ test("UI-TARS undeclared runtime import is pinned as a production dependency", a
 
   const sdk = await import("@ui-tars/sdk");
   assert.equal(typeof sdk.GUIAgent, "function");
+});
+
+
+test("new AI test configs use the actual UI-TARS 1.5 7B model id", () => {
+  const config = sanitizeAiTestConfig({});
+  assert.equal(DEFAULT_UI_TARS_MODEL, "ui-tars-1.5-7b");
+  assert.equal(config.uiTars.model, "ui-tars-1.5-7b");
+});
+
+test("legacy ui-tars-1.5 setting resolves to the single loaded 7B model", async () => {
+  const resolution = resolveUiTarsModelId("ui-tars-1.5", [
+    "ui-tars-1.5-7b",
+    "qwen/qwen3-4b"
+  ]);
+  assert.deepEqual(resolution, {
+    matched: true,
+    resolvedModel: "ui-tars-1.5-7b",
+    matchType: "legacy-alias"
+  });
+
+  const result = await probeOpenAiModelEndpoint({
+    baseUrl: "http://127.0.0.1:1234/v1",
+    model: "ui-tars-1.5",
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          data: [
+            { id: "ui-tars-1.5-7b" },
+            { id: "openai/gpt-oss-20b" }
+          ]
+        };
+      }
+    })
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.modelFound, true);
+  assert.equal(result.resolvedModel, "ui-tars-1.5-7b");
+  assert.equal(result.modelMatch, "legacy-alias");
+  assert.match(result.detail, /自動解決/);
+});
+
+test("legacy UI-TARS alias is not guessed when multiple matching model ids are loaded", () => {
+  const resolution = resolveUiTarsModelId("ui-tars-1.5", [
+    "ui-tars-1.5-7b",
+    "ui-tars-1.5-2b"
+  ]);
+  assert.equal(resolution.matched, false);
+  assert.equal(resolution.matchType, "none");
 });

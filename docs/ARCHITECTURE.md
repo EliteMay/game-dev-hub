@@ -305,3 +305,24 @@ Selected Game
 ```
 
 Foundation Update IPCは任意PathやCommandを受け取らない。Managed Pathが将来変わった場合は自動で権限を拡大せず停止する。
+
+## AI Desktop Game Testing
+
+Renderer → operation-specific IPC → Electron Main AI Test Orchestrator → target exe launcher / target window detector / screenshot capture / Safe UI-TARS Operator Adapter → ai-testing local store.
+
+Local store:
+- ai-testing/projects/<project-id>.json
+- ai-testing/runs/<project-id>/<run-id>/report.json
+- ai-testing/runs/<project-id>/<run-id>/evidence/*.png
+
+### Boundary
+
+UI-TARS SDK / NutJSはRendererへ公開しない。PreloadはrunAiTest / stopAiTest / saveAiTestConfig / getAiTestDiagnostics等のspecific operationsだけを公開する。
+
+AIが生成した操作は直接Computerへ渡さず、Safe Operator AdapterでAction type・Key・Active Windowを再検証する。Target Game以外がActiveになった場合はOperationを拒否する。
+
+Game Processはconfigured absolute .exeだけをshell=falseで起動し、arbitrary command stringは受け取らない。
+
+### Result Ownership
+
+AI Test ResultはRuntime EvidenceとしてuserData/hub-data/ai-testingへ保存する。Game仕様やRoadmap completionのSource of Truthにはしない。ChatGPT pack生成時のみ最新Resultを明示Exportへ統合する。

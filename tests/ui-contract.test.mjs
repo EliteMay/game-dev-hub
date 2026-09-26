@@ -187,7 +187,7 @@ test("ChatGPT panel aggregates all user verification results into one shared pac
   assert.match(mainSource, /allUserTaskResults/);
   assert.match(mainSource, /verificationSummary/);
   assert.match(mainSource, /User実機確認結果まとめ/);
-  assert.match(mainSource, /schemaVersion: 3/);
+  assert.match(mainSource, /schemaVersion: 4/);
 });
 
 
@@ -246,6 +246,7 @@ test("AI auto-test tab exposes safe progress diagnostics evidence and retest con
   assert.match(html, /id="ai-test-history-list"/);
   assert.match(source, /renderAiTestReport/);
   assert.match(source, /onAiTestProgress/);
-  assert.match(source, /AI操作を緊急停止/);
+  assert.match(html, /AI操作を緊急停止/);
+  assert.match(source, /stopAiTest/);
   assert.match(preload, /hub:ai-test-stop/);
 });

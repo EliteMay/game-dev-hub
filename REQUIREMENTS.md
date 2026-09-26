@@ -319,6 +319,9 @@ Game更新後のWindows実機PlaytestをGame Dev Hubから開始し、指定Game
 - Latest AI Test resultを既存ChatGPT shared packへ含める
 - ProgressはCurrent test / state / elapsed / current actionを表示する
 - UI-TARS診断はBase URLへの単純到達だけでOK扱いせず、OpenAI互換 `/models` から設定Model名の存在まで確認する
+- 新規ProjectのUI-TARS default Model IDは `ui-tars-1.5-7b` とする
+- 旧Default Model `ui-tars-1.5` は、`/models` に一意な `ui-tars-1.5-*` が存在する場合だけCompatibility aliasとして自動解決する
+- Model alias候補が複数ある場合は推測せず、Userが正しいModel IDを選ぶまでNGとする
 - HTTP 404等のError responseを「Endpoint OK」と扱わない
 
 ### Computer Control Safety

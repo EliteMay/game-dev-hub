@@ -1,5 +1,13 @@
 # Game Dev Hub
 
+## v0.1.16 Safety Panel Visibility Fix
+
+Repositoryがclean（変更0件）なのに「GitHubへの保存待ち」が表示され続けるUI不具合を修正しました。
+
+- 開発 / 自動テストTabの表示制御と、各Component固有のhidden stateを分離
+- Safety panelは `repo.dirty || repo.ahead > 0` の時だけ表示
+- Tab描画がSafety panelのhidden stateを解除しないRegression Testを追加
+
 ## v0.1.15 AI Windows Game Auto Test Foundation
 
 Game Dev HubからWindowsゲームを起動し、UI-TARS系Computer Useで実プレイ確認する第1段階を追加します。

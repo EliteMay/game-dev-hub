@@ -265,3 +265,15 @@ test("AI settings disclose provider cost key state and local alternative", async
   assert.match(source, /Provider依存/);
   assert.match(source, /開始前に毎回確認/);
 });
+
+
+test("project tab visibility does not override conditional component hidden state", async () => {
+  const source = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
+  const css = await fs.readFile(new URL("src/renderer/styles.css", root), "utf8");
+
+  const match = source.match(/function renderProjectTab\(\) \{([\s\S]*?)\n\}/);
+  assert.ok(match, "renderProjectTab must exist");
+  assert.match(match[1], /node\.classList\.toggle\("project-tab-hidden", !development\)/);
+  assert.doesNotMatch(match[1], /node\.classList\.toggle\("hidden", !development\)/);
+  assert.match(css, /\.project-tab-hidden\s*\{[\s\S]*?display:\s*none\s*!important/);
+});

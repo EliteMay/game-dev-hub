@@ -1,5 +1,17 @@
 # Game Dev Hub
 
+## v0.1.20 UI-TARS Completion Reliability
+
+初回実機AIテストで「ゲーム起動 PASS / WASD timeout / Mouse UNKNOWN」を確認したため、UI-TARSの終了判定とSmoke Testの実行時間を修正します。
+
+- UI-TARS公式SDKの `predictionParsed` から `finished(...)` を直接取得
+- 最後のstatus eventが空の `conversations` でも、直前の最終判定を保持
+- WASD / MouseのDefault timeoutを45秒から120秒へ更新
+- 旧v1 ConfigのDefault 45秒だけを安全にMigration
+- 固定Smoke Testは1回の操作 + 1回の画面確認を基本にし、探索を続けないPromptへ変更
+- 固定テストのAgent loopを最大8回に制限し、無限に考え続けない
+- Timeout時も実行済みAction数 / Agent status / 最後のMessageをResultへ残す
+
 ## v0.1.19 UI-TARS Model ID Compatibility
 
 LM StudioなどのOpenAI互換Serverが返す実際のModel IDと、Game Dev Hubの旧初期値が少し違うだけでAIテストが止まる問題を修正します。

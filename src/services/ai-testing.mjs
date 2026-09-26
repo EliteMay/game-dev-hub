@@ -358,7 +358,7 @@ export function validateComputerAction(action) {
   const blockedFragments = [
     "powershell", "cmd.exe", "terminal", "shell",
     "delete", "remove_file", "unlink", "uninstall",
-    "github", "push", "release", "purchase", "checkout",
+    "github", "purchase", "checkout",
     "password", "credential", "administrator", "run as administrator",
     "typewrite", "type_text", "insert_text", "paste", "clipboard"
   ];

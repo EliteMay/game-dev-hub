@@ -123,6 +123,44 @@ Hub側へ各ゲームの詳細仕様を複製しない。
 - Godot自体をHubから自動インストールする
 - 各ゲームの仕様書をHubへコピーする
 
+## Windows AI自動テスト
+
+### Phase 1 必須
+
+- Game詳細から「自動テスト」へ到達できる
+- Projectごとにexe path / 起動引数 / Window名 / Test一覧 / Timeout / Engine / Evidence保存先を保持する
+- AI操作EngineはUI-TARSをDefaultとし、Agent-SはUI-TARSで要件を満たせない場合だけFallbackとして検討する
+- Rendererへ汎用Process / Shell / Filesystem権限を渡さず、専用IPCだけを公開する
+- exe起動はMain Processで `shell: false` の固定Capabilityとして行う
+- UI-TARS Model endpoint / Model名は設定できる
+- API Keyは永続保存・Log・Report出力しない
+- AIはScreenshotを見てMouse / Keyboardを操作できる
+- AI操作はTarget Game Windowだけに制限する
+- Pointer actionがTarget Window外なら実行前に停止する
+- Target以外のWindowが前面になったら次Action前に停止する
+- Windows / Meta Key、Ctrl+Shift+Esc、Ctrl+Alt+Delete、AIによるAlt+Tabは許可しない
+- Emergency Stop Buttonと `Ctrl + Shift + F12` を提供する
+- Abort時はW/A/S/D/Space/Shift/Ctrl/AltをBest-effortでReleaseする
+- Timeout / Same Action Loop / Unchanged Screen / Max loopで停止する
+- Test結果は `PASS / FAIL / WARNING / UNKNOWN` の4状態とする
+- 画面だけで判断できない場合はUNKNOWNを使う
+- TestごとにBefore / After / FAIL Evidence、Action Log、Errorを保存する
+- FAIL時は実行済みActionから再現手順を生成する
+- 前回FAILだけを再テストできる
+- Test RunにGit commit / Target version / Tested timeを残す
+- Test履歴をGameごとに保持する
+- 既存ChatGPT共有Packへ最新Auto Test Report / Screenshot Evidenceを明示操作で含める
+- Auto Test Resultを自動でGitHubへPush / Release / 外部送信しない
+
+### Phase 2
+
+- AI探索テスト
+- 画面録画Evidence
+- 固定Test Editorの初心者向けGUI化
+- ProjectごとのEmergency Shortcut変更
+- Custom Screenshot保存先
+- UI-TARSで満たせない要件が出た場合のみAgent-S Adapterを追加
+
 ## Repository同期Contract
 
 自動同期を許可する条件:
@@ -193,6 +231,7 @@ Local変更保存Contract:
 - Window Size / Position / Maximized state
 - GameごとのActive development task
 - GameごとのUser manual verification result
+- GameごとのAI自動テスト設定 / Test履歴 / Evidence Screenshot
 
 Secretは保存しない。
 
@@ -243,6 +282,18 @@ v0.1は、Windows実機で次を確認して初めて完成扱いとする。
 41. ChatGPT連携Panelで全User確認Taskの結果をまとめて確認できる
 42. 複数のUser確認Task結果を1回のChatGPT共有パックへまとめて送れる
 43. Roadmapで完了済みのUser確認Taskは後続の説明追記だけで「再確認」に戻らない
+44. 自動テスト設定がGameごとに復元される
+45. API Keyが再起動後に保存されていない
+46. 指定Game exeをMain Processから起動しWindowを検出できる
+47. UI-TARSがTarget Game内でWASD / Clickを実行できる
+48. Target Game以外が前面になった場合にAI操作が停止する
+49. Target Window外へのPointer操作が実行前に停止する
+50. Emergency Stop Button / Ctrl+Shift+F12でAI loopが停止する
+51. PASS / FAIL / WARNING / UNKNOWNとScreenshot EvidenceがRun Reportへ保存される
+52. 前回FAILだけを再テストできる
+53. 最新Auto Test Report / Evidenceが明示的なChatGPT共有Packに含まれる
+54. CIでUnit / Contract TestとWindows installer buildが成功する
+55. Windows実機でexe起動 → UI-TARS画面認識 → WASD / Click → Result保存を確認する
 
 ## Godot Game Foundation Starter
 

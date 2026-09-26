@@ -733,12 +733,16 @@ export function buildUiTarsTestPrompt(test, context = {}) {
         ? "マウス操作テストでは、安全なクリック対象を1つだけ選び、1回クリックして次の画面を1回確認したらすぐ終了してください。探索を続けないでください。"
         : "");
 
+  const fixedTestLimit = test.id === "ai_exploration"
+    ? ""
+    : "固定テストでは最小限の操作だけを行い、遅くとも6回以内の画面確認で必ず終了してください。";
+
   return [
     "あなたはGame Dev HubのWindowsゲーム専用テスト担当です。",
     "操作対象は指定されたテスト対象ゲームのウィンドウだけです。",
     "ファイル操作、PowerShell/Terminal、GitHub操作、外部送信、購入、パスワード入力、管理者権限、Windows設定変更は禁止です。",
     "別アプリへ移動しないでください。判断できない場合は推測せずUNKNOWNにしてください。",
-    "固定テストでは最小限の操作だけを行い、遅くとも6回以内の画面確認で必ず終了してください。",
+    fixedTestLimit,
     focusedGuidance,
     "",
     "テスト名: " + test.name,

@@ -1,5 +1,35 @@
 # Game Dev Hub
 
+## v0.1.13 AI Windows Game Auto Test Foundation
+
+Game Dev HubからWindowsゲームを起動し、UI-TARS系Computer Useで実プレイ確認する第1段階を追加します。
+
+- Projectごとの「自動テスト」タブ
+- exe / Window title / UI-TARS endpoint / Model / Test definitionをProjectごとに保存
+- UI-TARS SDK + NutJS Operatorで画面認識とMouse / Keyboard操作
+- 操作対象Windowをテスト対象ゲームへ限定し、危険操作・範囲外Window・同一操作の反復を停止
+- PASS / FAIL / WARNING / UNKNOWN と信頼度を保存
+- Test前後Screenshot、操作Log、FAIL時の再現手順をLocal App Dataへ保存
+- 前回FAILだけの再テスト
+- AI探索テスト
+- Test履歴と診断
+- 「AI操作を緊急停止」Button + Ctrl + Shift + F12
+- API Keyは通常Settingsへ平文保存せずElectron safeStorageで暗号化
+- 最新AI Test結果を既存ChatGPT共有Packへ統合
+
+### UI-TARS接続
+
+DefaultはOpenAI互換のLocal endpoint http://127.0.0.1:1234/v1 と ui-tars-1.5 を初期値にしています。実際のModel名 / endpointは利用環境に合わせて自動テスト設定から変更します。
+
+Game Dev Hub自体は外部API課金を行いません。Cloud Providerを設定した場合だけProvider側の料金条件が適用されます。Local / self-hosted UI-TARSなら外部API Keyなしでも構成できます。
+
+### v0.1.13の境界
+
+- Agent-Sは予備EngineとしてUI選択肢を用意するが、まだ実行Adapter未接続
+- Screenshotは対象Windowだけを保存し、Desktop全体へFallbackしない
+- Windows実機でのModel接続、実Game操作、複数Monitor環境はCIでは確認できないため実機確認が必要
+- 初期Emergency shortcutは Ctrl + Shift + F12 固定。UIからの変更は後続対応
+- Game固有TestはProjectごとのTest definition JSONで変更する
 ## v0.1.12 Godot Game Foundation Starter
 
 共通基盤を使った新しいGodot Gameを、Game Dev Hubから作成・追跡・更新できるようにします。

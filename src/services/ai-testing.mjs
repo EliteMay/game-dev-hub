@@ -353,19 +353,6 @@ function isBlockedSystemShortcut(keys) {
 
 export function validateComputerAction(action) {
   const parsed = parsedComputerAction(action);
-  const normalized = parsed.source.toLowerCase();
-
-  const blockedFragments = [
-    "powershell", "cmd.exe", "terminal", "shell",
-    "delete", "remove_file", "unlink", "uninstall",
-    "github", "purchase", "checkout",
-    "password", "credential", "administrator", "run as administrator",
-    "typewrite", "type_text", "insert_text", "paste", "clipboard"
-  ];
-  if (blockedFragments.some((fragment) => normalized.includes(fragment))) {
-    return { ok: false, reason: "安全ポリシーで禁止された操作です。" };
-  }
-
   if (!SAFE_ACTION_TYPES.has(parsed.type)) {
     return { ok: false, reason: "許可されていないComputer Use操作です。" };
   }

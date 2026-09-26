@@ -176,3 +176,15 @@
 - Decision: UI-TARS / NutJSはMain Processのdedicated AI Test Service内だけで利用し、operation-specific IPC、Target Window allowlist、Action allowlist、AbortController、Repeat guardを必須にする。
 - Evidence: 自動テストはGame WindowのScreenshotと操作LogをLocal App Dataへ保存し、範囲外Windowを検知した操作は拒否する。
 - Prevention: 将来Agent-Sや別Computer Use Engineを追加するときも同じSafe Operator Contractの外側へ直接つながない。
+
+
+## GL-019 — Computer Useは操作範囲だけでなく視覚入力範囲も制限する
+
+- Date: 2026-09-27
+- Type: Security / AI Automation
+- Status: Adopted
+- Problem: Target WindowだけへMouse / Keyboardを制限しても、Computer Use OperatorがDesktop全体をScreenshotしてModelへ渡す構成では、Game外の通知・個人情報・他ApplicationがVisual Contextへ混入し得る。
+- Root Cause: Action scopeとScreenshot scopeを別Security Boundaryとして扱っていなかった。
+- Decision: UI-TARS Safe Operatorのscreenshot pathをWrapし、Active Target Game WindowのRegion以外を黒塗りしてからModelへ渡す。Region取得またはMaskに失敗した場合はfull-screen fallbackせずfail-closedする。
+- Recurrence Guard: `tests/ai-testing.test.mjs` でPixel Maskを検証し、`tests/security-contract.test.mjs` でSafe Operator screenshot wrapperをContract化する。
+- Prevention: 将来Agent-S等の別Computer Use Engineを追加するときも、Action Scope / Visual Scope / Data Egress Scopeを独立してReviewする。

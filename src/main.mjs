@@ -835,6 +835,39 @@ async function runAiTestSuite(payload = {}) {
   }
 }
 
+async function probeAiEndpoint(baseUrl) {
+  let target;
+  try {
+    target = new URL(String(baseUrl || ""));
+    if (!["http:", "https:"].includes(target.protocol)) {
+      return { ok: false, detail: "HTTP/HTTPSのBase URLではありません。" };
+    }
+  } catch {
+    return { ok: false, detail: "Base URLが正しくありません。" };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort("diagnostic-timeout"), 4000);
+  try {
+    const response = await fetch(target, {
+      method: "GET",
+      redirect: "manual",
+      signal: controller.signal
+    });
+    return {
+      ok: true,
+      detail: "Endpointへ到達しました（HTTP " + response.status + "）。Model推論は実行していません。"
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      detail: "Endpointへ接続できません: " + String(error?.message || error).slice(0, 220)
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function aiTestDiagnostics(projectId) {
   const project = await findProject(projectId);
   const config = await loadAiTestConfig(
@@ -843,6 +876,7 @@ async function aiTestDiagnostics(projectId) {
     await aiTestProjectDefaults(project)
   );
   const deps = await inspectUiTarsDependencies();
+  const endpoint = await probeAiEndpoint(config.uiTars.baseUrl);
   const executable = await inspectExecutable(config.exePath);
   const secureStorage = safeStorage.isEncryptionAvailable();
 
@@ -853,8 +887,16 @@ async function aiTestDiagnostics(projectId) {
         ? { ok: true, label: "Windows OK" }
         : { ok: false, label: "Windows以外では自動操作を実行しません。" },
       uiTars: {
-        ok: deps.sdk && deps.operator,
-        label: deps.sdk && deps.operator ? "接続準備OK" : (deps.error || "NG")
+        ok: deps.sdk && deps.operator && endpoint.ok,
+        label: deps.sdk && deps.operator && endpoint.ok
+          ? "SDK / Operator / Endpoint OK"
+          : (deps.error || endpoint.detail || "NG"),
+        cause: !deps.sdk || !deps.operator
+          ? "UI-TARS SDKまたはNutJS Operatorを読み込めません。"
+          : (!endpoint.ok ? endpoint.detail : ""),
+        action: !deps.sdk || !deps.operator
+          ? "Game Dev Hubを最新版へ更新・再インストールして依存関係を復旧してください。"
+          : (!endpoint.ok ? "UI-TARS Model Serverを起動し、Base URLを確認してください。" : "")
       },
       python: {
         ok: true,
@@ -866,7 +908,9 @@ async function aiTestDiagnostics(projectId) {
       },
       executable: {
         ok: executable.ok,
-        label: executable.ok ? "OK" : executable.message
+        label: executable.ok ? "OK" : executable.message,
+        cause: executable.ok ? "" : executable.message,
+        action: executable.ok ? "" : "「テスト対象.exe」の選択から実際のWindowsゲーム.exeを設定してください。"
       },
       screenshot: {
         ok: true,
@@ -882,7 +926,9 @@ async function aiTestDiagnostics(projectId) {
       },
       secureStorage: {
         ok: secureStorage,
-        label: secureStorage ? "APIキー暗号化保存 OK" : "APIキー保存不可"
+        label: secureStorage ? "APIキー暗号化保存 OK" : "APIキー保存不可",
+        cause: secureStorage ? "" : "Electron safeStorageの暗号化機能を利用できません。",
+        action: secureStorage ? "" : "外部APIキーを保存せずLocal UI-TARSを使うか、Windows暗号化機能を確認してください。"
       },
       engine: config.engine,
       service: {

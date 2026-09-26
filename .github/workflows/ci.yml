@@ -29,6 +29,9 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Verify production runtime dependencies
+        run: npm ls uuid --omit=dev --depth=0
+
       - name: Build Windows installer
         run: npm run build:win
 

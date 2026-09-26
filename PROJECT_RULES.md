@@ -93,3 +93,14 @@ Primary Taskは「ゲームを選んで開発を開始する」。
 - Update後のCommit / Pushは既存のUser明示「GitHubに保存」Flowへ分離する。
 - Starter CreateはUserが明示した空Repositoryだけを対象にし、既存Remote Contentを上書きしない。
 - GitHub Tokenを保存せず、既存のGit Credentialを利用する。
+
+## AI Desktop Test Safety Boundary
+
+- AI Computer Use capabilityはMain Processのdedicated serviceだけが所有し、Rendererへraw mouse / keyboard / shell capabilityを公開しない。
+- Configured target Game Window以外の操作をDefault denyとする。
+- AI actionは実行直前にValidationし、危険Operation・未許可Key・scope外Windowを拒否する。
+- Screenshotはtarget Game Windowだけを保存し、targetを取得できない時にDesktop全体を自動保存しない。
+- API Keyはplain settings.json / Project Repository / Log / ChatGPT Packへ保存しない。
+- AI Test resultはDerived Runtime Evidenceであり、Game Repositoryの仕様やRoadmap completionを自動変更しない。
+- Emergency stop / timeout / repetition guardをComputer Useより優先する。
+- Windows real-device behaviorをCIだけで確認済み扱いにしない。

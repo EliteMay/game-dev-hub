@@ -104,6 +104,16 @@
             <button class="button button-danger-quiet" id="remove-project-button" type="button">Hubから外す</button>
           </div>
 
+          <nav class="project-tabs" aria-label="ゲーム機能">
+            <button class="project-tab active" id="development-tab-button" type="button" aria-selected="true">
+              開発
+            </button>
+            <button class="project-tab" id="auto-test-tab-button" type="button" aria-selected="false">
+              自動テスト
+            </button>
+          </nav>
+
+          <div class="project-tab-panel" id="development-tab-panel">
           <div class="hero-action">
             <div>
               <p class="hero-status" id="hero-status">状態確認中</p>
@@ -369,6 +379,192 @@
               <button class="button button-muted button-small" id="clear-log-button" type="button">消去</button>
             </div>
             <div class="log-list" id="log-list" aria-live="polite"></div>
+          </section>
+          </div>
+
+          <section class="project-tab-panel auto-test-panel hidden" id="auto-test-tab-panel" aria-label="AI自動テスト">
+            <div class="auto-test-hero">
+              <div>
+                <p class="section-kicker">Windows実機操作</p>
+                <h3>AI自動テスト</h3>
+                <p>
+                  UI-TARSがゲーム画面を見ながら、テスト対象ゲームのウィンドウ内だけを操作します。
+                  APIキーやテスト結果を外部へ自動送信しません。
+                </p>
+              </div>
+              <button class="button button-danger auto-test-emergency" id="auto-test-stop-button" type="button">
+                AI操作を緊急停止
+              </button>
+            </div>
+
+            <div class="auto-test-safety-note">
+              <strong>安全停止: Ctrl + Shift + F12</strong>
+              <span>ゲーム以外のウィンドウが前面になった場合や、同じ操作・同じ画面が続いた場合も自動停止します。</span>
+            </div>
+
+            <section class="auto-test-section">
+              <div class="auto-test-section-heading">
+                <div>
+                  <p class="section-kicker">テスト対象</p>
+                  <h4>このゲームを実際に起動して確認</h4>
+                </div>
+                <span class="dev-badge" id="auto-test-project-name">未選択</span>
+              </div>
+
+              <div class="auto-test-grid">
+                <label class="auto-test-field auto-test-field-wide">
+                  <span>実行ファイル</span>
+                  <div class="auto-test-inline">
+                    <input id="auto-test-exe-path" type="text" readonly placeholder="ゲームの .exe を選択">
+                    <button class="button button-muted button-small" id="auto-test-choose-exe-button" type="button">選ぶ</button>
+                  </div>
+                </label>
+                <label class="auto-test-field">
+                  <span>テスト対象バージョン</span>
+                  <input id="auto-test-target-version" type="text" maxlength="120" placeholder="例: 0.1.0">
+                </label>
+                <div class="auto-test-field">
+                  <span>Git commit</span>
+                  <strong id="auto-test-git-commit">未確認</strong>
+                </div>
+                <div class="auto-test-field">
+                  <span>テスト日時</span>
+                  <strong id="auto-test-date">未実行</strong>
+                </div>
+                <label class="auto-test-field">
+                  <span>ウィンドウ名（任意）</span>
+                  <input id="auto-test-window-title" type="text" maxlength="200" placeholder="exeだけで検出できない場合">
+                </label>
+                <label class="auto-test-field auto-test-field-wide">
+                  <span>起動引数（1行に1個・任意）</span>
+                  <textarea id="auto-test-launch-args" rows="2" maxlength="4000" placeholder="--debug"></textarea>
+                </label>
+              </div>
+            </section>
+
+            <section class="auto-test-section">
+              <div class="auto-test-section-heading">
+                <div>
+                  <p class="section-kicker">AI操作エンジン</p>
+                  <h4>UI-TARSを優先</h4>
+                </div>
+              </div>
+
+              <div class="auto-test-grid">
+                <label class="auto-test-field">
+                  <span>エンジン</span>
+                  <select id="auto-test-engine">
+                    <option value="ui-tars">UI-TARS</option>
+                    <option value="agent-s">Agent-S（フォールバック候補・未接続）</option>
+                    <option value="disabled">無効</option>
+                  </select>
+                </label>
+                <label class="auto-test-field">
+                  <span>Model endpoint</span>
+                  <input id="auto-test-model-base-url" type="url" maxlength="1000" placeholder="http://127.0.0.1:8000/v1">
+                </label>
+                <label class="auto-test-field">
+                  <span>Model名</span>
+                  <input id="auto-test-model-name" type="text" maxlength="160" placeholder="ui-tars">
+                </label>
+                <label class="auto-test-field">
+                  <span>APIキー（必要な場合のみ）</span>
+                  <input id="auto-test-api-key" type="password" maxlength="2000" autocomplete="off" placeholder="保存されません">
+                  <small>この入力は設定・ログ・レポートへ保存しません。</small>
+                </label>
+                <label class="auto-test-field">
+                  <span>1テストの上限</span>
+                  <input id="auto-test-timeout" type="number" min="15" max="900" step="5">
+                </label>
+                <label class="auto-test-field">
+                  <span>AI操作の最大ステップ</span>
+                  <input id="auto-test-max-steps" type="number" min="5" max="80" step="1">
+                </label>
+              </div>
+
+              <div class="auto-test-cost-note">
+                <strong>費用</strong>
+                <span>ローカルのOpenAI互換UI-TARS endpointなら外部API料金はありません。外部endpointを使う場合は、そのサービス側の料金が発生します。</span>
+              </div>
+            </section>
+
+            <section class="auto-test-section">
+              <div class="auto-test-section-heading">
+                <div>
+                  <p class="section-kicker">テスト項目</p>
+                  <h4>プロジェクトごとに保存</h4>
+                </div>
+              </div>
+              <p class="auto-test-help">
+                初期版ではJSONで編集します。各項目に「何をするか」「成功条件」「タイムアウト」を持たせます。
+              </p>
+              <label class="auto-test-field auto-test-field-wide">
+                <span>テスト定義</span>
+                <textarea id="auto-test-definitions" class="auto-test-json" rows="14" spellcheck="false"></textarea>
+              </label>
+            </section>
+
+            <div class="auto-test-actions">
+              <button class="button button-muted" id="auto-test-save-button" type="button">設定を保存</button>
+              <button class="button button-muted" id="auto-test-diagnose-button" type="button">診断</button>
+              <button class="button button-primary button-large" id="auto-test-start-button" type="button">AIテスト開始</button>
+              <button class="button button-muted" id="auto-test-retest-button" type="button">失敗項目を再テスト</button>
+              <button class="button button-muted" id="auto-test-open-folder-button" type="button">証拠保存先を開く</button>
+            </div>
+
+            <section class="auto-test-progress-card" aria-live="polite">
+              <div class="auto-test-progress-top">
+                <strong id="auto-test-progress-count">待機中</strong>
+                <span id="auto-test-progress-elapsed">00:00</span>
+              </div>
+              <h4 id="auto-test-progress-test">AIテストは開始されていません</h4>
+              <p id="auto-test-progress-message">設定と診断を確認してから開始してください。</p>
+              <div class="auto-test-progress-action">
+                <span>直近の操作</span>
+                <strong id="auto-test-progress-action">なし</strong>
+              </div>
+            </section>
+
+            <section class="auto-test-section">
+              <div class="auto-test-section-heading">
+                <div>
+                  <p class="section-kicker">診断</p>
+                  <h4>動かない理由を特定</h4>
+                </div>
+              </div>
+              <div class="auto-test-diagnostics" id="auto-test-diagnostics">
+                <p class="dev-empty">「診断」を押すとUI-TARS・操作機能・exe・Model接続を確認します。</p>
+              </div>
+            </section>
+
+            <section class="auto-test-section">
+              <div class="auto-test-section-heading">
+                <div>
+                  <p class="section-kicker">直近の結果</p>
+                  <h4 id="auto-test-summary-title">まだテスト結果はありません</h4>
+                </div>
+                <div class="auto-test-summary-counts" id="auto-test-summary-counts"></div>
+              </div>
+              <div class="auto-test-result-list" id="auto-test-result-list"></div>
+            </section>
+
+            <section class="auto-test-section">
+              <div class="auto-test-section-heading">
+                <div>
+                  <p class="section-kicker">履歴</p>
+                  <h4>改善状況</h4>
+                </div>
+              </div>
+              <div class="auto-test-history" id="auto-test-history"></div>
+            </section>
+
+            <section class="auto-test-section auto-test-future">
+              <div>
+                <strong>AI探索テスト</strong>
+                <p>固定手順ではなく自由操作で不具合を探すモードは、固定テストが安定した後のPhase 2で追加します。</p>
+              </div>
+              <button class="button button-muted" type="button" disabled>Phase 2</button>
+            </section>
           </section>
         </div>
       </section>

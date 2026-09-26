@@ -1,6 +1,6 @@
 {
   "name": "game-dev-hub",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "private": true,
   "type": "module",
   "description": "Windows desktop hub for managing multiple Godot game development repositories.",

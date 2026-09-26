@@ -275,3 +275,32 @@ Development installでは別依存から `uuid` が見えていたためNode tes
 - v0.1.18 Release workflow: PASS
 - `game_dev_hub_0.1.18_setup.exe` / blockmap / latest.yml の生成を確認
 - v0.1.18実機のUI-TARS SDK診断: User Windows環境で再確認待ち
+
+
+---
+
+## v0.1.19 UI-TARS Model ID compatibility
+
+### User実機Evidence
+
+LM Studio Serverは `GET /v1/models` へ正常応答し、Loaded Model一覧に `ui-tars-1.5-7b` が存在した。一方、Game Dev Hubの既存設定は `ui-tars-1.5` のため診断がNGになった。
+
+### Root Cause
+
+HubがUI-TARS product/family名をOpenAI互換APIのModel IDとして固定していた。LM Studioが返すRuntime IDは `ui-tars-1.5-7b`。
+
+### 修正
+
+- 新規Default Modelを `ui-tars-1.5-7b` へ変更
+- 旧Default `ui-tars-1.5` は一意な `ui-tars-1.5-*` 候補へだけ自動解決
+- AI実行時にresolved Model IDを使用
+- Test reportへconfigured / resolved / match typeを保存
+- 複数候補では自動選択しないRegression Guardを追加
+- Versionをv0.1.19へ更新
+
+### Validation
+
+- Unit / contract tests: CIで確認
+- Windows installer build: CIで確認
+- updater artifact verification: CIで確認
+- v0.1.19実機でUI-TARS診断がOKになること: Release後にUser Windows環境で再確認

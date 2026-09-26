@@ -234,3 +234,15 @@
 - Decision: `uuid@9.0.1` をGame Dev Hubのproduction dependencyとして直接固定する。
 - Recurrence Guard: Unit testでdirect production dependency + runtime importを確認し、CI / Releaseで `npm ls uuid --omit=dev --depth=0` を実行する。
 - Prevention: Electron配布で必要なruntime importは「local node_modulesに存在する」だけで確認済みとせず、production dependency graph上のownershipを確認する。
+
+
+## GL-024 — Providerの表示名ではなくRuntimeが返すModel IDを使う
+
+- Date: 2026-09-27
+- Type: AI Integration / Configuration Compatibility
+- Status: Adopted
+- Problem: LM StudioはUI-TARSを正常に読み込み `/v1/models` で `ui-tars-1.5-7b` を返していたが、Hubの旧初期値は `ui-tars-1.5` だったため診断がNGになった。
+- Root Cause: Product名・Model family名と、OpenAI互換Endpointが要求する実際のModel IDを同一視していた。
+- Decision: 新規Defaultを実際のID `ui-tars-1.5-7b` へ更新する。既存の旧Defaultだけは、Endpoint上に一意なprefix一致候補が1つある場合に限り自動解決する。
+- Safety: 複数候補では推測しない。任意のModel名を一般的なfuzzy matchで勝手に変換しない。
+- Recurrence Guard: Exact / legacy alias / ambiguous aliasをUnit Testし、実行時にはdiagnosticsで得たresolved Model IDを使用する。

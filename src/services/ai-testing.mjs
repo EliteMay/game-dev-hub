@@ -8,6 +8,8 @@ export const AI_TEST_CONFIG_VERSION = 1;
 export const AI_TEST_REPORT_VERSION = 1;
 export const AI_TEST_STATUSES = Object.freeze(["PASS", "FAIL", "WARNING", "UNKNOWN"]);
 export const AI_TEST_ENGINES = Object.freeze(["ui-tars", "agent-s", "disabled"]);
+export const DEFAULT_UI_TARS_MODEL = "ui-tars-1.5-7b";
+export const LEGACY_UI_TARS_MODEL = "ui-tars-1.5";
 
 export const DEFAULT_AI_TESTS = Object.freeze([
   {
@@ -202,7 +204,7 @@ export function sanitizeAiTestConfig(value = {}, defaults = {}) {
     screenshotDirectory,
     uiTars: {
       baseUrl: text(value.uiTars?.baseUrl || "http://127.0.0.1:1234/v1", 500),
-      model: text(value.uiTars?.model || "ui-tars-1.5", 180)
+      model: text(value.uiTars?.model || DEFAULT_UI_TARS_MODEL, 180)
     },
     tests: uniqueTests.length ? uniqueTests : DEFAULT_AI_TESTS.map((item) => ({ ...item }))
   };
@@ -225,6 +227,60 @@ export function buildOpenAiModelsUrl(baseUrl) {
   target.search = "";
   target.hash = "";
   return target.toString();
+}
+
+export function resolveUiTarsModelId(configuredModel, models = []) {
+  const expected = String(configuredModel || "").trim();
+  const available = Array.isArray(models)
+    ? models.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+
+  if (!expected) {
+    return {
+      matched: false,
+      resolvedModel: "",
+      matchType: "missing"
+    };
+  }
+
+  const exact = available.find((item) => item === expected);
+  if (exact) {
+    return {
+      matched: true,
+      resolvedModel: exact,
+      matchType: "exact"
+    };
+  }
+
+  const caseInsensitive = available.find(
+    (item) => item.toLowerCase() === expected.toLowerCase()
+  );
+  if (caseInsensitive) {
+    return {
+      matched: true,
+      resolvedModel: caseInsensitive,
+      matchType: "case-insensitive"
+    };
+  }
+
+  if (expected.toLowerCase() === LEGACY_UI_TARS_MODEL) {
+    const candidates = available.filter((item) =>
+      item.toLowerCase().startsWith(LEGACY_UI_TARS_MODEL + "-")
+    );
+    if (candidates.length === 1) {
+      return {
+        matched: true,
+        resolvedModel: candidates[0],
+        matchType: "legacy-alias"
+      };
+    }
+  }
+
+  return {
+    matched: false,
+    resolvedModel: "",
+    matchType: "none"
+  };
 }
 
 export async function probeOpenAiModelEndpoint({
@@ -303,7 +359,8 @@ export async function probeOpenAiModelEndpoint({
           .slice(0, 100)
       : [];
     const expected = String(model || "").trim();
-    const modelFound = expected ? models.includes(expected) : null;
+    const resolution = resolveUiTarsModelId(expected, models);
+    const modelFound = expected ? resolution.matched : null;
 
     if (!models.length) {
       return {
@@ -322,6 +379,8 @@ export async function probeOpenAiModelEndpoint({
         endpointOk: true,
         modelFound: false,
         models,
+        resolvedModel: "",
+        modelMatch: resolution.matchType,
         status: response.status,
         detail:
           "接続先は応答していますが、設定Model「" + expected +
@@ -329,14 +388,23 @@ export async function probeOpenAiModelEndpoint({
       };
     }
 
+    const resolvedModel = resolution.resolvedModel || expected;
+    const aliasResolved = resolution.matchType === "legacy-alias";
+
     return {
       ok: modelFound === true,
       endpointOk: true,
       modelFound,
       models,
+      resolvedModel,
+      modelMatch: resolution.matchType,
       status: response.status,
       detail: modelFound === true
-        ? "Endpoint / Model確認OK: " + expected
+        ? (
+            aliasResolved
+              ? "旧設定Model「" + expected + "」を「" + resolvedModel + "」へ自動解決しました。"
+              : "Endpoint / Model確認OK: " + resolvedModel
+          )
         : "Endpointへ接続できました。"
     };
   } catch (error) {

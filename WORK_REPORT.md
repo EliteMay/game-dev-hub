@@ -202,3 +202,37 @@
 - updater artifact verification: CIで確認
 - User screenshotで発生状態は確認済み
 - 修正版のWindows実画面はRelease後に未確認
+
+
+---
+
+## v0.1.17 AI Test First-Run Readiness
+
+### User実機画面から確認したこと
+
+- Game Dev Hub v0.1.16へ更新済み
+- Deep Factoryの「自動テスト」Tab表示は正常
+- Test target .exeは未設定
+- Deep Factory RepositoryにはWindows Export presetがまだ無く、開発中Gameへexe選択を要求するFlowが初回テストのBlocker
+- UI-TARS Base URLはloopbackだが、UI-TARS Model自体の稼働確認は未実施
+
+### Root Cause / Gap
+
+- 自動テストが「Windows game.exeが存在すること」を初期前提にしていた
+- Endpoint診断がBase URLへGETできるだけで成功とし、HTTP Errorや別Model Serverを識別していなかった
+
+### 変更
+
+- Godot executable + `--path <project>` をpre-export GameのDefault AI Test targetに追加
+- 明示的にWindows .exeを選んだ場合はGodot用launch argsを解除
+- OpenAI互換 `/models` と設定Model IDを照合する診断を追加
+- HTTP 404等をReady扱いしない
+- UIへGodot direct runとModel readinessの説明を追加
+- Emergency shortcut表示をWindows向けに `Ctrl + Shift + F12` と表示
+
+### Validation
+
+- Unit / contract tests: CIで確認
+- Windows installer build: CIで確認
+- updater artifact verification: CIで確認
+- Deep Factory Godot direct run + actual UI-TARS Computer Use: Windows実機確認待ち

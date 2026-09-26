@@ -100,6 +100,7 @@ Primary Taskは「ゲームを選んで開発を開始する」。
 - Configured target Game Window以外の操作をDefault denyとする。
 - AI actionは実行直前にValidationし、危険Operation・未許可Key・scope外Windowを拒否する。
 - Screenshotはtarget Game Windowだけを保存し、targetを取得できない時にDesktop全体を自動保存しない。
+- AI Modelへ渡すScreenshotもtarget Game Window領域以外をMaskし、Mask不能時はfull-screen fallbackせずTestを停止する。
 - API Keyはplain settings.json / Project Repository / Log / ChatGPT Packへ保存しない。
 - localhost / 127.0.0.1 以外の外部AI endpointを使う場合、Screenshot・テスト指示の外部送信とProvider課金可能性を開始前に明示し、User確認なしでは実行しない。
 - AI Test resultはDerived Runtime Evidenceであり、Game Repositoryの仕様やRoadmap completionを自動変更しない。

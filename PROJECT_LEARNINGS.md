@@ -259,3 +259,15 @@
 - Decision: `predictionParsed.action_type === "finished"` をPrimary Result Sourceとし、直前Resultを保持する。Default Smoke Test timeoutを120秒へ上げ、固定テストは最大8 loop・最小Action Promptにする。
 - Recurrence Guard: Official onData shape / empty final event / timeout migration / focused promptをUnit Testで固定する。
 - Prevention: Streaming / callback型SDKは「最後のCallback = 全履歴」と仮定せず、delta / final event / terminal payloadを別Stateとして扱う。
+
+
+## GL-026 — Fixed Computer Use Testへ既確認Runtime Stateを明示する
+
+- Date: 2026-09-27
+- Type: AI Integration / Runtime Context
+- Status: Adopted
+- Evidence: v0.1.20実機TestでGame起動はPASSし、同じRunのMouse TestもPASSした一方、WASD TestのUI-TARSだけが「Deep Factoryはまだ起動していない」と判断して `call_user()` で終了した。
+- Root Cause: Hub側では対象Windowを検出・Focus済みだったが、そのRuntime factをPromptで十分強く伝えておらず、Vision Modelが現在画面から起動状態を再推論して誤判定できた。
+- Decision: Fixed Testでは実際に検出したWindow titleと「起動・Focus確認済み」をPromptへ渡す。WASDは最初のActionをWの短押しまで具体化し、Fixed Testで `call_user()` を使わせない。
+- Recurrence Guard: Runtime confirmation / actual Window title / no-call_user guidanceをPrompt Unit Testで固定し、もし `call_user` が返っても専用ReasonをReportへ残す。
+- Prevention: Deterministic Harnessが既に確認したRuntime factをVision Modelへ再推論させず、ObservationとHarness Evidenceの責務を分離する。

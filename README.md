@@ -1,5 +1,16 @@
 # Game Dev Hub
 
+## v0.1.21 Fixed Test Runtime Context
+
+v0.1.20のWindows実機再テストで、Game起動はPASSしているのにWASD固定テストだけUI-TARSが「ゲーム未起動」と誤認し、`call_user()` で終了する事象を確認したため修正します。
+
+- Hubが実際に検出した対象Window名を固定テストPromptへ渡す
+- 「対象ゲームは検出・フォーカス済みで起動済み」と明示する
+- WASD Smoke TestはまずWキーを短く1回押すよう具体化する
+- 固定テストでは `call_user()` を使わず、操作不能時は `finished(...UNKNOWN...)` で終了する
+- 固定テスト中に `call_user()` が返った場合は専用理由をReportへ残す
+- Runtime confirmationがPromptへ入るRegression Testを追加
+
 ## v0.1.20 UI-TARS Completion Reliability
 
 初回実機AIテストで「ゲーム起動 PASS / WASD timeout / Mouse UNKNOWN」を確認したため、UI-TARSの終了判定とSmoke Testの実行時間を修正します。
@@ -74,7 +85,7 @@ Game Dev HubからWindowsゲームを起動し、UI-TARS系Computer Useで実プ
 
 ### UI-TARS接続
 
-DefaultはOpenAI互換のLocal endpoint http://127.0.0.1:1234/v1 と ui-tars-1.5 を初期値にしています。これは接続例であり、同じPortで別Modelが動いているだけではUI-TARS利用可能とは扱いません。v0.1.17以降は「自動テスト診断」で `/models` と設定Model名を照合します。
+DefaultはOpenAI互換のLocal endpoint http://127.0.0.1:1234/v1 と ui-tars-1.5-7b を初期値にしています。これは接続例であり、同じPortで別Modelが動いているだけではUI-TARS利用可能とは扱いません。v0.1.17以降は「自動テスト診断」で `/models` と設定Model名を照合します。
 
 Game Dev Hub自体は外部API課金を行いません。Cloud Providerを設定した場合だけProvider側の料金条件が適用されます。Local / self-hosted UI-TARSなら外部API Keyなしでも構成できます。
 

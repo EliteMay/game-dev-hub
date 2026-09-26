@@ -444,6 +444,9 @@ test("focused fixed-test prompts tell UI-TARS to finish quickly instead of explo
     name: "WASD移動",
     description: "Wを押す",
     expected: "画面変化"
+  }, {
+    confirmedWindowTitle: "Deep Factory (DEBUG)",
+    targetWindowConfirmed: true
   });
   const mouse = buildUiTarsTestPrompt({
     id: "mouse_click",
@@ -452,7 +455,10 @@ test("focused fixed-test prompts tell UI-TARS to finish quickly instead of explo
     expected: "UI変化"
   });
 
-  assert.match(wasd, /短く1回操作/);
+  assert.match(wasd, /Wキーを短く1回押し/);
+  assert.match(wasd, /実際に検出・フォーカス済み/);
+  assert.match(wasd, /Deep Factory \(DEBUG\)/);
+  assert.match(wasd, /call_user\(\) を使わず/);
   assert.match(wasd, /6回以内/);
   assert.match(mouse, /1回クリック/);
   assert.match(mouse, /探索を続けない/);

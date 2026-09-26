@@ -150,6 +150,42 @@ Pushだけ失敗した場合はLocal Commitを第二の失敗状態として保�
 - rebase
 - force push
 
+## Windows AI Auto Test Boundary
+
+```text
+Renderer
+  ↓ operation-specific IPC
+Electron Main
+  ├─ Auto Test Config / History Store
+  ├─ Spawn selected game.exe (shell: false)
+  ├─ UI-TARS GUIAgent
+  │    └─ Scoped NutJS Operator
+  └─ Active Window Guard
+        ↓
+Target Game Window only
+```
+
+CanonicalなGame Test定義とRun履歴はGame RepositoryではなくHubのProject-specific operational stateとして `hub-data/auto-tests/<project-id>/` へ保存する。Game implementation / RoadmapのSource of Truthは引き続き各Game Repositoryに置く。
+
+AI Model / Operator:
+- `@ui-tars/sdk 1.2.3`
+- `@ui-tars/operator-nut-js 1.2.3`
+- OpenAI-compatible UI-TARS Model endpoint
+- API key is runtime-only and never enters canonical storage
+
+Safety boundary:
+- Rendererはexeを直接起動しない
+- Userがnative dialogで選んだabsolute `.exe` だけをMain Processが起動する
+- Spawnは `shell: false`
+- AI OperatorはActive WindowがTargetと一致することを各Screenshot / Action前に確認する
+- Mouse pointはActive Target Window bounds内だけ許可する
+- OS-wide hotkeys / app switching hotkeysをAI actionから拒否する
+- AbortController + Global Shortcut + Emergency Buttonで停止する
+- Test Result / EvidenceはLocal-first。ChatGPT共有は既存の明示Exportだけ
+
+Result actionは通常の `finished()` とは分け、Operatorへ `report_pass / report_fail / report_warning / report_unknown` を追加する。これにより「Agent loopが終わった」ことと「Testが成功した」ことを同一視しない。
+
+Agent-SはPrimary implementationへ入れず、UI-TARSでCurrent Phaseの要件が成立しない場合だけAdapter候補とする。
 ## Future
 
 v0.1後の候補:
@@ -178,7 +214,7 @@ Game Dev Hub
 ├─ Reference images (Hub local data)
 └─ ChatGPT Pack Export
         ↓ explicit user action
-Documents/Game Dev Hub/ChatGPT Packs/<game>-<timestamp>/
+hub-data/chatgpt-packs/<game>-<timestamp>/
 ├─ game-dev-hub-report.json
 ├─ hub-screenshot.png
 ├─ CHATGPTに送る.txt

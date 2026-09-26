@@ -172,3 +172,33 @@
 5. まずGame起動 + WASD + Mouse clickの最小Testを実機で成功させる。
 6. 結果JSON / Screenshot / History / ChatGPT Packを確認。
 7. そのEvidenceを基に採掘・item pickup・inventory等のGame固有Testを増やす。
+
+
+---
+
+## v0.1.16 Safety panel visibility fix
+
+### 症状
+
+- Repository表示は `main / 変更なし`
+- changedCountは0
+- それでも「GitHubへの保存待ち / PC側に変更があります」Panelが表示され続けた
+
+### Root Cause
+
+`renderSafetyRecovery()` はclean RepositoryでPanelへ `.hidden` を付けていたが、その後 `renderProjectTab()` が開発Tab内の全要素から同じ `.hidden` を外していた。
+
+### 修正
+
+- Tab専用 `.project-tab-hidden` を追加
+- `renderProjectTab()` はTab visibilityだけを変更
+- Safety panelの `.hidden` はRepository stateだけで管理
+- UI contract testへRegression Guardを追加
+
+### Validation
+
+- Node tests: CIで確認
+- Windows installer build: CIで確認
+- updater artifact verification: CIで確認
+- User screenshotで発生状態は確認済み
+- 修正版のWindows実画面はRelease後に未確認

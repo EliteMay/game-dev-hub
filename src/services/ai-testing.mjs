@@ -727,21 +727,31 @@ export async function maskScreenshotToWindow(screenshot, region) {
 }
 
 export function buildUiTarsTestPrompt(test, context = {}) {
+  const confirmedWindowTitle = text(
+    context.confirmedWindowTitle || context.windowTitle || "",
+    180
+  );
+  const runtimeConfirmation = context.targetWindowConfirmed
+    ? "Hub runtime確認: 対象ゲームウィンドウ「" + (confirmedWindowTitle || "設定済みゲーム") +
+      "」は、このテスト開始前に実際に検出・フォーカス済みです。ゲームは起動済みとして扱ってください。"
+    : "";
+
   const focusedGuidance = test.id === "wasd_move"
-    ? "WASD移動テストでは、W/A/S/Dのうち必要なキーを短く1回操作し、次の画面で変化を1回確認したらすぐ終了してください。探索や長距離移動は不要です。"
+    ? "WASD移動テストでは、まずWキーを短く1回押し、次の画面で変化を1回確認したらすぐ終了してください。画面が読み取りづらくてもゲーム未起動とは推測せず、対象ゲームへ直接キー入力を試してください。探索や長距離移動は不要です。"
     : (test.id === "mouse_click"
         ? "マウス操作テストでは、安全なクリック対象を1つだけ選び、1回クリックして次の画面を1回確認したらすぐ終了してください。探索を続けないでください。"
         : "");
 
   const fixedTestLimit = test.id === "ai_exploration"
     ? ""
-    : "固定テストでは最小限の操作だけを行い、遅くとも6回以内の画面確認で必ず終了してください。";
+    : "固定テストでは最小限の操作だけを行い、遅くとも6回以内の画面確認で必ず終了してください。固定テストでは call_user() を使わず、操作不能なら finished(...UNKNOWN...) で理由を返してください。";
 
   return [
     "あなたはGame Dev HubのWindowsゲーム専用テスト担当です。",
     "操作対象は指定されたテスト対象ゲームのウィンドウだけです。",
     "ファイル操作、PowerShell/Terminal、GitHub操作、外部送信、購入、パスワード入力、管理者権限、Windows設定変更は禁止です。",
     "別アプリへ移動しないでください。判断できない場合は推測せずUNKNOWNにしてください。",
+    runtimeConfirmation,
     fixedTestLimit,
     focusedGuidance,
     "",
@@ -905,6 +915,7 @@ export async function runUiTarsTest({
   test,
   apiKey,
   allowedWindowTitles,
+  confirmedWindowTitle = "",
   signal,
   onProgress = () => {}
 }) {
@@ -1032,7 +1043,11 @@ export async function runUiTarsTest({
     }
   });
 
-  const prompt = buildUiTarsTestPrompt(test, { windowTitle: config.windowTitle });
+  const prompt = buildUiTarsTestPrompt(test, {
+    windowTitle: config.windowTitle,
+    confirmedWindowTitle,
+    targetWindowConfirmed: Boolean(confirmedWindowTitle)
+  });
   const runPromise = agent.run(prompt);
   const timeoutMs = finiteTimeout(test.timeout, config.timeout) * 1000;
   let timeoutId;
@@ -1046,6 +1061,24 @@ export async function runUiTarsTest({
     });
 
     await Promise.race([runPromise, timeoutPromise]);
+
+    if (!finalResult && agentStatus === "call_user" && test.id !== "ai_exploration") {
+      return {
+        status: "UNKNOWN",
+        actual: "",
+        reason: "固定テスト中にAIが call_user() で終了しました。対象ゲームはHubが検出済みのため、ゲーム画面上の操作を直接行う必要があります。",
+        confidence: "low",
+        actions,
+        agent: {
+          status: agentStatus,
+          turns: agentTurns,
+          lastMessage: lastAgentMessage,
+          error: agentError,
+          maxLoopCount,
+          timeoutSeconds: Math.round(timeoutMs / 1000)
+        }
+      };
+    }
 
     const parsed = finalResult ||
       extractUiTarsFinishedResult(lastData) ||

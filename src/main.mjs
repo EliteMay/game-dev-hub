@@ -684,6 +684,17 @@ async function runAiTestSuite(payload = {}) {
     );
   }
 
+  const runtimeConfig = endpoint.resolvedModel &&
+    endpoint.resolvedModel !== config.uiTars.model
+      ? {
+          ...config,
+          uiTars: {
+            ...config.uiTars,
+            model: endpoint.resolvedModel
+          }
+        }
+      : config;
+
   const repository = await inspectRepository(project);
   const runId = makeTestRunId();
   const controller = new AbortController();
@@ -787,7 +798,7 @@ async function runAiTestSuite(payload = {}) {
 
       try {
         const result = await runUiTarsTest({
-          config,
+          config: runtimeConfig,
           test,
           apiKey,
           allowedWindowTitles: [config.windowTitle],
@@ -848,6 +859,11 @@ async function runAiTestSuite(payload = {}) {
       testRunId: runId,
       mode: payload.mode === "exploration" ? "exploration" : (payload.failedOnly ? "failed-retest" : "fixed"),
       engine: "UI-TARS",
+      model: {
+        configured: config.uiTars.model,
+        resolved: runtimeConfig.uiTars.model,
+        match: endpoint.modelMatch || "exact"
+      },
       targetVersion: config.targetVersion || app.getVersion(),
       gitCommit: repository.commit || "",
       startedAt,
@@ -959,7 +975,7 @@ async function aiTestDiagnostics(projectId) {
       uiTars: {
         ok: deps.sdk && deps.operator && endpoint.ok,
         label: deps.sdk && deps.operator && endpoint.ok
-          ? "SDK / Operator / Endpoint / Model OK"
+          ? (endpoint.detail || "SDK / Operator / Endpoint / Model OK")
           : (deps.error || endpoint.detail || "NG"),
         cause: !deps.sdk || !deps.operator
           ? "UI-TARS SDKまたはNutJS Operatorを読み込めません。"
@@ -974,10 +990,15 @@ async function aiTestDiagnostics(projectId) {
               ? "UI-TARS Model Serverを起動し、Base URLを確認してください。"
               : (endpoint.modelFound === false
                   ? "UI-TARS Model Serverで設定したModelを読み込み、Model名を一致させてください。"
-                  : (!endpoint.ok
-                      ? "Model Serverの /models 応答とModel名を確認してください。"
-                      : ""))),
-        models: endpoint.models || []
+                  : (endpoint.modelMatch === "legacy-alias"
+                      ? "互換名を自動解決済みです。次回設定保存時は検出Model IDを使えます。"
+                      : (!endpoint.ok
+                          ? "Model Serverの /models 応答とModel名を確認してください。"
+                          : "")))),
+        models: endpoint.models || [],
+        configuredModel: config.uiTars.model,
+        resolvedModel: endpoint.resolvedModel || config.uiTars.model,
+        modelMatch: endpoint.modelMatch || ""
       },
       python: {
         ok: true,

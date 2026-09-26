@@ -1,11 +1,14 @@
 import {
   app,
   BrowserWindow,
+  desktopCapturer,
   dialog,
+  globalShortcut,
   ipcMain,
   nativeImage,
   nativeTheme,
   net,
+  safeStorage,
   screen,
   session,
   shell
@@ -47,6 +50,22 @@ import {
   referenceImagePath,
   removeReferenceImage
 } from "./services/development-workspace.mjs";
+import {
+  DEFAULT_AI_TESTS,
+  buildReproductionSteps,
+  findAndFocusTargetWindow,
+  inspectExecutable,
+  inspectUiTarsDependencies,
+  latestAiTestReport,
+  launchTestExecutable,
+  listAiTestHistory,
+  loadAiTestConfig,
+  makeTestRunId,
+  runUiTarsTest,
+  saveAiTestConfig,
+  saveAiTestReport,
+  summarizeAiTestResults
+} from "./services/ai-testing.mjs";
 import updaterPackage from "electron-updater";
 
 const { autoUpdater } = updaterPackage;
@@ -64,7 +83,9 @@ let logsPath = "";
 let lastError = null;
 let recoveryDialogOpen = false;
 let windowStateSaveTimer = null;
+let activeAiTestRun = null;
 
+const AI_TEST_EMERGENCY_SHORTCUT = "CommandOrControl+Shift+F12";
 const UPDATE_RELEASES_URL = "https://github.com/EliteMay/game-dev-hub/releases/latest";
 let updateState = {
   status: "idle",
@@ -299,7 +320,12 @@ const LOGGED_IPC_CHANNELS = new Set([
   "hub:task-verification-clear",
   "hub:reference-images-add",
   "hub:reference-image-remove",
-  "hub:chatgpt-pack-export"
+  "hub:chatgpt-pack-export",
+  "hub:ai-test-config-save",
+  "hub:ai-test-run",
+  "hub:ai-test-stop",
+  "hub:ai-test-exploration",
+  "hub:ai-test-retest-failed"
 ]);
 
 function registerIpc(channel, handler) {
@@ -353,6 +379,565 @@ async function updateSettings(patch) {
 async function getRegistry() {
   const settings = await getSettings();
   return loadProjects(appDataRoot(), settings.projectsRoot);
+}
+
+function aiCredentialPath(projectId) {
+  const safeId = String(projectId ?? "");
+  if (!/^[a-z0-9-]{1,100}$/.test(safeId)) {
+    throw new HubError("INVALID_PROJECT", "Game IDが正しくありません。");
+  }
+  return path.join(appDataRoot(), "ai-testing", "credentials", safeId + ".bin");
+}
+
+async function loadUiTarsApiKey(projectId) {
+  try {
+    if (!safeStorage.isEncryptionAvailable()) return "";
+    const encrypted = await fs.readFile(aiCredentialPath(projectId));
+    return safeStorage.decryptString(encrypted);
+  } catch {
+    return "";
+  }
+}
+
+async function saveUiTarsApiKey(projectId, apiKey) {
+  const value = String(apiKey ?? "").trim();
+  if (!value) return { configured: Boolean(await loadUiTarsApiKey(projectId)) };
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new HubError(
+      "SECURE_STORAGE_UNAVAILABLE",
+      "Windowsの安全な暗号化保存を利用できないためAPIキーを保存できません。ローカルUI-TARSを使うかWindowsの暗号化機能を確認してください。"
+    );
+  }
+  const filePath = aiCredentialPath(projectId);
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, safeStorage.encryptString(value));
+  return { configured: true };
+}
+
+async function aiTestProjectDefaults(project) {
+  return {
+    exePath: "",
+    windowTitle: project.name
+  };
+}
+
+async function aiTestState(projectId) {
+  const project = await findProject(projectId);
+  const config = await loadAiTestConfig(
+    appDataRoot(),
+    project.id,
+    await aiTestProjectDefaults(project)
+  );
+  const repository = await inspectRepository(project);
+  const history = await listAiTestHistory(appDataRoot(), project.id, 20);
+  const latestReport = await latestAiTestReport(appDataRoot(), project.id);
+  const apiKeyConfigured = Boolean(await loadUiTarsApiKey(project.id));
+
+  return {
+    ok: true,
+    project: {
+      id: project.id,
+      name: project.name,
+      commit: repository.commit || "",
+      branch: repository.branch || ""
+    },
+    config,
+    apiKeyConfigured,
+    emergencyShortcut: AI_TEST_EMERGENCY_SHORTCUT,
+    history,
+    latestReport
+  };
+}
+
+async function chooseAiTestExecutable(projectId) {
+  const project = await findProject(projectId);
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: project.name + " のテスト対象.exeを選択",
+    properties: ["openFile"],
+    filters: [{ name: "Windows Application", extensions: ["exe"] }]
+  });
+  if (result.canceled || !result.filePaths[0]) {
+    return { ok: false, code: "CANCELED", message: "選択をキャンセルしました。" };
+  }
+
+  const current = await loadAiTestConfig(
+    appDataRoot(),
+    project.id,
+    await aiTestProjectDefaults(project)
+  );
+  const config = await saveAiTestConfig(
+    appDataRoot(),
+    project.id,
+    { ...current, exePath: result.filePaths[0] },
+    await aiTestProjectDefaults(project)
+  );
+  return { ok: true, message: "テスト対象.exeを設定しました。", config };
+}
+
+async function saveAiTestingConfiguration(payload = {}) {
+  const project = await findProject(payload.projectId);
+  const config = await saveAiTestConfig(
+    appDataRoot(),
+    project.id,
+    payload.config || {},
+    await aiTestProjectDefaults(project)
+  );
+  if (payload.apiKey) {
+    await saveUiTarsApiKey(project.id, payload.apiKey);
+  }
+  return {
+    ok: true,
+    message: "自動テスト設定を保存しました。",
+    config,
+    apiKeyConfigured: Boolean(await loadUiTarsApiKey(project.id))
+  };
+}
+
+async function captureAiTestEvidence(project, config, runId, testId, phase) {
+  const evidenceRoot = path.join(
+    appDataRoot(),
+    "ai-testing",
+    "runs",
+    project.id,
+    runId,
+    "evidence"
+  );
+  await fs.mkdir(evidenceRoot, { recursive: true });
+
+  const sources = await desktopCapturer.getSources({
+    types: ["window"],
+    thumbnailSize: { width: 1600, height: 900 },
+    fetchWindowIcons: false
+  });
+  const expected = String(config.windowTitle || "").toLowerCase();
+  const source = sources.find((item) =>
+    expected && String(item.name || "").toLowerCase().includes(expected)
+  );
+  if (!source || source.thumbnail.isEmpty()) return "";
+
+  const safeTestId = String(testId || "test").replace(/[^a-z0-9_-]/gi, "_").slice(0, 80);
+  const safePhase = String(phase || "capture").replace(/[^a-z0-9_-]/gi, "_").slice(0, 40);
+  const fileName = safeTestId + "-" + safePhase + ".png";
+  await fs.writeFile(path.join(evidenceRoot, fileName), source.thumbnail.toPNG());
+  return path.join("evidence", fileName).replace(/\\/g, "/");
+}
+
+function publishAiTestProgress(projectId, patch = {}) {
+  const payload = {
+    projectId,
+    at: new Date().toISOString(),
+    ...patch
+  };
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("hub:ai-test-progress", payload);
+  }
+  return payload;
+}
+
+async function stopAiTest(reason = "user") {
+  if (!activeAiTestRun) {
+    return { ok: true, message: "実行中のAIテストはありません。" };
+  }
+
+  activeAiTestRun.controller.abort(reason);
+  try {
+    if (activeAiTestRun.child && !activeAiTestRun.child.killed) {
+      activeAiTestRun.child.kill();
+    }
+  } catch {}
+  publishAiTestProgress(activeAiTestRun.projectId, {
+    phase: "stopped",
+    message: "AI操作を緊急停止しました。"
+  });
+  return { ok: true, message: "AI操作を緊急停止しました。" };
+}
+
+function aiFailureResult(test, error, evidence = {}) {
+  const code = String(error?.message || error || "UNKNOWN");
+  let status = "UNKNOWN";
+  let reason = "AIテストを完了できませんでした。";
+
+  if (code.includes("AI_TEST_BLOCKED_ACTION")) {
+    status = "WARNING";
+    reason = "安全機能が危険または未許可の操作を停止しました。";
+  } else if (code.includes("AI_TEST_WINDOW_SCOPE_VIOLATION")) {
+    status = "WARNING";
+    reason = "AIが許可範囲外のウィンドウを操作しようとしたため停止しました。";
+  } else if (code.includes("AI_TEST_STUCK_REPEAT")) {
+    status = "WARNING";
+    reason = "同じ操作の繰り返しを検知したため停止しました。";
+  } else if (code.includes("AI_TEST_TIMEOUT")) {
+    reason = "テストの制限時間を超えました。";
+  } else if (code.includes("AI_TEST_ABORTED")) {
+    reason = "緊急停止されました。";
+  }
+
+  return {
+    id: test.id,
+    name: test.name,
+    description: test.description,
+    expected: test.expected,
+    actual: "",
+    status,
+    confidence: "low",
+    reason,
+    startedAt: evidence.startedAt || new Date().toISOString(),
+    completedAt: new Date().toISOString(),
+    evidence: {
+      beforeScreenshot: evidence.beforeScreenshot || "",
+      afterScreenshot: evidence.afterScreenshot || "",
+      failScreenshot: evidence.afterScreenshot || ""
+    },
+    actions: [],
+    reproductionSteps: []
+  };
+}
+
+async function runAiTestSuite(payload = {}) {
+  const project = await findProject(payload.projectId);
+  if (activeAiTestRun) {
+    throw new HubError("AI_TEST_ALREADY_RUNNING", "別のAIテストが実行中です。先に停止してください。");
+  }
+
+  const config = await loadAiTestConfig(
+    appDataRoot(),
+    project.id,
+    await aiTestProjectDefaults(project)
+  );
+
+  if (config.engine === "disabled") {
+    throw new HubError("AI_TEST_DISABLED", "AI操作エンジンが無効です。");
+  }
+  if (config.engine === "agent-s") {
+    throw new HubError(
+      "AGENT_S_NOT_CONNECTED",
+      "Agent-Sは予備エンジンとして設定できますが、第1段階ではまだ接続していません。UI-TARSを選択してください。"
+    );
+  }
+
+  const executable = await inspectExecutable(config.exePath);
+  if (!executable.ok) throw new HubError(executable.code, executable.message);
+
+  const deps = await inspectUiTarsDependencies();
+  if (!deps.sdk || !deps.operator || !deps.nutJs) {
+    throw new HubError(
+      "UI_TARS_DEPENDENCY_MISSING",
+      deps.error || "UI-TARSの必要コンポーネントを読み込めません。"
+    );
+  }
+
+  if (!config.windowTitle) {
+    throw new HubError("WINDOW_TITLE_REQUIRED", "テスト対象のウィンドウ名を設定してください。");
+  }
+  if (!config.uiTars.baseUrl || !config.uiTars.model) {
+    throw new HubError("UI_TARS_CONFIG_REQUIRED", "UI-TARSの接続先とモデル名を設定してください。");
+  }
+
+  const repository = await inspectRepository(project);
+  const runId = makeTestRunId();
+  const controller = new AbortController();
+  const launched = await launchTestExecutable(config);
+  activeAiTestRun = {
+    projectId: project.id,
+    runId,
+    controller,
+    child: launched.child
+  };
+
+  const startedAt = new Date().toISOString();
+  const tests = [];
+  let windowInfo = null;
+
+  try {
+    publishAiTestProgress(project.id, {
+      phase: "launching",
+      testRunId: runId,
+      current: 0,
+      total: 0,
+      message: "ゲームを起動し、ウィンドウを探しています。"
+    });
+
+    windowInfo = await findAndFocusTargetWindow(config.windowTitle, 20000, controller.signal);
+    if (!windowInfo.ok) {
+      throw new HubError(windowInfo.code, windowInfo.message);
+    }
+
+    let selectedTests = config.tests.filter((item) => item.enabled !== false);
+    if (payload.failedOnly) {
+      const previous = await latestAiTestReport(appDataRoot(), project.id);
+      const failedIds = new Set(
+        (previous?.tests || []).filter((item) => item.status === "FAIL").map((item) => item.id)
+      );
+      selectedTests = selectedTests.filter((item) => failedIds.has(item.id));
+      if (!selectedTests.length) {
+        throw new HubError("NO_FAILED_TESTS", "前回FAILしたテストはありません。");
+      }
+    }
+
+    if (payload.mode === "exploration") {
+      selectedTests = [{
+        id: "ai_exploration",
+        name: "AI探索テスト",
+        description: "ゲームを安全な範囲で自由に操作し、操作不能、UI崩れ、進行不能、おかしな挙動を探す",
+        expected: "確認できた問題があれば具体的な事実と再現操作を報告し、問題を確認できなければその旨を示す",
+        timeout: Math.min(300, Math.max(60, config.timeout * 2)),
+        enabled: true
+      }];
+    }
+
+    publishAiTestProgress(project.id, {
+      phase: "running",
+      testRunId: runId,
+      current: 0,
+      total: selectedTests.length,
+      message: "AIテストを開始します。"
+    });
+
+    const apiKey = await loadUiTarsApiKey(project.id);
+
+    for (let index = 0; index < selectedTests.length; index += 1) {
+      if (controller.signal.aborted) break;
+      const test = selectedTests[index];
+      const testStartedAt = new Date().toISOString();
+
+      publishAiTestProgress(project.id, {
+        phase: "test",
+        testRunId: runId,
+        current: index + 1,
+        total: selectedTests.length,
+        testId: test.id,
+        testName: test.name,
+        message: test.description
+      });
+
+      const beforeScreenshot = await captureAiTestEvidence(
+        project, config, runId, test.id, "before"
+      );
+
+      if (test.id === "game_launch") {
+        const afterScreenshot = await captureAiTestEvidence(
+          project, config, runId, test.id, "after"
+        );
+        tests.push({
+          id: test.id,
+          name: test.name,
+          description: test.description,
+          expected: test.expected,
+          actual: "対象ウィンドウ「" + windowInfo.title + "」を検出しました。",
+          status: "PASS",
+          confidence: "high",
+          reason: "Hubが起動したプロセスの対象ウィンドウを検出し、フォーカスできました。",
+          startedAt: testStartedAt,
+          completedAt: new Date().toISOString(),
+          evidence: { beforeScreenshot, afterScreenshot, failScreenshot: "" },
+          actions: [],
+          reproductionSteps: []
+        });
+        continue;
+      }
+
+      try {
+        const result = await runUiTarsTest({
+          config,
+          test,
+          apiKey,
+          allowedWindowTitles: [config.windowTitle],
+          signal: controller.signal,
+          onProgress: (progress) => publishAiTestProgress(project.id, {
+            ...progress,
+            testRunId: runId,
+            current: index + 1,
+            total: selectedTests.length,
+            testId: test.id,
+            testName: test.name
+          })
+        });
+        const afterScreenshot = await captureAiTestEvidence(
+          project, config, runId, test.id, "after"
+        );
+        tests.push({
+          id: test.id,
+          name: test.name,
+          description: test.description,
+          expected: test.expected,
+          actual: result.actual || "",
+          status: result.status || "UNKNOWN",
+          confidence: result.confidence || "low",
+          reason: result.reason || "",
+          startedAt: testStartedAt,
+          completedAt: new Date().toISOString(),
+          evidence: {
+            beforeScreenshot,
+            afterScreenshot,
+            failScreenshot: result.status === "FAIL" ? afterScreenshot : ""
+          },
+          actions: result.actions || [],
+          reproductionSteps: result.status === "FAIL"
+            ? buildReproductionSteps(result.actions || [])
+            : []
+        });
+      } catch (error) {
+        const afterScreenshot = await captureAiTestEvidence(
+          project, config, runId, test.id, "after"
+        ).catch(() => "");
+        tests.push(aiFailureResult(test, error, {
+          startedAt: testStartedAt,
+          beforeScreenshot,
+          afterScreenshot
+        }));
+      }
+    }
+
+    const completedAt = new Date().toISOString();
+    const homePath = app.getPath("home");
+    const runtimeLogTail = (launched.logs || []).slice(-30).map((line) =>
+      redactHomePath(String(line), homePath).slice(0, 1200)
+    );
+    const report = {
+      project: project.name,
+      projectId: project.id,
+      testRunId: runId,
+      mode: payload.mode === "exploration" ? "exploration" : (payload.failedOnly ? "failed-retest" : "fixed"),
+      engine: "UI-TARS",
+      targetVersion: config.targetVersion || app.getVersion(),
+      gitCommit: repository.commit || "",
+      startedAt,
+      completedAt,
+      stopped: controller.signal.aborted,
+      summary: summarizeAiTestResults(tests),
+      tests,
+      runtimeLogTail,
+      safety: {
+        windowScope: [config.windowTitle],
+        emergencyShortcut: AI_TEST_EMERGENCY_SHORTCUT,
+        arbitraryShellAllowed: false,
+        externalSendAllowed: false
+      }
+    };
+
+    const saved = await saveAiTestReport(appDataRoot(), project.id, report);
+    publishAiTestProgress(project.id, {
+      phase: "completed",
+      testRunId: runId,
+      current: tests.length,
+      total: tests.length,
+      message: controller.signal.aborted ? "AIテストを停止しました。" : "AIテストが完了しました。",
+      summary: saved.report.summary
+    });
+    return {
+      ok: true,
+      message: controller.signal.aborted ? "AIテストを停止し、途中結果を保存しました。" : "AIテスト結果を保存しました。",
+      report: saved.report,
+      history: await listAiTestHistory(appDataRoot(), project.id, 20)
+    };
+  } finally {
+    activeAiTestRun = null;
+  }
+}
+
+async function probeAiEndpoint(baseUrl) {
+  let target;
+  try {
+    target = new URL(String(baseUrl || ""));
+    if (!["http:", "https:"].includes(target.protocol)) {
+      return { ok: false, detail: "HTTP/HTTPSのBase URLではありません。" };
+    }
+  } catch {
+    return { ok: false, detail: "Base URLが正しくありません。" };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort("diagnostic-timeout"), 4000);
+  try {
+    const response = await fetch(target, {
+      method: "GET",
+      redirect: "manual",
+      signal: controller.signal
+    });
+    return {
+      ok: true,
+      detail: "Endpointへ到達しました（HTTP " + response.status + "）。Model推論は実行していません。"
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      detail: "Endpointへ接続できません: " + String(error?.message || error).slice(0, 220)
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function aiTestDiagnostics(projectId) {
+  const project = await findProject(projectId);
+  const config = await loadAiTestConfig(
+    appDataRoot(),
+    project.id,
+    await aiTestProjectDefaults(project)
+  );
+  const deps = await inspectUiTarsDependencies();
+  const endpoint = await probeAiEndpoint(config.uiTars.baseUrl);
+  const executable = await inspectExecutable(config.exePath);
+  const secureStorage = safeStorage.isEncryptionAvailable();
+
+  return {
+    ok: true,
+    diagnostics: {
+      platform: process.platform === "win32"
+        ? { ok: true, label: "Windows OK" }
+        : { ok: false, label: "Windows以外では自動操作を実行しません。" },
+      uiTars: {
+        ok: deps.sdk && deps.operator && endpoint.ok,
+        label: deps.sdk && deps.operator && endpoint.ok
+          ? "SDK / Operator / Endpoint OK"
+          : (deps.error || endpoint.detail || "NG"),
+        cause: !deps.sdk || !deps.operator
+          ? "UI-TARS SDKまたはNutJS Operatorを読み込めません。"
+          : (!endpoint.ok ? endpoint.detail : ""),
+        action: !deps.sdk || !deps.operator
+          ? "Game Dev Hubを最新版へ更新・再インストールして依存関係を復旧してください。"
+          : (!endpoint.ok ? "UI-TARS Model Serverを起動し、Base URLを確認してください。" : "")
+      },
+      python: {
+        ok: true,
+        label: "第1段階のUI-TARS SDK構成では不要"
+      },
+      gpu: {
+        ok: true,
+        label: "Hubからは必須判定しません。ローカルModel利用時のみModel要件を確認してください。"
+      },
+      executable: {
+        ok: executable.ok,
+        label: executable.ok ? "OK" : executable.message,
+        cause: executable.ok ? "" : executable.message,
+        action: executable.ok ? "" : "「テスト対象.exe」の選択から実際のWindowsゲーム.exeを設定してください。"
+      },
+      screenshot: {
+        ok: true,
+        label: "Electron window captureを実行時に確認"
+      },
+      keyboard: {
+        ok: deps.nutJs,
+        label: deps.nutJs ? "利用可能" : "Computer Use入力基盤 NG"
+      },
+      mouse: {
+        ok: deps.nutJs,
+        label: deps.nutJs ? "利用可能" : "Computer Use入力基盤 NG"
+      },
+      secureStorage: {
+        ok: secureStorage,
+        label: secureStorage ? "APIキー暗号化保存 OK" : "APIキー保存不可",
+        cause: secureStorage ? "" : "Electron safeStorageの暗号化機能を利用できません。",
+        action: secureStorage ? "" : "外部APIキーを保存せずLocal UI-TARSを使うか、Windows暗号化機能を確認してください。"
+      },
+      engine: config.engine,
+      service: {
+        name: "UI-TARS / configured OpenAI-compatible endpoint",
+        billing: "Hub自体は課金しません。外部Providerを設定した場合のみProvider側の料金が発生します。",
+        localAlternative: "UI-TARS-1.5等のローカル/自己ホストModelを利用可能"
+      }
+    }
+  };
 }
 
 async function findProject(projectId) {
@@ -1053,6 +1638,48 @@ function safeFolderPart(value) {
     .slice(0, 60) || "game";
 }
 
+async function copyLatestAiTestEvidence(projectId, report, destinationRoot) {
+  if (!report?.testRunId || !Array.isArray(report.tests)) return [];
+
+  const candidates = new Set();
+  for (const test of report.tests) {
+    for (const value of [
+      test?.evidence?.beforeScreenshot,
+      test?.evidence?.afterScreenshot,
+      test?.evidence?.failScreenshot
+    ]) {
+      const relative = String(value || "").replace(/\\/g, "/");
+      if (/^evidence\/[A-Za-z0-9_-]+\.png$/.test(relative)) {
+        candidates.add(relative);
+      }
+    }
+  }
+
+  if (!candidates.size) return [];
+  const targetDir = path.join(destinationRoot, "ai-test-evidence");
+  await fs.mkdir(targetDir, { recursive: true });
+
+  const copied = [];
+  for (const relative of candidates) {
+    const source = path.join(
+      appDataRoot(),
+      "ai-testing",
+      "runs",
+      projectId,
+      report.testRunId,
+      ...relative.split("/")
+    );
+    const name = path.basename(relative);
+    try {
+      await fs.copyFile(source, path.join(targetDir, name));
+      copied.push(path.join("ai-test-evidence", name).replace(/\\/g, "/"));
+    } catch {
+      // Evidence may have been manually removed; keep pack generation resilient.
+    }
+  }
+  return copied;
+}
+
 async function exportChatGptPack(payload) {
   if (!payload || typeof payload !== "object") {
     throw new HubError("INVALID_INPUT", "ChatGPT共有パックの指定が正しくありません。");
@@ -1128,10 +1755,12 @@ async function exportChatGptPack(payload) {
 
   const referenceImages = await copyReferenceImages(appDataRoot(), project.id, packRoot);
   const diagnostics = await diagnosticsSnapshot();
+  const latestAiTest = await latestAiTestReport(appDataRoot(), project.id);
+  const aiTestEvidence = await copyLatestAiTestEvidence(project.id, latestAiTest, packRoot);
   const homePath = app.getPath("home");
 
   const pack = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     kind: "game-dev-hub-chatgpt-pack",
     capturedAt: capturedAt.toISOString(),
     purpose: "このゲームで保存したUser実機確認結果を全部まとめ、現在のGame開発状態と一緒にChatGPTへ共有する。",
@@ -1170,11 +1799,23 @@ async function exportChatGptPack(payload) {
     },
     verification: {
       source: "Game Dev Hub runtime snapshot",
-      note: "Gameの実プレイ結果はUserがHubで選択した確認結果、画像、User messageをEvidenceとして判断する。",
+      note: "Gameの実プレイ結果はUserがHubで選択した確認結果、AI自動テスト結果、画像、User messageをEvidenceとして判断する。",
       summary: verificationSummary,
       allUserTaskResults,
       activeTaskResult: activeVerification
     },
+    aiTesting: latestAiTest ? {
+      testRunId: latestAiTest.testRunId,
+      mode: latestAiTest.mode,
+      engine: latestAiTest.engine,
+      targetVersion: latestAiTest.targetVersion,
+      gitCommit: latestAiTest.gitCommit,
+      startedAt: latestAiTest.startedAt,
+      completedAt: latestAiTest.completedAt,
+      stopped: latestAiTest.stopped === true,
+      summary: latestAiTest.summary,
+      tests: latestAiTest.tests
+    } : null,
     diagnostics: {
       network: diagnostics.network,
       capabilities: diagnostics.capabilities,
@@ -1184,7 +1825,8 @@ async function exportChatGptPack(payload) {
     },
     files: {
       hubScreenshot: screenshotFile,
-      referenceImages
+      referenceImages,
+      aiTestEvidence
     },
     privacy: {
       automaticSecretsIncluded: false,
@@ -1244,6 +1886,14 @@ async function exportChatGptPack(payload) {
     "User実機確認結果まとめ:",
     verificationLines.length ? verificationLines.join("\n") : "- まだ確認結果はありません。",
     "",
+    "AI自動テスト:",
+    latestAiTest
+      ? "- " + latestAiTest.testRunId + " / PASS " + (latestAiTest.summary?.passed || 0) +
+        " / FAIL " + (latestAiTest.summary?.failed || 0) +
+        " / WARNING " + (latestAiTest.summary?.warning || 0) +
+        " / UNKNOWN " + (latestAiTest.summary?.unknown || 0)
+      : "- まだAI自動テスト結果はありません。",
+    "",
     activeTask ? "現在選択中のタスク: " + activeTask.section + " / " + activeTask.text : "現在選択中のタスク: 未選択",
     "",
     "確認してほしい内容:",
@@ -1252,6 +1902,7 @@ async function exportChatGptPack(payload) {
     "- 問題があるTaskは原因を調査して修正する",
     "- できたTaskはEvidenceが十分ならRoadmapへ反映する",
     "- 添付画像から確認できる実装・見た目・不具合も確認する",
+    "- AI自動テストEvidenceがある場合は、AI判定だけでなくScreenshot・操作記録も根拠として扱う",
     "",
     "※ HubはTokenやFile本文を自動収集しません。User確認メモへ入力した文字列はそのままJSONへ入ります。必要なCodeはGitHub RepositoryをSource of Truthとして確認してください。"
   ];
@@ -1270,7 +1921,7 @@ async function exportChatGptPack(payload) {
     message: verificationSummary.recorded > 0
       ? verificationSummary.recorded + "件の未完了Task確認結果をまとめたChatGPT共有パックを作成しました。"
       : "現在状態のChatGPT共有パックを作成しました。",
-    fileCount: 2 + referenceImages.length + (mainWindow && !mainWindow.isDestroyed() ? 1 : 0)
+    fileCount: 2 + referenceImages.length + aiTestEvidence.length + (mainWindow && !mainWindow.isDestroyed() ? 1 : 0)
   };
 }
 
@@ -1564,6 +2215,14 @@ if (!singleInstanceLock) {
     registerIpc("hub:reference-image-remove", removeProjectReferenceImage);
     registerIpc("hub:reference-image-open", openProjectReferenceImage);
     registerIpc("hub:chatgpt-pack-export", exportChatGptPack);
+    registerIpc("hub:ai-test-state", aiTestState);
+    registerIpc("hub:ai-test-choose-executable", chooseAiTestExecutable);
+    registerIpc("hub:ai-test-config-save", saveAiTestingConfiguration);
+    registerIpc("hub:ai-test-run", (payload) => runAiTestSuite({ ...payload, mode: "fixed", failedOnly: false }));
+    registerIpc("hub:ai-test-retest-failed", (payload) => runAiTestSuite({ ...payload, mode: "fixed", failedOnly: true }));
+    registerIpc("hub:ai-test-exploration", (payload) => runAiTestSuite({ ...payload, mode: "exploration", failedOnly: false }));
+    registerIpc("hub:ai-test-stop", () => stopAiTest("ipc"));
+    registerIpc("hub:ai-test-diagnostics", aiTestDiagnostics);
     registerIpc("hub:get-diagnostics", getDiagnostics);
     registerIpc("hub:diagnostics-export", exportDiagnostics);
     registerIpc("hub:diagnostics-open-logs", openLogsFolder);
@@ -1575,6 +2234,16 @@ if (!singleInstanceLock) {
 
     configureUpdater();
     await createWindow();
+
+    const emergencyRegistered = globalShortcut.register(AI_TEST_EMERGENCY_SHORTCUT, () => {
+      void stopAiTest("shortcut");
+    });
+    if (!emergencyRegistered) {
+      void writeFoundationLog("ai-test.emergency-shortcut-unavailable", {
+        level: "warning",
+        code: "AI_TEST_SHORTCUT_UNAVAILABLE"
+      });
+    }
 
     setTimeout(() => {
       if (app.isPackaged) checkForUpdates().catch(() => {});
@@ -1594,6 +2263,13 @@ if (!singleInstanceLock) {
 }
 
 app.on("before-quit", () => {
+  globalShortcut.unregisterAll();
+  if (activeAiTestRun) {
+    activeAiTestRun.controller.abort("app-quit");
+    try {
+      activeAiTestRun.child?.kill();
+    } catch {}
+  }
   void persistWindowState();
   void writeFoundationLog("app.quit");
 });

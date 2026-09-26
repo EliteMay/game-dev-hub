@@ -24,6 +24,19 @@ contextBridge.exposeInMainWorld("gameDevHub", {
   removeReferenceImage: (payload) => ipcRenderer.invoke("hub:reference-image-remove", payload),
   openReferenceImage: (payload) => ipcRenderer.invoke("hub:reference-image-open", payload),
   exportChatGptPack: (payload) => ipcRenderer.invoke("hub:chatgpt-pack-export", payload),
+  getAiTestState: (projectId) => ipcRenderer.invoke("hub:ai-test-state", projectId),
+  chooseAiTestExecutable: (projectId) => ipcRenderer.invoke("hub:ai-test-choose-executable", projectId),
+  saveAiTestConfig: (payload) => ipcRenderer.invoke("hub:ai-test-config-save", payload),
+  runAiTest: (projectId) => ipcRenderer.invoke("hub:ai-test-run", { projectId }),
+  retestFailedAiTests: (projectId) => ipcRenderer.invoke("hub:ai-test-retest-failed", { projectId }),
+  runAiExplorationTest: (projectId) => ipcRenderer.invoke("hub:ai-test-exploration", { projectId }),
+  stopAiTest: () => ipcRenderer.invoke("hub:ai-test-stop"),
+  getAiTestDiagnostics: (projectId) => ipcRenderer.invoke("hub:ai-test-diagnostics", projectId),
+  onAiTestProgress: (callback) => {
+    const listener = (_event, progress) => callback(progress);
+    ipcRenderer.on("hub:ai-test-progress", listener);
+    return () => ipcRenderer.removeListener("hub:ai-test-progress", listener);
+  },
   getDiagnostics: () => ipcRenderer.invoke("hub:get-diagnostics"),
   exportDiagnostics: () => ipcRenderer.invoke("hub:diagnostics-export"),
   openLogsFolder: () => ipcRenderer.invoke("hub:diagnostics-open-logs"),

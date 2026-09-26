@@ -1,6 +1,6 @@
 {
   "name": "game-dev-hub",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "private": true,
   "type": "module",
   "description": "Windows desktop hub for managing multiple Godot game development repositories.",
@@ -59,9 +59,15 @@
         "owner": "EliteMay",
         "repo": "game-dev-hub"
       }
+    ],
+    "asarUnpack": [
+      "node_modules/@computer-use/**/*"
     ]
   },
   "dependencies": {
-    "electron-updater": "6.8.9"
+    "electron-updater": "6.8.9",
+    "@computer-use/nut-js": "4.2.0",
+    "@ui-tars/operator-nut-js": "1.2.3",
+    "@ui-tars/sdk": "1.2.3"
   }
 }

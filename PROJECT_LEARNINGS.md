@@ -246,3 +246,16 @@
 - Decision: 新規Defaultを実際のID `ui-tars-1.5-7b` へ更新する。既存の旧Defaultだけは、Endpoint上に一意なprefix一致候補が1つある場合に限り自動解決する。
 - Safety: 複数候補では推測しない。任意のModel名を一般的なfuzzy matchで勝手に変換しない。
 - Recurrence Guard: Exact / legacy alias / ambiguous aliasをUnit Testし、実行時にはdiagnosticsで得たresolved Model IDを使用する。
+
+
+## GL-025 — UI-TARS onDataは差分Eventであり、最後のEventだけをResultとして解析しない
+
+- Date: 2026-09-27
+- Type: AI Integration / Runtime Result Parsing
+- Status: Adopted
+- Evidence: Windows実機でGame起動はPASSしたが、Mouse TestはAIが終了しても「機械可読な最終判定を取得できませんでした」、WASDはtimeoutになった。
+- Root Cause: UI-TARS SDKの `onData.data.conversations` はdeltaで、GPT responseの `predictionParsed` に構造化Actionが入る。SDK終了時には `conversations: []` のfinal status eventが届くが、Hubは各EventをJSON文字列化して最後のEventだけを保持していたため、直前の `finished(content=...)` を上書きして失った。
+- Secondary Failure: Default 45秒はLocal 7B Vision Modelの実機Loopに対して短く、WASDの操作後確認とfinishedまで到達しない場合があった。
+- Decision: `predictionParsed.action_type === "finished"` をPrimary Result Sourceとし、直前Resultを保持する。Default Smoke Test timeoutを120秒へ上げ、固定テストは最大8 loop・最小Action Promptにする。
+- Recurrence Guard: Official onData shape / empty final event / timeout migration / focused promptをUnit Testで固定する。
+- Prevention: Streaming / callback型SDKは「最後のCallback = 全履歴」と仮定せず、delta / final event / terminal payloadを別Stateとして扱う。

@@ -8,6 +8,7 @@ import {
   buildUiTarsTestPrompt,
   computerActionSource,
   DEFAULT_UI_TARS_MODEL,
+  extractUiTarsFinishedResult,
   maskScreenshotToWindow,
   normalizeMaskRegion,
   parseUiTarsFinished,
@@ -354,4 +355,105 @@ test("legacy UI-TARS alias is not guessed when multiple matching model ids are l
   ]);
   assert.equal(resolution.matched, false);
   assert.equal(resolution.matchType, "none");
+});
+
+
+test("UI-TARS finished result is read from official onData predictionParsed shape", () => {
+  const result = extractUiTarsFinishedResult({
+    status: "end",
+    conversations: [{
+      from: "gpt",
+      value: "Thought: done. Action: finished(...)",
+      predictionParsed: [{
+        action_type: "finished",
+        action_inputs: {
+          content: "{\"status\":\"PASS\",\"actual\":\"プレイヤーが右へ移動した\",\"confidence\":\"high\",\"reason\":\"画面位置の変化を確認\"}"
+        }
+      }]
+    }]
+  });
+
+  assert.equal(result.status, "PASS");
+  assert.equal(result.confidence, "high");
+  assert.match(result.actual, /右へ移動/);
+});
+
+test("UI-TARS finished action without JSON stays UNKNOWN but preserves its content", () => {
+  const result = extractUiTarsFinishedResult({
+    conversations: [{
+      from: "gpt",
+      predictionParsed: [{
+        action_type: "finished",
+        action_inputs: { content: "画面変化は見えました" }
+      }]
+    }]
+  });
+
+  assert.equal(result.status, "UNKNOWN");
+  assert.equal(result.actual, "画面変化は見えました");
+  assert.match(result.reason, /finished/);
+});
+
+test("v1 default basic AI tests migrate from 45s to 120s for local model latency", () => {
+  const config = sanitizeAiTestConfig({
+    version: 1,
+    tests: [
+      {
+        id: "wasd_move",
+        name: "WASD移動",
+        description: "移動",
+        expected: "変化",
+        timeout: 45,
+        enabled: true
+      },
+      {
+        id: "mouse_click",
+        name: "マウス操作",
+        description: "クリック",
+        expected: "変化",
+        timeout: 45,
+        enabled: true
+      }
+    ]
+  });
+
+  assert.equal(config.version, 2);
+  assert.equal(config.tests[0].timeout, 120);
+  assert.equal(config.tests[1].timeout, 120);
+});
+
+test("custom AI test timeout is not overwritten by the v2 migration", () => {
+  const config = sanitizeAiTestConfig({
+    version: 1,
+    tests: [{
+      id: "wasd_move",
+      name: "WASD移動",
+      description: "移動",
+      expected: "変化",
+      timeout: 90,
+      enabled: true
+    }]
+  });
+
+  assert.equal(config.tests[0].timeout, 90);
+});
+
+test("focused fixed-test prompts tell UI-TARS to finish quickly instead of exploring", () => {
+  const wasd = buildUiTarsTestPrompt({
+    id: "wasd_move",
+    name: "WASD移動",
+    description: "Wを押す",
+    expected: "画面変化"
+  });
+  const mouse = buildUiTarsTestPrompt({
+    id: "mouse_click",
+    name: "マウス操作",
+    description: "クリック",
+    expected: "UI変化"
+  });
+
+  assert.match(wasd, /短く1回操作/);
+  assert.match(wasd, /6回以内/);
+  assert.match(mouse, /1回クリック/);
+  assert.match(mouse, /探索を続けない/);
 });

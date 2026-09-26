@@ -309,3 +309,47 @@ HubがUI-TARS product/family名をOpenAI互換APIのModel IDとして固定し�
 - v0.1.19 Release workflow: PASS
 - `game_dev_hub_0.1.19_setup.exe` / blockmap / latest.yml の生成を確認
 - v0.1.19実機でUI-TARS診断がOKになること: User Windows環境で再確認待ち
+
+
+---
+
+## v0.1.20 UI-TARS completion reliability
+
+### User実機Evidence
+
+最初のDeep Factory AI Computer Use Testで次を確認:
+
+- ゲーム起動: PASS / Confidence high
+- WASD移動: UNKNOWN / Test timeout
+- マウス操作: UNKNOWN / AIから機械可読な最終判定を取得できず
+- Deep Factory Window検出とGodot direct launch自体は成功
+
+### Root Cause
+
+UI-TARS SDKの `onData.data.conversations` はdelta Eventで、各GPT Responseの `predictionParsed` にActionが入る。HubはCallback Eventを文字列化し、最後のEventだけを保存していた。
+
+SDKは終了時に `conversations: []` のstatus Eventを送るため、直前の `finished(content='...')` を失い、Mouse TestがUNKNOWNになった。
+
+WASDについては旧Default timeout 45秒がLocal UI-TARS 7Bの操作 + 次画面確認 + finishedまでに不足した。
+
+### 修正
+
+- `predictionParsed` の `finished` Actionを構造化Parserで取得
+- Final resultをCallback間で保持
+- JSONでないfinished contentもUNKNOWNとして内容を保持
+- WASD / Mouse Default timeoutを120秒へ変更
+- Config v1の旧Default 45秒だけをMigration
+- User custom timeoutは保持
+- Fixed Test Promptを短いSmoke Test向けに制限
+- Fixed Test maxLoopCount = 8 / Exploration = 20
+- TimeoutでもAction数 / Agent status / last messageをreportへ保存
+- Versionをv0.1.20へ更新
+
+### Validation
+
+- Unit / contract tests: CIで確認
+- Official onData `predictionParsed` shape regression: CIで確認
+- Config migration regression: CIで確認
+- Windows installer build: CIで確認
+- updater artifact verification: CIで確認
+- v0.1.20 Windows実機でWASD / Mouseの再テスト: Release後にUser環境で確認

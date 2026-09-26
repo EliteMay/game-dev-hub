@@ -832,6 +832,7 @@ async function runAiTestSuite(payload = {}) {
             failScreenshot: result.status === "FAIL" ? afterScreenshot : ""
           },
           actions: result.actions || [],
+          agent: result.agent || null,
           reproductionSteps: result.status === "FAIL"
             ? buildReproductionSteps(result.actions || [])
             : []

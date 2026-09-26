@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { Jimp } from "jimp";
 import { readJsonRecovering, writeJsonAtomic } from "./storage.mjs";
 
-export const AI_TEST_CONFIG_VERSION = 1;
+export const AI_TEST_CONFIG_VERSION = 2;
 export const AI_TEST_REPORT_VERSION = 1;
 export const AI_TEST_STATUSES = Object.freeze(["PASS", "FAIL", "WARNING", "UNKNOWN"]);
 export const AI_TEST_ENGINES = Object.freeze(["ui-tars", "agent-s", "disabled"]);
@@ -25,7 +25,7 @@ export const DEFAULT_AI_TESTS = Object.freeze([
     name: "WASD移動",
     description: "W/A/S/Dを使って短時間移動し、画面上の変化を確認する",
     expected: "プレイヤー、カメラ、座標など移動を示す画面変化が確認できる",
-    timeout: 45,
+    timeout: 120,
     enabled: true
   },
   {
@@ -33,7 +33,7 @@ export const DEFAULT_AI_TESTS = Object.freeze([
     name: "マウス操作",
     description: "ゲーム画面内の安全な操作対象を1つクリックする",
     expected: "クリックに応じたUIまたはゲーム状態の変化が確認できる",
-    timeout: 45,
+    timeout: 120,
     enabled: true
   }
 ]);
@@ -158,8 +158,19 @@ export function sanitizeAiTestDefinition(value = {}, index = 0) {
 }
 
 export function sanitizeAiTestConfig(value = {}, defaults = {}) {
+  const sourceVersion = Number(value.version) || 1;
   const rawTests = Array.isArray(value.tests) ? value.tests.slice(0, MAX_TESTS) : DEFAULT_AI_TESTS;
-  const tests = rawTests.map((item, index) => sanitizeAiTestDefinition(item, index));
+  const tests = rawTests.map((item, index) => {
+    const safe = sanitizeAiTestDefinition(item, index);
+    if (
+      sourceVersion < 2 &&
+      (safe.id === "wasd_move" || safe.id === "mouse_click") &&
+      safe.timeout === 45
+    ) {
+      return { ...safe, timeout: 120 };
+    }
+    return safe;
+  });
   const seen = new Set();
   const uniqueTests = tests.filter((item) => {
     if (seen.has(item.id)) return false;
@@ -458,41 +469,106 @@ export function normalizeConfidence(value) {
   return "low";
 }
 
+function parseUiTarsResultPayload(value) {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const status = String(value.status || "").toUpperCase();
+    if (AI_TEST_STATUSES.includes(status)) {
+      return value;
+    }
+  }
+
+  const source = String(value ?? "").trim();
+  if (!source) return null;
+
+  const directCandidates = [source];
+  const fenced = source.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) directCandidates.push(fenced[1].trim());
+
+  const objectMatch = source.match(/\{\s*["']?status["']?\s*:\s*["']?(PASS|FAIL|WARNING|UNKNOWN)["']?[\s\S]*?\}/i);
+  if (objectMatch?.[0]) directCandidates.push(objectMatch[0]);
+
+  for (const candidateSource of directCandidates) {
+    const candidate = candidateSource
+      .replace(/^\s*finished\s*\(\s*content\s*=\s*/i, "")
+      .replace(/\)\s*$/i, "")
+      .trim();
+
+    const unquoted =
+      (candidate.startsWith("'") && candidate.endsWith("'")) ||
+      (candidate.startsWith('"') && candidate.endsWith('"'))
+        ? candidate.slice(1, -1)
+        : candidate;
+
+    for (const possible of [unquoted, unquoted.replace(/\\(["'\\])/g, "$1")]) {
+      try {
+        const parsed = JSON.parse(
+          possible
+            .replace(/([{,]\s*)([A-Za-z][A-Za-z0-9_]*)\s*:/g, '$1"$2":')
+        );
+        const status = String(parsed?.status || "").toUpperCase();
+        if (AI_TEST_STATUSES.includes(status)) return parsed;
+      } catch {}
+    }
+  }
+
+  return null;
+}
+
+function normalizedUiTarsResult(payload) {
+  const status = AI_TEST_STATUSES.includes(String(payload?.status).toUpperCase())
+    ? String(payload.status).toUpperCase()
+    : "UNKNOWN";
+  return {
+    status,
+    actual: text(payload?.actual || payload?.result || "", 1500),
+    reason: text(payload?.reason || payload?.explanation || "", 1500),
+    confidence: normalizeConfidence(payload?.confidence)
+  };
+}
+
 export function parseUiTarsFinished(value) {
-  const source = typeof value === "string" ? value : JSON.stringify(value ?? "");
-  const jsonMatch = source.match(/\{\s*["']?status["']?\s*:\s*["']?(PASS|FAIL|WARNING|UNKNOWN)["']?[\s\S]*?\}/i);
-  if (!jsonMatch) {
-    return {
-      status: "UNKNOWN",
-      actual: "",
-      reason: "AIから機械可読な最終判定を取得できませんでした。",
-      confidence: "low"
-    };
+  const payload = parseUiTarsResultPayload(value);
+  if (payload) return normalizedUiTarsResult(payload);
+
+  return {
+    status: "UNKNOWN",
+    actual: "",
+    reason: "AIから機械可読な最終判定を取得できませんでした。",
+    confidence: "low"
+  };
+}
+
+export function extractUiTarsFinishedResult(data) {
+  const conversations = Array.isArray(data?.conversations) ? data.conversations : [];
+
+  for (let conversationIndex = conversations.length - 1; conversationIndex >= 0; conversationIndex -= 1) {
+    const conversation = conversations[conversationIndex];
+    const predictions = Array.isArray(conversation?.predictionParsed)
+      ? conversation.predictionParsed
+      : [];
+
+    for (let predictionIndex = predictions.length - 1; predictionIndex >= 0; predictionIndex -= 1) {
+      const prediction = predictions[predictionIndex];
+      if (String(prediction?.action_type || "").toLowerCase() !== "finished") continue;
+
+      const content = prediction?.action_inputs?.content ??
+        prediction?.action_inputs?.result ??
+        prediction?.action_inputs?.text ??
+        "";
+
+      const payload = parseUiTarsResultPayload(content);
+      if (payload) return normalizedUiTarsResult(payload);
+
+      return {
+        status: "UNKNOWN",
+        actual: text(content, 1500),
+        reason: "AIはfinishedで終了しましたが、最終判定JSONを解析できませんでした。",
+        confidence: "low"
+      };
+    }
   }
 
-  const candidate = jsonMatch[0]
-    .replace(/'/g, '"')
-    .replace(/([{,]\s*)([A-Za-z][A-Za-z0-9_]*)\s*:/g, '$1"$2":');
-
-  try {
-    const parsed = JSON.parse(candidate);
-    const status = AI_TEST_STATUSES.includes(String(parsed.status).toUpperCase())
-      ? String(parsed.status).toUpperCase()
-      : "UNKNOWN";
-    return {
-      status,
-      actual: text(parsed.actual || parsed.result || "", 1500),
-      reason: text(parsed.reason || parsed.explanation || "", 1500),
-      confidence: normalizeConfidence(parsed.confidence)
-    };
-  } catch {
-    return {
-      status: String(jsonMatch[1]).toUpperCase(),
-      actual: "",
-      reason: "最終判定の詳細JSONを完全には解析できませんでした。",
-      confidence: "low"
-    };
-  }
+  return null;
 }
 
 export function computerActionSource(action) {
@@ -651,11 +727,23 @@ export async function maskScreenshotToWindow(screenshot, region) {
 }
 
 export function buildUiTarsTestPrompt(test, context = {}) {
+  const focusedGuidance = test.id === "wasd_move"
+    ? "WASD移動テストでは、W/A/S/Dのうち必要なキーを短く1回操作し、次の画面で変化を1回確認したらすぐ終了してください。探索や長距離移動は不要です。"
+    : (test.id === "mouse_click"
+        ? "マウス操作テストでは、安全なクリック対象を1つだけ選び、1回クリックして次の画面を1回確認したらすぐ終了してください。探索を続けないでください。"
+        : "");
+
+  const fixedTestLimit = test.id === "ai_exploration"
+    ? ""
+    : "固定テストでは最小限の操作だけを行い、遅くとも6回以内の画面確認で必ず終了してください。";
+
   return [
     "あなたはGame Dev HubのWindowsゲーム専用テスト担当です。",
     "操作対象は指定されたテスト対象ゲームのウィンドウだけです。",
     "ファイル操作、PowerShell/Terminal、GitHub操作、外部送信、購入、パスワード入力、管理者権限、Windows設定変更は禁止です。",
     "別アプリへ移動しないでください。判断できない場合は推測せずUNKNOWNにしてください。",
+    fixedTestLimit,
+    focusedGuidance,
     "",
     "テスト名: " + test.name,
     "何をするか: " + test.description,
@@ -896,7 +984,14 @@ export async function runUiTarsTest({
     }
   });
 
-  let lastData = "";
+  let lastData = null;
+  let finalResult = null;
+  let agentStatus = "";
+  let agentTurns = 0;
+  let lastAgentMessage = "";
+  let agentError = "";
+  const maxLoopCount = test.id === "ai_exploration" ? 20 : 8;
+
   const agent = new GUIAgent({
     model: {
       baseURL: config.uiTars.baseUrl,
@@ -905,15 +1000,31 @@ export async function runUiTarsTest({
     },
     operator: safeOperator,
     signal: effectiveSignal,
+    maxLoopCount,
     onData: ({ data }) => {
-      const serialized = text(typeof data === "string" ? data : JSON.stringify(data), 5000);
-      if (serialized) lastData = serialized;
+      lastData = data || lastData;
+      agentStatus = text(data?.status || agentStatus, 80);
+
+      const conversations = Array.isArray(data?.conversations) ? data.conversations : [];
+      for (const conversation of conversations) {
+        if (conversation?.from === "gpt") {
+          agentTurns += 1;
+          if (conversation?.value) {
+            lastAgentMessage = text(conversation.value, 2000);
+          }
+        }
+      }
+
+      const structuredResult = extractUiTarsFinishedResult(data);
+      if (structuredResult) finalResult = structuredResult;
+
       onProgress({
         phase: "thinking",
-        message: "AIが画面を確認しています"
+        message: finalResult ? "AIが最終判定を返しました" : "AIが画面を確認しています"
       });
     },
     onError: ({ error }) => {
+      agentError = text(error?.message || error, 1000);
       onProgress({
         phase: "warning",
         message: "UI-TARS: " + text(error?.message || error, 240)
@@ -933,9 +1044,46 @@ export async function runUiTarsTest({
         reject(new Error("AI_TEST_TIMEOUT"));
       }, timeoutMs);
     });
-    const result = await Promise.race([runPromise, timeoutPromise]);
-    const parsed = parseUiTarsFinished(lastData || result);
-    return { ...parsed, actions };
+
+    await Promise.race([runPromise, timeoutPromise]);
+
+    const parsed = finalResult ||
+      extractUiTarsFinishedResult(lastData) ||
+      parseUiTarsFinished(lastAgentMessage);
+
+    return {
+      ...parsed,
+      actions,
+      agent: {
+        status: agentStatus,
+        turns: agentTurns,
+        lastMessage: lastAgentMessage,
+        error: agentError,
+        maxLoopCount,
+        timeoutSeconds: Math.round(timeoutMs / 1000)
+      }
+    };
+  } catch (error) {
+    if (String(error?.message || error).includes("AI_TEST_TIMEOUT")) {
+      return {
+        status: "UNKNOWN",
+        actual: actions.length
+          ? "制限時間内にAI操作を" + actions.length + "回実行しましたが、最終判定まで完了しませんでした。"
+          : "制限時間内にAI操作を完了できませんでした。",
+        reason: "テストの制限時間を超えました。最後のAI状態: " + (agentStatus || "不明"),
+        confidence: "low",
+        actions,
+        agent: {
+          status: agentStatus || "timeout",
+          turns: agentTurns,
+          lastMessage: lastAgentMessage,
+          error: agentError,
+          maxLoopCount,
+          timeoutSeconds: Math.round(timeoutMs / 1000)
+        }
+      };
+    }
+    throw error;
   } finally {
     clearTimeout(timeoutId);
     signal?.removeEventListener("abort", forwardAbort);

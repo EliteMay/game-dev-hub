@@ -75,3 +75,18 @@ test("GitHub save blocks likely secret files before staging", () => {
   assert.match(repositorySource, /isSensitiveRepositoryPath/);
   assert.match(repositorySource, /SENSITIVE_FILE_BLOCKED/);
 });
+
+test("AI desktop testing keeps privileged computer control behind operation-specific IPC", () => {
+  const aiSource = fs.readFileSync(new URL("../src/services/ai-testing.mjs", import.meta.url), "utf8");
+
+  assert.match(preloadSource, /getAiTestState/);
+  assert.match(preloadSource, /runAiTest/);
+  assert.match(preloadSource, /stopAiTest/);
+  assert.match(preloadSource, /getAiTestDiagnostics/);
+  assert.doesNotMatch(preloadSource, /mouse\.move|keyboard\.type|child_process|spawn\(/);
+  assert.match(aiSource, /validateComputerAction/);
+  assert.match(aiSource, /AI_TEST_WINDOW_SCOPE_VIOLATION/);
+  assert.match(aiSource, /AI_TEST_STUCK_REPEAT/);
+  assert.match(aiSource, /shell: false/);
+  assert.doesNotMatch(aiSource, /exec\(/);
+});

@@ -135,8 +135,11 @@
 - PR #20 final CIでNode tests / Windows installer build / updater artifact verification / artifact uploadがすべて成功。
 - PR #20をmainへmerge。
 - main CI成功。
-- v0.1.14までのRelease workflow成功を確認。
-- v0.1.15はこのBranchのCI / Merge / Release後に最終確認する。
+- PR #21でUI-TARS Action vocabulary同期とTarget Window外Pixel Maskを追加し、Node tests / Windows installer build / updater artifact verification / artifact uploadがすべて成功。
+- PR #21をmainへmerge。
+- v0.1.15 main CI成功。
+- v0.1.15 Release workflow成功。
+- v0.1.15 Releaseと `game_dev_hub_0.1.15_setup.exe` / blockmap / latest.yml の生成を確認。
 
 ## 確認できていないこと
 

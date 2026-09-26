@@ -284,7 +284,7 @@ export function validateComputerAction(action) {
   const keyAction = /\b(press|key|hotkey)\b/i.test(source);
   if (keyAction) {
     const candidateKeys = words.filter((word) =>
-      !["press", "key", "hotkey", "keys", "duration", "seconds", "second", "down", "up"].includes(word) &&
+      !["action", "type", "inputs", "press", "key", "hotkey", "keys", "duration", "seconds", "second", "down", "up"].includes(word) &&
       !/^\d+(?:ms)?$/.test(word)
     );
     if (candidateKeys.some((key) => !SAFE_KEY_NAMES.has(key))) {

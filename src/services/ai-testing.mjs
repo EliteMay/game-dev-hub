@@ -237,6 +237,16 @@ export function validateComputerAction(action) {
   const source = typeof action === "string" ? action : JSON.stringify(action ?? {});
   const normalized = source.toLowerCase();
 
+  const words = normalized.match(/[a-z0-9]+/g) || [];
+  const wordSet = new Set(words);
+  if (
+    (wordSet.has("ctrl") && wordSet.has("shift") && (wordSet.has("esc") || wordSet.has("escape"))) ||
+    (wordSet.has("alt") && wordSet.has("tab")) ||
+    (wordSet.has("windows") && wordSet.has("r"))
+  ) {
+    return { ok: false, reason: "システムShortcutは許可されていません。" };
+  }
+
   const blockedFragments = [
     "powershell", "cmd.exe", "terminal", "shell",
     "delete", "remove_file", "unlink", "uninstall",
@@ -257,7 +267,6 @@ export function validateComputerAction(action) {
 
   const keyAction = /\b(press|key|hotkey)\b/i.test(source);
   if (keyAction) {
-    const words = normalized.match(/[a-z0-9]+/g) || [];
     const candidateKeys = words.filter((word) =>
       !["press", "key", "hotkey", "keys", "duration", "seconds", "second", "down", "up"].includes(word) &&
       !/^\d+(?:ms)?$/.test(word)

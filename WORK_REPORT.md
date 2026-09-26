@@ -357,3 +357,39 @@ WASDについては旧Default timeout 45秒がLocal UI-TARS 7Bの操作 + 次画
 - v0.1.20 Release workflow: PASS
 - `game_dev_hub_0.1.20_setup.exe` / blockmap / latest.yml の生成を確認
 - v0.1.20 Windows実機でWASD / Mouseの再テスト: User環境で確認待ち
+
+
+---
+
+## v0.1.21 Fixed Test Runtime Context
+
+### User実機Evidence
+
+v0.1.20のDeep Factory固定AI Test:
+
+- Game起動: PASS
+- WASD移動: UNKNOWN
+- Mouse操作: PASS
+- WASDのAgent status: `call_user`
+- WASDの最終Message: Gameが未起動と誤認し、操作せずUserへ確認を返した
+- 同一Run内で対象Window `Deep Factory (DEBUG)` の検出は成功済み
+
+### Root Cause
+
+UI-TARSへ「対象Window名」は渡していたが、「HubがこのRunでWindowを実際に検出・Focus済み」というRuntime Evidenceを明示していなかった。固定Smoke TestでもModelが起動状態を画面から再推論し、誤って `call_user()` を選べた。
+
+### 修正
+
+- 実際に検出したWindow titleを `runUiTarsTest` へ渡す
+- Promptへ「検出・Focus済み / Game起動済み」を明示
+- WASD Smoke Testの第一ActionをW短押しへ具体化
+- Fixed Testでは `call_user()` を使わないよう明示
+- 操作不能時は `finished(...UNKNOWN...)` へ収束
+- Fixed Testで `call_user` が返った場合の専用Diagnostic reasonを追加
+- Prompt Regression Testを追加
+- Versionをv0.1.21へ更新
+
+### Validation
+
+- Local Node test / Windows installer build: PR CIで確認予定
+- v0.1.21 Windows実機WASD再テスト: Release後にUser環境で確認

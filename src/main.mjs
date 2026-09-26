@@ -802,6 +802,7 @@ async function runAiTestSuite(payload = {}) {
           test,
           apiKey,
           allowedWindowTitles: [config.windowTitle],
+          confirmedWindowTitle: windowInfo.title,
           signal: controller.signal,
           onProgress: (progress) => publishAiTestProgress(project.id, {
             ...progress,

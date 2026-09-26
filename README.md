@@ -1,5 +1,16 @@
 # Game Dev Hub
 
+## v0.1.18 UI-TARS Runtime Dependency Fix
+
+Windows配布版で「Cannot find package 'uuid' imported from @ui-tars/sdk」となり、自動テスト診断がUI-TARS NGになる問題を修正します。
+
+- UI-TARS SDKが実行時にimportする `uuid` をHubのproduction dependencyとして明示
+- `uuid@9.0.1` を固定し、Electron本番Packageへ含める
+- Testで `uuid` と `@ui-tars/sdk` のruntime importを確認
+- CI / Releaseで `npm ls uuid --omit=dev --depth=0` を実行し、dev-only/transitive依存への逆戻りを防止
+
+Root Causeは `@ui-tars/sdk@1.2.3` の配布Packageが `GUIAgent` から `uuid` をimportする一方、SDK自身のdependenciesへ `uuid` を宣言していないことです。Game Dev Hub側で明示的なruntime dependencyとして補います。
+
 ## v0.1.17 AI Test First-Run Readiness
 
 Deep FactoryのようにWindows Export前のGodot Projectでも、手動でexeを用意せず最初のAI実機テストへ進めるようにしました。

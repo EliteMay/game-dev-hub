@@ -1,5 +1,30 @@
 # Game Dev Hub
 
+## v0.1.13 UI-TARS Windows AI自動テスト（Phase 1）
+
+Game Dev HubからWindowsゲームを起動し、UI-TARSが実画面を見ながらマウス・キーボードで固定テストを実行する初期版を追加しました。
+
+- Game詳細に「自動テスト」タブを追加
+- Gameごとの `.exe` / 起動引数 / Window名 / Model endpoint / Test定義をApp Dataへ保存
+- `@ui-tars/sdk` + `@ui-tars/operator-nut-js` でComputer Useを実行
+- 前面Windowを検査し、テスト対象Game以外へ移ったら安全停止
+- Pointer操作はGame WindowのBounds外なら実行前に停止
+- Windows全体へ影響するHotkeyを拒否
+- `Ctrl + Shift + F12` と画面上Buttonによる緊急停止
+- 同一Action / 変化しない画面 / Timeout / Max loopで停止
+- `PASS / FAIL / WARNING / UNKNOWN` + 信頼度を保存
+- TestごとのBefore / After / FAIL Screenshot、Action log、Error、FAIL再現手順を保存
+- 前回FAILだけの再テスト
+- Test履歴をGameごとに保持
+- 最新AI Test Report / Evidenceを既存ChatGPT共有Packへ追加
+- API KeyはSession中だけ利用し、Settings / Log / Reportへ永続保存しない
+- Agent-SはFallback候補として表示するが、UI-TARSでPhase 1要件を満たすため未接続
+- AI探索テスト / 録画はPhase 2。固定テストが安定してから追加する
+
+保存先は `userData/hub-data/auto-tests/<project-id>/` です。外部サービスへのTest結果自動送信は行いません。
+
+UI-TARS Desktop公式はSingle Monitorを推奨しているため、最初のWindows実機検証もSingle Monitorで行います。Multi Monitorは実機確認後に対応可否を確定します。
+
 ## v0.1.12 Godot Game Foundation Starter
 
 共通基盤を使った新しいGodot Gameを、Game Dev Hubから作成・追跡・更新できるようにします。
@@ -251,6 +276,7 @@ Hubから `reset` / `clean` / `rebase` / force push は行いません。
 - Godot project launcher
 - electron-builder / NSIS
 - electron-updater / GitHub Releases
+- UI-TARS SDK / NutJS Computer Operator
 
 ## 開発起動
 
@@ -318,6 +344,8 @@ Deep Factory固有の仕様は `deep-factory` 側を正本とします。
 - Setup.exe実機install / uninstall: 未確認
 - v0.1.2 → v0.1.3の実機Auto Update: 未確認
 - Window state / Single Instance / Renderer RecoveryのWindows実機確認: 未確認
+- UI-TARS自動テストのCI / Windows installer build: GitHub Actionsで確認
+- UI-TARS自動テストのWindows実機（exe起動 → 画面認識 → WASD / Click → Result保存）: 未確認
 
 Windows固有部分は実機確認が終わるまで完成扱いにしません。
 

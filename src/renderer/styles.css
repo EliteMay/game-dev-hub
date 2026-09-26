@@ -393,6 +393,10 @@ h3 {
   display: none !important;
 }
 
+.project-tab-hidden {
+  display: none !important;
+}
+
 .detail-heading {
   align-items: flex-start;
   margin-bottom: 18px;

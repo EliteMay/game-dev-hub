@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import {
@@ -124,8 +125,8 @@ test("auto test runner preserves safety boundaries in source", async () => {
 
 test("main renderer and auto test service pass JavaScript syntax checks", () => {
   for (const relative of ["src/main.mjs", "src/renderer/app.js", "src/services/auto-test.mjs"]) {
-    const filePath = new URL("../" + relative, import.meta.url);
-    const checked = spawnSync(process.execPath, ["--check", filePath.pathname], {
+    const filePath = fileURLToPath(new URL("../" + relative, import.meta.url));
+    const checked = spawnSync(process.execPath, ["--check", filePath], {
       encoding: "utf8"
     });
     assert.equal(

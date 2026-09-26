@@ -1592,6 +1592,48 @@ function safeFolderPart(value) {
     .slice(0, 60) || "game";
 }
 
+async function copyLatestAiTestEvidence(projectId, report, destinationRoot) {
+  if (!report?.testRunId || !Array.isArray(report.tests)) return [];
+
+  const candidates = new Set();
+  for (const test of report.tests) {
+    for (const value of [
+      test?.evidence?.beforeScreenshot,
+      test?.evidence?.afterScreenshot,
+      test?.evidence?.failScreenshot
+    ]) {
+      const relative = String(value || "").replace(/\\/g, "/");
+      if (/^evidence\/[A-Za-z0-9_-]+\.png$/.test(relative)) {
+        candidates.add(relative);
+      }
+    }
+  }
+
+  if (!candidates.size) return [];
+  const targetDir = path.join(destinationRoot, "ai-test-evidence");
+  await fs.mkdir(targetDir, { recursive: true });
+
+  const copied = [];
+  for (const relative of candidates) {
+    const source = path.join(
+      appDataRoot(),
+      "ai-testing",
+      "runs",
+      projectId,
+      report.testRunId,
+      ...relative.split("/")
+    );
+    const name = path.basename(relative);
+    try {
+      await fs.copyFile(source, path.join(targetDir, name));
+      copied.push(path.join("ai-test-evidence", name).replace(/\\/g, "/"));
+    } catch {
+      // Evidence may have been manually removed; keep pack generation resilient.
+    }
+  }
+  return copied;
+}
+
 async function exportChatGptPack(payload) {
   if (!payload || typeof payload !== "object") {
     throw new HubError("INVALID_INPUT", "ChatGPT共有パックの指定が正しくありません。");
@@ -1668,6 +1710,7 @@ async function exportChatGptPack(payload) {
   const referenceImages = await copyReferenceImages(appDataRoot(), project.id, packRoot);
   const diagnostics = await diagnosticsSnapshot();
   const latestAiTest = await latestAiTestReport(appDataRoot(), project.id);
+  const aiTestEvidence = await copyLatestAiTestEvidence(project.id, latestAiTest, packRoot);
   const homePath = app.getPath("home");
 
   const pack = {
@@ -1736,7 +1779,8 @@ async function exportChatGptPack(payload) {
     },
     files: {
       hubScreenshot: screenshotFile,
-      referenceImages
+      referenceImages,
+      aiTestEvidence
     },
     privacy: {
       automaticSecretsIncluded: false,
@@ -1812,6 +1856,7 @@ async function exportChatGptPack(payload) {
     "- 問題があるTaskは原因を調査して修正する",
     "- できたTaskはEvidenceが十分ならRoadmapへ反映する",
     "- 添付画像から確認できる実装・見た目・不具合も確認する",
+    "- AI自動テストEvidenceがある場合は、AI判定だけでなくScreenshot・操作記録も根拠として扱う",
     "",
     "※ HubはTokenやFile本文を自動収集しません。User確認メモへ入力した文字列はそのままJSONへ入ります。必要なCodeはGitHub RepositoryをSource of Truthとして確認してください。"
   ];
@@ -1830,7 +1875,7 @@ async function exportChatGptPack(payload) {
     message: verificationSummary.recorded > 0
       ? verificationSummary.recorded + "件の未完了Task確認結果をまとめたChatGPT共有パックを作成しました。"
       : "現在状態のChatGPT共有パックを作成しました。",
-    fileCount: 2 + referenceImages.length + (mainWindow && !mainWindow.isDestroyed() ? 1 : 0)
+    fileCount: 2 + referenceImages.length + aiTestEvidence.length + (mainWindow && !mainWindow.isDestroyed() ? 1 : 0)
   };
 }
 

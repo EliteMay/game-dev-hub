@@ -130,7 +130,42 @@ const el = {
   diagnosticsLastError: document.querySelector("#diagnostics-last-error"),
   diagnosticsExport: document.querySelector("#diagnostics-export-button"),
   diagnosticsOpenLogs: document.querySelector("#diagnostics-open-logs-button"),
-  diagnosticsClearLogs: document.querySelector("#diagnostics-clear-logs-button")
+  diagnosticsClearLogs: document.querySelector("#diagnostics-clear-logs-button"),
+  developmentTab: document.querySelector("#development-tab-button"),
+  autoTestTab: document.querySelector("#auto-test-tab-button"),
+  developmentTabPanel: document.querySelector("#development-tab-panel"),
+  autoTestTabPanel: document.querySelector("#auto-test-tab-panel"),
+  autoTestProjectName: document.querySelector("#auto-test-project-name"),
+  autoTestExePath: document.querySelector("#auto-test-exe-path"),
+  autoTestChooseExe: document.querySelector("#auto-test-choose-exe-button"),
+  autoTestTargetVersion: document.querySelector("#auto-test-target-version"),
+  autoTestGitCommit: document.querySelector("#auto-test-git-commit"),
+  autoTestDate: document.querySelector("#auto-test-date"),
+  autoTestWindowTitle: document.querySelector("#auto-test-window-title"),
+  autoTestLaunchArgs: document.querySelector("#auto-test-launch-args"),
+  autoTestEngine: document.querySelector("#auto-test-engine"),
+  autoTestModelBaseUrl: document.querySelector("#auto-test-model-base-url"),
+  autoTestModelName: document.querySelector("#auto-test-model-name"),
+  autoTestApiKey: document.querySelector("#auto-test-api-key"),
+  autoTestTimeout: document.querySelector("#auto-test-timeout"),
+  autoTestMaxSteps: document.querySelector("#auto-test-max-steps"),
+  autoTestDefinitions: document.querySelector("#auto-test-definitions"),
+  autoTestSave: document.querySelector("#auto-test-save-button"),
+  autoTestDiagnose: document.querySelector("#auto-test-diagnose-button"),
+  autoTestStart: document.querySelector("#auto-test-start-button"),
+  autoTestRetest: document.querySelector("#auto-test-retest-button"),
+  autoTestStop: document.querySelector("#auto-test-stop-button"),
+  autoTestOpenFolder: document.querySelector("#auto-test-open-folder-button"),
+  autoTestProgressCount: document.querySelector("#auto-test-progress-count"),
+  autoTestProgressElapsed: document.querySelector("#auto-test-progress-elapsed"),
+  autoTestProgressTest: document.querySelector("#auto-test-progress-test"),
+  autoTestProgressMessage: document.querySelector("#auto-test-progress-message"),
+  autoTestProgressAction: document.querySelector("#auto-test-progress-action"),
+  autoTestDiagnostics: document.querySelector("#auto-test-diagnostics"),
+  autoTestSummaryTitle: document.querySelector("#auto-test-summary-title"),
+  autoTestSummaryCounts: document.querySelector("#auto-test-summary-counts"),
+  autoTestResultList: document.querySelector("#auto-test-result-list"),
+  autoTestHistory: document.querySelector("#auto-test-history")
 };
 
 let state = null;
@@ -140,6 +175,9 @@ let referenceImages = [];
 let referenceImagesProjectId = "";
 let showCompletedTasks = false;
 let showFutureTasks = false;
+let projectTab = "development";
+let autoTestState = null;
+let autoTestRunning = false;
 
 const actionButtons = [
   el.refresh,
@@ -167,7 +205,13 @@ const actionButtons = [
   el.taskOpenEditor,
   el.taskExport,
   el.taskVerificationAddImage,
-  el.taskVerificationClear
+  el.taskVerificationClear,
+  el.autoTestChooseExe,
+  el.autoTestSave,
+  el.autoTestDiagnose,
+  el.autoTestStart,
+  el.autoTestRetest,
+  el.autoTestOpenFolder
 ];
 
 function setBusy(value, label = "") {
@@ -356,7 +400,9 @@ function renderProjectList() {
       referenceImagesProjectId = "";
       showCompletedTasks = false;
       showFutureTasks = false;
+      autoTestState = null;
       render();
+      refreshAutoTestState().catch(() => {});
     });
 
     el.projectList.append(button);
@@ -1146,6 +1192,323 @@ async function refreshReferenceImages() {
   }
 }
 
+function setProjectTab(nextTab) {
+  projectTab = nextTab === "auto-test" ? "auto-test" : "development";
+  const autoSelected = projectTab === "auto-test";
+  el.developmentTab.classList.toggle("active", !autoSelected);
+  el.autoTestTab.classList.toggle("active", autoSelected);
+  el.developmentTab.setAttribute("aria-selected", String(!autoSelected));
+  el.autoTestTab.setAttribute("aria-selected", String(autoSelected));
+  el.developmentTabPanel.classList.toggle("hidden", autoSelected);
+  el.autoTestTabPanel.classList.toggle("hidden", !autoSelected);
+  if (autoSelected) refreshAutoTestState().catch(() => {});
+}
+
+function formatAutoTestElapsed(ms) {
+  const total = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+  const minutes = String(Math.floor(total / 60)).padStart(2, "0");
+  const seconds = String(total % 60).padStart(2, "0");
+  return minutes + ":" + seconds;
+}
+
+function autoTestStatusClass(status) {
+  return String(status || "UNKNOWN").toLowerCase();
+}
+
+function autoTestConfigFromForm() {
+  let tests;
+  try {
+    tests = JSON.parse(el.autoTestDefinitions.value || "[]");
+  } catch {
+    throw new Error("テスト定義JSONが正しくありません。カンマや括弧を確認してください。");
+  }
+  if (!Array.isArray(tests)) {
+    throw new Error("テスト定義はJSON配列 [ ... ] にしてください。");
+  }
+
+  return {
+    engine: el.autoTestEngine.value,
+    exePath: el.autoTestExePath.value,
+    targetVersion: el.autoTestTargetVersion.value,
+    windowTitle: el.autoTestWindowTitle.value,
+    launchArgs: el.autoTestLaunchArgs.value
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .filter(Boolean),
+    timeout: Number(el.autoTestTimeout.value) || 60,
+    maxAgentSteps: Number(el.autoTestMaxSteps.value) || 25,
+    model: {
+      baseURL: el.autoTestModelBaseUrl.value,
+      name: el.autoTestModelName.value,
+      serviceLabel: "OpenAI互換エンドポイント",
+      localPreferred: /^https?:\/\/(127\.0\.0\.1|localhost)(?::|\/|$)/i.test(el.autoTestModelBaseUrl.value)
+    },
+    tests
+  };
+}
+
+function setAutoTestControlsRunning(running) {
+  autoTestRunning = running;
+  for (const node of [
+    el.autoTestChooseExe,
+    el.autoTestSave,
+    el.autoTestDiagnose,
+    el.autoTestStart,
+    el.autoTestRetest,
+    el.autoTestOpenFolder
+  ]) {
+    node.disabled = running || busy;
+  }
+  el.autoTestStop.disabled = false;
+  el.autoTestStart.textContent = running ? "AIテスト実行中" : "AIテスト開始";
+}
+
+function renderAutoTestDiagnostics(diagnostics) {
+  el.autoTestDiagnostics.replaceChildren();
+  if (!diagnostics) {
+    const empty = document.createElement("p");
+    empty.className = "dev-empty";
+    empty.textContent = "「診断」を押すとUI-TARS・操作機能・exe・Model接続を確認します。";
+    el.autoTestDiagnostics.append(empty);
+    return;
+  }
+
+  const labels = {
+    platform: "Windows",
+    uiTars: "UI-TARS",
+    computerOperator: "画面・キーボード・マウス",
+    windowDetection: "ウィンドウ制限",
+    exe: "テスト対象exe",
+    modelEndpoint: "Model接続"
+  };
+  for (const [key, label] of Object.entries(labels)) {
+    const item = diagnostics[key] || { status: "NG", message: "未確認" };
+    const row = document.createElement("div");
+    row.className = "auto-test-diagnostic-row " + String(item.status || "NG").toLowerCase();
+    const title = document.createElement("strong");
+    title.textContent = label + " / " + (item.status || "NG");
+    const message = document.createElement("span");
+    message.textContent = item.message || "詳細なし";
+    row.append(title, message);
+    el.autoTestDiagnostics.append(row);
+  }
+}
+
+function renderAutoTestLatest(report) {
+  el.autoTestSummaryCounts.replaceChildren();
+  el.autoTestResultList.replaceChildren();
+
+  if (!report) {
+    el.autoTestSummaryTitle.textContent = "まだテスト結果はありません";
+    return;
+  }
+
+  const summary = report.summary || {};
+  el.autoTestSummaryTitle.textContent =
+    new Date(report.testedAt || report.startedAt).toLocaleString("ja-JP") + " の結果";
+  el.autoTestDate.textContent = new Date(report.testedAt || report.startedAt).toLocaleString("ja-JP");
+
+  for (const [label, value, tone] of [
+    ["PASS", summary.passed || 0, "pass"],
+    ["FAIL", summary.failed || 0, "fail"],
+    ["WARNING", summary.warning || 0, "warning"],
+    ["UNKNOWN", summary.unknown || 0, "unknown"]
+  ]) {
+    const badge = document.createElement("span");
+    badge.className = "auto-test-count " + tone;
+    badge.textContent = label + " " + value;
+    el.autoTestSummaryCounts.append(badge);
+  }
+
+  for (const test of report.tests || []) {
+    const row = document.createElement("article");
+    row.className = "auto-test-result " + autoTestStatusClass(test.status);
+
+    const heading = document.createElement("div");
+    heading.className = "auto-test-result-heading";
+    const name = document.createElement("strong");
+    name.textContent = test.name || test.id || "テスト";
+    const status = document.createElement("span");
+    status.className = "auto-test-result-status";
+    status.textContent = test.status || "UNKNOWN";
+    heading.append(name, status);
+
+    const expected = document.createElement("p");
+    expected.textContent = "期待: " + (test.expected || "未設定");
+    const actual = document.createElement("p");
+    actual.textContent = "実際: " + (test.actual || (test.error ? test.error : "AIが明示的な説明を残していません。"));
+    const confidence = document.createElement("small");
+    confidence.textContent = "信頼度: " + (test.confidence || "unknown") +
+      " / 操作 " + String(test.actionLog?.length || 0) + "回";
+
+    row.append(heading, expected, actual, confidence);
+
+    if (test.error) {
+      const error = document.createElement("p");
+      error.className = "auto-test-result-error";
+      error.textContent = "エラー: " + test.error;
+      row.append(error);
+    }
+
+    if (test.reproduction) {
+      const details = document.createElement("details");
+      const summaryNode = document.createElement("summary");
+      summaryNode.textContent = "再現手順";
+      const pre = document.createElement("pre");
+      pre.textContent = test.reproduction;
+      details.append(summaryNode, pre);
+      row.append(details);
+    }
+
+    el.autoTestResultList.append(row);
+  }
+}
+
+function renderAutoTestHistory(history) {
+  el.autoTestHistory.replaceChildren();
+  if (!history?.length) {
+    const empty = document.createElement("p");
+    empty.className = "dev-empty";
+    empty.textContent = "まだ履歴はありません。";
+    el.autoTestHistory.append(empty);
+    return;
+  }
+
+  for (const run of history.slice(0, 20)) {
+    const row = document.createElement("div");
+    row.className = "auto-test-history-row";
+    const date = document.createElement("strong");
+    date.textContent = new Date(run.testedAt).toLocaleString("ja-JP");
+    const counts = document.createElement("span");
+    counts.textContent =
+      (run.passed || 0) + " PASS / " +
+      (run.failed || 0) + " FAIL / " +
+      (run.warning || 0) + " WARNING / " +
+      (run.unknown || 0) + " UNKNOWN";
+    row.append(date, counts);
+    el.autoTestHistory.append(row);
+  }
+}
+
+function renderAutoTestState() {
+  const project = selectedProject();
+  if (!project) return;
+
+  el.autoTestProjectName.textContent = project.name;
+  el.autoTestGitCommit.textContent = project.repository?.commit || "未確認";
+
+  if (!autoTestState || autoTestState.project?.id !== project.id) {
+    return;
+  }
+
+  const config = autoTestState.config || {};
+  el.autoTestExePath.value = config.exePath || "";
+  el.autoTestTargetVersion.value = config.targetVersion || "";
+  el.autoTestWindowTitle.value = config.windowTitle || "";
+  el.autoTestLaunchArgs.value = (config.launchArgs || []).join("\n");
+  el.autoTestEngine.value = config.engine || "ui-tars";
+  el.autoTestModelBaseUrl.value = config.model?.baseURL || "";
+  el.autoTestModelName.value = config.model?.name || "";
+  el.autoTestTimeout.value = String(config.timeout || 60);
+  el.autoTestMaxSteps.value = String(config.maxAgentSteps || 25);
+  el.autoTestDefinitions.value = JSON.stringify(config.tests || [], null, 2);
+  el.autoTestApiKey.value = "";
+  el.autoTestDate.textContent = autoTestState.latest?.testedAt
+    ? new Date(autoTestState.latest.testedAt).toLocaleString("ja-JP")
+    : "未実行";
+  renderAutoTestLatest(autoTestState.latest);
+  renderAutoTestHistory(autoTestState.history || []);
+  setAutoTestControlsRunning(Boolean(autoTestState.active?.running));
+}
+
+async function refreshAutoTestState() {
+  const project = selectedProject();
+  if (!project) return null;
+  const projectId = project.id;
+  const result = await api.getAutoTestState(projectId);
+  if (selectedId !== projectId) return result;
+  if (result?.ok) {
+    autoTestState = result;
+    renderAutoTestState();
+  }
+  return result;
+}
+
+async function saveAutoTestSettings(showLog = true) {
+  const project = requireSelected();
+  if (!project) return null;
+  let config;
+  try {
+    config = autoTestConfigFromForm();
+  } catch (error) {
+    addLog(error.message, "error");
+    return null;
+  }
+  const result = await api.saveAutoTestConfig({ projectId: project.id, config });
+  if (result?.ok) {
+    if (autoTestState) autoTestState.config = result.config;
+    if (showLog) addLog(result.message, "success");
+    return result.config;
+  }
+  addLog(result?.message || "自動テスト設定を保存できませんでした。", "error");
+  return null;
+}
+
+async function runProjectAutoTest(failedOnly = false) {
+  const project = requireSelected();
+  if (!project || autoTestRunning) return;
+
+  let config;
+  try {
+    config = autoTestConfigFromForm();
+  } catch (error) {
+    addLog(error.message, "error");
+    return;
+  }
+
+  if (!config.exePath) {
+    addLog("先にテスト対象の.exeを選んでください。", "error");
+    return;
+  }
+  if (config.engine !== "ui-tars") {
+    addLog(config.engine === "agent-s"
+      ? "Agent-Sは現在フォールバック候補として表示していますが、初期実装では未接続です。UI-TARSを選んでください。"
+      : "AI操作エンジンが無効です。", "error");
+    return;
+  }
+
+  setAutoTestControlsRunning(true);
+  el.autoTestProgressCount.textContent = "開始準備";
+  el.autoTestProgressTest.textContent = failedOnly ? "前回FAILした項目を再テスト" : "AI自動テスト";
+  el.autoTestProgressMessage.textContent = "ゲームを起動する準備をしています。";
+  el.autoTestProgressAction.textContent = "なし";
+  addLog(failedOnly ? "失敗項目のAI再テストを開始しました。" : "AI自動テストを開始しました。");
+
+  try {
+    const payload = {
+      projectId: project.id,
+      config,
+      apiKey: el.autoTestApiKey.value
+    };
+    const result = failedOnly
+      ? await api.retestFailedAutoTests(payload)
+      : await api.startAutoTest(payload);
+
+    if (result?.ok) {
+      autoTestState = result.autoTestState || autoTestState;
+      renderAutoTestState();
+      addLog(result.message, "success");
+    } else {
+      addLog(result?.message || "AI自動テストに失敗しました。", "error");
+    }
+  } catch (error) {
+    addLog("AI自動テスト: " + String(error?.message || error), "error");
+  } finally {
+    setAutoTestControlsRunning(false);
+    await refreshAutoTestState().catch(() => {});
+  }
+}
+
 function renderDetail() {
   const project = selectedProject();
 
@@ -1172,6 +1535,9 @@ function renderDetail() {
   el.detailSlug.textContent = project.repositorySlug;
   el.detailName.textContent = project.name;
   el.detailPath.textContent = project.localPath;
+  el.autoTestProjectName.textContent = project.name;
+  el.autoTestGitCommit.textContent = repo.commit || "未確認";
+  renderAutoTestState();
 
   if (!repo.exists) {
     setDot(el.repoDot, "warning");
@@ -1340,6 +1706,7 @@ async function refreshState(log = false) {
     state = result;
     render();
     refreshReferenceImages().catch(() => {});
+    refreshAutoTestState().catch(() => {});
     if (log) addLog("状態を更新しました。", "success");
   } else {
     addLog(result?.message || "状態確認に失敗しました。", "error");
@@ -1612,6 +1979,101 @@ el.taskExport.addEventListener("click", () => {
   );
 });
 
+el.developmentTab.addEventListener("click", () => setProjectTab("development"));
+el.autoTestTab.addEventListener("click", () => setProjectTab("auto-test"));
+
+el.autoTestChooseExe.addEventListener("click", async () => {
+  const project = requireSelected();
+  if (!project || autoTestRunning) return;
+  const result = await api.chooseAutoTestExe(project.id);
+  if (result?.ok) {
+    el.autoTestExePath.value = result.exePath || "";
+    addLog("テスト対象exeを選択しました。設定を保存してください。", "success");
+  } else if (result?.code !== "CANCELED") {
+    addLog(result?.message || "exeを選択できませんでした。", "error");
+  }
+});
+
+el.autoTestSave.addEventListener("click", () => {
+  saveAutoTestSettings(true).then(() => refreshAutoTestState()).catch((error) => {
+    addLog("自動テスト設定: " + String(error?.message || error), "error");
+  });
+});
+
+el.autoTestDiagnose.addEventListener("click", async () => {
+  const project = requireSelected();
+  if (!project || autoTestRunning) return;
+  let config;
+  try {
+    config = autoTestConfigFromForm();
+  } catch (error) {
+    addLog(error.message, "error");
+    return;
+  }
+
+  el.autoTestDiagnostics.replaceChildren();
+  const checking = document.createElement("p");
+  checking.className = "dev-empty";
+  checking.textContent = "自動テスト環境を確認しています。";
+  el.autoTestDiagnostics.append(checking);
+
+  const result = await api.diagnoseAutoTest({
+    projectId: project.id,
+    config,
+    apiKey: el.autoTestApiKey.value
+  });
+  if (result?.ok) {
+    renderAutoTestDiagnostics(result.diagnostics);
+    const failed = Object.values(result.diagnostics || {}).filter((item) => item?.status === "NG").length;
+    addLog(failed ? "自動テスト診断で確認が必要な項目があります。" : "自動テスト診断はOKです.", failed ? "error" : "success");
+  } else {
+    addLog(result?.message || "自動テスト診断に失敗しました。", "error");
+  }
+});
+
+el.autoTestStart.addEventListener("click", () => {
+  runProjectAutoTest(false).catch((error) => addLog(String(error?.message || error), "error"));
+});
+
+el.autoTestRetest.addEventListener("click", () => {
+  runProjectAutoTest(true).catch((error) => addLog(String(error?.message || error), "error"));
+});
+
+el.autoTestStop.addEventListener("click", async () => {
+  const result = await api.stopAutoTest();
+  addLog(result?.message || "AI操作の停止を要求しました。", result?.stopped ? "error" : "");
+  if (result?.stopped) {
+    el.autoTestProgressMessage.textContent = "緊急停止しました。キー入力も解除しています。";
+  }
+});
+
+el.autoTestOpenFolder.addEventListener("click", async () => {
+  const project = requireSelected();
+  if (!project) return;
+  const result = await api.openAutoTestFolder(project.id);
+  if (!result?.ok) addLog(result?.message || "証拠保存先を開けませんでした。", "error");
+});
+
+api.onAutoTestProgress((progress) => {
+  if (!progress) return;
+  const total = Number(progress.total) || 0;
+  const index = Number(progress.index) || 0;
+  el.autoTestProgressCount.textContent = total
+    ? "テスト " + index + " / " + total
+    : (progress.phase === "stopped" ? "停止" : "準備中");
+  el.autoTestProgressElapsed.textContent = formatAutoTestElapsed(progress.elapsedMs);
+  el.autoTestProgressTest.textContent = progress.testName || (
+    progress.phase === "complete" ? "テスト完了" :
+    progress.phase === "stopped" ? "緊急停止" :
+    "自動テスト"
+  );
+  el.autoTestProgressMessage.textContent = progress.message || "処理中";
+  el.autoTestProgressAction.textContent = progress.lastAction || "なし";
+  if (progress.phase === "stopped" || progress.phase === "complete") {
+    setAutoTestControlsRunning(false);
+  }
+});
+
 el.exportChatGptPack.addEventListener("click", () => {
   const project = requireSelected();
   if (!project) return;
@@ -1880,6 +2342,9 @@ el.confirmRemove.addEventListener("click", (event) => {
 el.clearLog.addEventListener("click", () => {
   el.logList.replaceChildren();
 });
+
+setProjectTab("development");
+renderAutoTestDiagnostics(null);
 
 refreshState(false).catch((error) => {
   addLog("初期状態の確認に失敗しました: " + String(error?.message || error), "error");

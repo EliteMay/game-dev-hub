@@ -910,6 +910,30 @@ function targetWindowAllowed(actualTitle, allowedTitles) {
   });
 }
 
+export function createUiTarsRuntimeFetch(signal, fetchImpl = globalThis.fetch) {
+  if (!signal || typeof signal.addEventListener !== "function") {
+    throw new Error("UI-TARS runtime AbortSignalが必要です。");
+  }
+  if (typeof fetchImpl !== "function") {
+    throw new Error("HTTP接続機能を利用できません。");
+  }
+
+  return async (input, init = {}) => {
+    if (signal.aborted) {
+      throw new Error("AI_TEST_ABORTED");
+    }
+
+    // @ui-tars/sdk@1.2.3 hard-codes a 30s model-request timeout and passes
+    // that timeout through RequestInit.signal. Replace only that internal
+    // signal with the Hub-owned signal so the configured test timeout and
+    // emergency stop remain the authoritative cancellation boundary.
+    return fetchImpl(input, {
+      ...init,
+      signal
+    });
+  };
+}
+
 export async function runUiTarsTest({
   config,
   test,
@@ -1007,7 +1031,8 @@ export async function runUiTarsTest({
     model: {
       baseURL: config.uiTars.baseUrl,
       apiKey: apiKey || "local",
-      model: config.uiTars.model
+      model: config.uiTars.model,
+      fetch: createUiTarsRuntimeFetch(effectiveSignal)
     },
     operator: safeOperator,
     signal: effectiveSignal,
@@ -1061,6 +1086,24 @@ export async function runUiTarsTest({
     });
 
     await Promise.race([runPromise, timeoutPromise]);
+
+    if (!finalResult && agentStatus === "error" && agentError) {
+      return {
+        status: "UNKNOWN",
+        actual: "",
+        reason: "UI-TARSのモデル応答を取得できませんでした: " + agentError,
+        confidence: "low",
+        actions,
+        agent: {
+          status: agentStatus,
+          turns: agentTurns,
+          lastMessage: lastAgentMessage,
+          error: agentError,
+          maxLoopCount,
+          timeoutSeconds: Math.round(timeoutMs / 1000)
+        }
+      };
+    }
 
     if (!finalResult && agentStatus === "call_user" && test.id !== "ai_exploration") {
       return {

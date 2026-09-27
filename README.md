@@ -1,5 +1,16 @@
 # Game Dev Hub
 
+## v0.1.22 UI-TARS Model Request Timeout Fix
+
+v0.1.21のWindows実機再テストで、Game起動はPASSした一方、WASD / Mouseの両方がAIの最初の応答前に `Request timed out.` で終了する事象を確認したため修正します。
+
+- `@ui-tars/sdk@1.2.3` がモデル推論1回ごとに固定している30秒Request timeoutを、HubのRuntime transportで回避
+- UI-TARSのOpenAI互換RequestはHub所有のAbortSignalへ接続し、ProjectのTest timeoutを実際の上限として使用
+- `Ctrl + Shift + F12` の緊急停止とUser stopは引き続きモデルRequestまで中断
+- SDK内部timeoutだけを無効化し、Hub側の120秒Fixed Test timeoutは維持
+- Provider error時に「機械可読な判定がない」だけでなく実際のModel errorをResult reasonへ保存
+- SDK側の短いAbortSignalを無視しつつHub AbortSignalを保持するRegression Testを追加
+
 ## v0.1.21 Fixed Test Runtime Context
 
 v0.1.20のWindows実機再テストで、Game起動はPASSしているのにWASD固定テストだけUI-TARSが「ゲーム未起動」と誤認し、`call_user()` で終了する事象を確認したため修正します。

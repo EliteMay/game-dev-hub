@@ -113,3 +113,5 @@ Primary Taskは「ゲームを選んで開発を開始する」。
 - Upstream Packageがruntime importをdependenciesへ宣言していない場合、Hub側のproduction dependencyとして明示しVersionを固定する。
 - CI / Releaseでproduction dependency graphを確認し、開発環境だけでimportできる状態を配布可能とみなさない。
 - Setup.exe build成功だけではruntime import成功を保証しないため、既知の必須runtime importはRegression Testへ含める。
+- Third-party AI SDKの内部Timeoutを回避する場合も、Hub所有のAbortSignal / Emergency stop / overall Test timeoutを外してはならない。
+- SDK固有Workaroundは固定しているDependency Versionと対応付け、Regression TestでCancellation boundaryを確認する。

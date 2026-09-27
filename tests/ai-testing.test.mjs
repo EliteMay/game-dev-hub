@@ -7,6 +7,7 @@ import {
   buildReproductionSteps,
   buildUiTarsTestPrompt,
   computerActionSource,
+  createUiTarsRuntimeFetch,
   DEFAULT_UI_TARS_MODEL,
   extractUiTarsFinishedResult,
   maskScreenshotToWindow,
@@ -462,4 +463,44 @@ test("focused fixed-test prompts tell UI-TARS to finish quickly instead of explo
   assert.match(wasd, /6回以内/);
   assert.match(mouse, /1回クリック/);
   assert.match(mouse, /探索を続けない/);
+});
+
+
+test("UI-TARS runtime fetch ignores the SDK request-timeout signal but preserves the Hub abort boundary", async () => {
+  const hubController = new AbortController();
+  const sdkController = new AbortController();
+  sdkController.abort("sdk-30-second-timeout");
+
+  let observedSignal = null;
+  const runtimeFetch = createUiTarsRuntimeFetch(
+    hubController.signal,
+    async (_input, init = {}) => {
+      observedSignal = init.signal;
+      return { ok: true };
+    }
+  );
+
+  await runtimeFetch("http://127.0.0.1:1234/v1/chat/completions", {
+    method: "POST",
+    signal: sdkController.signal
+  });
+
+  assert.equal(observedSignal, hubController.signal);
+  assert.equal(observedSignal.aborted, false);
+
+  const emergencyController = new AbortController();
+  const pendingFetch = createUiTarsRuntimeFetch(
+    emergencyController.signal,
+    async (_input, init = {}) => new Promise((resolve, reject) => {
+      init.signal.addEventListener(
+        "abort",
+        () => reject(new Error("hub-abort-reached-fetch")),
+        { once: true }
+      );
+    })
+  );
+
+  const pending = pendingFetch("http://127.0.0.1:1234/v1/chat/completions");
+  emergencyController.abort("emergency-stop");
+  await assert.rejects(pending, /hub-abort-reached-fetch/);
 });

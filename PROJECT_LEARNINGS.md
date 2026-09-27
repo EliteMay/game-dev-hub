@@ -296,3 +296,16 @@
 - Decision: 明確な否定表現を含むPASSはUNKNOWNへdowngradeする。Default Mouse Testは1回の小さなMouse Moveによる視点変化確認へ変更し、Fixed Testは最大3ターンへ制限する。
 - Regression Guard: Contradictory PASS normalization、legacy default mouse test migration、focused mouse-look promptをUnit Testで固定する。
 - Prevention: AI-generated verdictはstatus fieldだけをOracleにせず、Observation / Reason / Action log / Screenshot / Human Evidenceを相互照合する。
+
+
+## GL-029 — 固定ゲームテストはVision AIをPrimary Oracleにしない
+
+- Date: 2026-09-27
+- Type: Testing / Architecture
+- Status: Adopted
+- Evidence: v0.1.23実機ではGame起動はPASSした一方、WASDは120秒でturns=0/actions=0、Mouse Lookも120秒近くで1 actionまでしか進まず、固定確認としてLatencyと判定安定性が不足した。
+- Root Cause: 「既知の入力を実行して既知のState変化を確認する」固定TestまでScreenshot → Vision inference → Action → Screenshot → Vision verdictへ委譲していた。
+- Decision: Fixed TestはHubがDeterministic inputを実行し、Foundation Runtime Test Bridgeが返すGame内部StateのBefore / AfterをPrimary verifierにする。UI-TARSは未知Bug探索のExperimental機能へ分離する。
+- Safety: BridgeはLocal read-only State transportだけを持ち、Network / command channelを追加しない。Target Window scopeとEmergency stopは維持する。
+- Regression Guard: Runtime testing pure verdict test、operation-specific IPC security contract、Deep Factory telemetry integration smokeを維持する。
+- Prevention: Deterministicに取得できるStateをAIへ再推論させず、AIはOpen-ended explorationや人間的評価が必要な領域へ限定する。

@@ -546,5 +546,6 @@ AI:
 - `game_dev_hub_0.1.24_setup.exe` / blockmap / latest.yml の公開を確認
 - Foundation Runtime Test Bridge単体CI: Foundation mainで実装済み
 - Deep Factory Runtime telemetry integration / Test Save isolation: Deep Factory mainで実装済み
-- Windows実機 Fixed Test E2E: v0.1.24でUser環境確認待ち
-- Windows実画面の最終Visual確認: 未確認
+- Windows実機 Fixed Test E2E: PASS。Deep Factory commit `8cbeb87f` / Game Dev Hub v0.1.24でGame起動・WASD・Mouseの3/3をRuntime Test Bridgeからhigh confidenceで確認
+- Runtime Test Bridge session照合: `sessionMatched=true`、WASDはPlayer position 2.323m変化、Mouseはyaw 0.6875 rad変化を確認
+- Windows実画面の最終Visual確認: 添付ScreenshotでPrimary画面に重大な崩れは見当たらないが、Visual Quality full reviewは未実施

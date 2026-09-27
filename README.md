@@ -1,5 +1,19 @@
 # Game Dev Hub
 
+## v0.1.24 Deterministic Game Test Bridge
+
+固定テストのPrimary verifierをUI-TARSのScreenshot判断から **Game Test Bridge + Game内部Telemetry** へ変更します。
+
+- 通常の固定テストはLM Studio / UI-TARS不要
+- HubがGame WindowへW / Mouseの固定入力を直接実行
+- Foundation 0.9.0-devのRuntime Test BridgeからPlayer座標 / Camera角度等をLocal JSONで取得
+- WASDはPlayer position、Mouse Lookはyaw / pitchのBefore / Afterで機械判定
+- ScreenshotはPrimary verdictではなく補助Evidenceとして保存
+- Test BridgeはSession IDで古いSnapshotを拒否し、Network / Shell / Command Channelを追加しない
+- Runtime Test中のGame側Save書込みはDeep Factory側で停止し、Test操作を本番Saveへ残さない
+- UI-TARS / Agent-S候補は削除せず、自由探索用の実験機能として残す
+- Primary buttonは「固定テスト開始」に変更し、AI探索は明示的な実験機能へ格下げ
+
 ## v0.1.23 AI Test Evidence Reliability
 
 v0.1.22のWindows実機テストで、UI-TARSが実際にWASD移動とマウスによる視点移動まで到達した一方、自動判定に矛盾が残ったため修正します。

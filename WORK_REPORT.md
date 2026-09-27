@@ -549,3 +549,30 @@ AI:
 - Windows実機 Fixed Test E2E: PASS。Deep Factory commit `8cbeb87f` / Game Dev Hub v0.1.24でGame起動・WASD・Mouseの3/3をRuntime Test Bridgeからhigh confidenceで確認
 - Runtime Test Bridge session照合: `sessionMatched=true`、WASDはPlayer position 2.323m変化、Mouseはyaw 0.6875 rad変化を確認
 - Windows実画面の最終Visual確認: 添付ScreenshotでPrimary画面に重大な崩れは見当たらないが、Visual Quality full reviewは未実施
+
+
+---
+
+## v0.1.25 Foundation Source Status Clarification
+
+### User Evidence
+
+Game Dev Hub v0.1.24で `EliteMay/godot-game-foundation` を選択した画面に「Game Foundation: 未導入 / 既存Gameです」と表示され、Foundation本体とConsumer Gameの区別がつかなかった。
+
+### Root Cause
+
+RendererのFoundation status表示が `.game-foundation.json` のinstalled stateだけを見ており、Foundation Source Repository自体を特別扱いしていなかった。
+
+### 修正
+
+- `EliteMay/godot-game-foundation` をFoundation Source Repositoryとして識別
+- Sourceでは「Foundation本体」と表示
+- 「Game Foundationの導入対象ではありません」と説明
+- SourceではFoundation更新Buttonを隠す
+- 通常の未導入Game向けCopyもPhase番号依存から一般説明へ修正
+- UI Contract Testを追加
+- Versionをv0.1.25へ更新
+
+### 未確認
+
+- v0.1.25のWindows実画面でFoundation本体表示を最終確認

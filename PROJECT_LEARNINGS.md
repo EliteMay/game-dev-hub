@@ -310,3 +310,13 @@
 - Safety: Bridgeは明示Test Runだけ有効、Network Listener / Command Channelなし、Session / Sequenceを照合する。Deep FactoryではRuntime Test Mode中のInputを通常Saveへ書き込まない。
 - Regression Guard: Telemetry verdict、Session mismatch、Sequence更新、Config v4 Migration、UI primary-flow、Security boundaryをHub Unit Testで固定する。
 - Prevention: 数値・Boolean・State machineで直接取得できる完了条件は、AIやScreenshot similarityをPrimary Oracleにしない。
+
+
+## GL-025 — Foundation Source RepositoryをConsumer Gameとして扱わない
+
+- Date: 2026-09-28
+- Type: UX / Cross-Repository Foundation
+- Status: Adopted
+- Problem: `EliteMay/godot-game-foundation` 本体をHubへ登録すると、`.game-foundation.json` が無いことだけで「Foundation未導入の既存Game」と表示され、Source Repositoryなのに導入対象のように見えた。
+- Decision: Foundation Source RepositoryはRepository slugで明示識別し、「Foundation本体 / 導入対象ではありません」と表示する。
+- Prevention: Provider / Template / Foundation等のSource Repositoryと、それを利用するConsumer Projectを同じinstallation stateで分類しない。

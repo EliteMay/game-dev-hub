@@ -1,5 +1,15 @@
 # Game Dev Hub
 
+## v0.1.25 Foundation Source Status Clarification
+
+`EliteMay/godot-game-foundation` 自体をGame Dev Hubへ登録した時に、通常Gameと同じ「Game Foundation 未導入」と表示されていたUIを修正します。
+
+- Foundation Source Repositoryでは「Foundation本体」と表示
+- 「このRepositoryは共通基盤そのものです。Game Foundationの導入対象ではありません」と説明
+- Foundation本体では「基盤を更新」Buttonを表示しない
+- 通常の未導入Gameは「Foundation未導入の既存Game」と区別
+- UI Contract TestでSource Repositoryの誤表示をRegression Guard
+
 ## v0.1.24 Deterministic Runtime Test Bridge
 
 固定テストをUI-TARSのScreenshot判断から分離し、Godot Game Foundation 0.9.0-devのRuntime Test BridgeをPrimary verifierとして使う構成へ変更します。

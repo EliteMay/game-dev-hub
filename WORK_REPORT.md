@@ -445,3 +445,43 @@ v0.1.21 / Deep Factory fixed AI Test:
 - v0.1.22 Release workflow: PASS
 - `game_dev_hub_0.1.22_setup.exe` / blockmap / latest.yml の公開を確認
 - Windows実機WASD / Mouse Computer Use: v0.1.22でUser環境確認待ち
+
+
+---
+
+## v0.1.23 AI test evidence reliability
+
+### User実機Evidence
+
+v0.1.22 / Deep Factory fixed AI Test:
+
+- Game launch: PASS
+- WASD: UI-TARS reportはPASS / low confidence
+- WASD Action logで `hotkey(key=w)` が実行され、User目視では実際に移動した
+- UI-TARSのWASD最終説明は「変化は見られない」としながらPASSで、Result内に自己矛盾があった
+- Mouse: reportはUNKNOWN / timeout
+- Mouse Action logは3回のClickまで到達し、User目視では実際に視点移動した
+- 前Versionの30秒provider timeoutは再発せず、AIが複数TurnとComputer Use Actionまで進んだ
+
+### Root Cause / Gap
+
+- Machine-readable `status=PASS` をactual / reasonとの意味整合確認なしで採用していた
+- Default Mouse Smoke TestがFPS視点確認ではなくgeneric clickになっており、Local 7Bがクリック対象探索を続けて120秒を消費した
+
+### 修正
+
+- 明確な否定Evidenceを含むPASSをUNKNOWNへ補正
+- Default Mouse Smoke TestをMouse Look確認へ変更
+- 旧Default Mouse TestのみConfig v3 Migration
+- User custom Test definitionは保持
+- Fixed Test Promptを最大3ターンへ短縮
+- Fixed Agent maxLoopCountを3へ変更
+- Versionをv0.1.23へ更新
+
+### Validation
+
+- Unit / contract tests: PR CIで確認予定
+- Production runtime dependency verification: PR CIで確認予定
+- Windows installer build: PR CIで確認予定
+- updater artifact verification: PR CIで確認予定
+- Windows実機の新Mouse Look判定 / contradiction guard: v0.1.23 Release後に確認

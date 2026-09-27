@@ -335,6 +335,7 @@ const LOGGED_IPC_CHANNELS = new Set([
   "hub:reference-image-remove",
   "hub:chatgpt-pack-export",
   "hub:ai-test-config-save",
+  "hub:runtime-test-run",
   "hub:ai-test-run",
   "hub:ai-test-stop",
   "hub:ai-test-exploration",

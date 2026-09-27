@@ -490,3 +490,54 @@ v0.1.22 / Deep Factory fixed AI Test:
 - v0.1.23 Release workflow: PASS
 - `game_dev_hub_0.1.23_setup.exe` / blockmap / latest.yml の公開を確認
 - Windows実機の新Mouse Look判定 / contradiction guard: v0.1.23でUser環境確認待ち
+
+
+---
+
+## v0.1.24 Deterministic Runtime Test Bridge
+
+### 方針変更
+
+User判断により、AIにゲームをプレイさせる方式を通常開発のPrimary pathから外す。
+
+固定テスト:
+- Game Dev Hubが決められたKeyboard / Mouse Inputを実Gameへ送る
+- Godot Game Foundation Runtime Test Bridgeから内部Stateを取得
+- Before / Afterを機械的に比較してPASS / FAIL / UNKNOWNを判定
+- Screenshotは補助Evidence
+
+AI:
+- UI-TARSは「AI探索（実験）」として残す
+- Agent-Sは将来候補のまま
+- LM Studio / API Key / Vision inferenceは通常Fixed Testに不要
+
+### Current Cross-Repository State
+
+- Godot Game Foundation main `d49e5856...`: Foundation 0.9.0-dev Runtime Test Bridge実装済み
+- Deep Factory main `b827bc8c...`: Player / Camera / Inventory / Money / Upgrade / Small Miner telemetry provider統合済み
+- Deep Factory main `8cbeb87f...`: Runtime Test Bridge Run中のPeriodic / Event / Safe Quit Save writeを停止し、本番SaveへのTest操作混入を防止済み
+
+### Game Dev Hub変更
+
+- Fixed Testを `runDeterministicTestSuite` へ切替
+- Test Runごとに一意なSession ID / Local `state.json` pathを生成
+- Game起動へ `--foundation-test-state` / `--foundation-test-session` を追加
+- schemaVersion / sessionId / sequenceを検証しstale snapshotを拒否
+- WASDはW 350ms入力後のPlayer position差分で判定
+- Mouseは右方向の小さなMove後のyaw / pitch差分で判定
+- Target Game Window以外がActiveならInput停止
+- Report engineを `Runtime Test Bridge` とし、Screenshot roleをsupplemental evidenceとして記録
+- Fixed / Failed RetestはAIなし、AI Explorationだけ既存UI-TARS経路を使用
+- UIを「ゲーム自動テスト / 固定テスト開始 / AI探索（実験）」へ整理
+- Config v4へMigration
+- Versionをv0.1.24へ更新
+
+### Validation
+
+- Unit / contract tests: PR CIで確認予定
+- Production runtime dependency verification: PR CIで確認予定
+- Windows installer build: PR CIで確認予定
+- updater artifact verification: PR CIで確認予定
+- Foundation Runtime Test Bridge単体CI: Foundation mainで実装済み
+- Deep Factory Runtime telemetry integration CI: Deep Factory mainで実装済み
+- Windows実機 Fixed Test E2E: v0.1.24 Release後に確認

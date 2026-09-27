@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { Jimp } from "jimp";
 import { readJsonRecovering, writeJsonAtomic } from "./storage.mjs";
 
-export const AI_TEST_CONFIG_VERSION = 3;
+export const AI_TEST_CONFIG_VERSION = 4;
 export const AI_TEST_REPORT_VERSION = 1;
 export const AI_TEST_STATUSES = Object.freeze(["PASS", "FAIL", "WARNING", "UNKNOWN"]);
 export const AI_TEST_ENGINES = Object.freeze(["ui-tars", "agent-s", "disabled"]);
@@ -23,16 +23,16 @@ export const DEFAULT_AI_TESTS = Object.freeze([
   {
     id: "wasd_move",
     name: "WASD移動",
-    description: "W/A/S/Dを使って短時間移動し、画面上の変化を確認する",
-    expected: "プレイヤー、カメラ、座標など移動を示す画面変化が確認できる",
+    description: "Wキーを短時間入力し、Runtime Test BridgeのPlayer座標変化を確認する",
+    expected: "Player positionが入力前後で変化し、移動入力がRuntime上で反映される",
     timeout: 120,
     enabled: true
   },
   {
     id: "mouse_click",
     name: "マウス視点",
-    description: "マウスを右方向へ小さく動かし、ゲーム内の視点変化を確認する",
-    expected: "カメラまたは背景の見え方が変化し、マウスルックが反応していることを確認できる",
+    description: "マウスを右方向へ小さく動かし、Runtime Test BridgeのCamera角度変化を確認する",
+    expected: "Camera yawまたはpitchが入力前後で変化し、マウスルックがRuntime上で反映される",
     timeout: 120,
     enabled: true
   }
@@ -184,6 +184,33 @@ export function sanitizeAiTestConfig(value = {}, defaults = {}) {
         name: "マウス視点",
         description: "マウスを右方向へ小さく動かし、ゲーム内の視点変化を確認する",
         expected: "カメラまたは背景の見え方が変化し、マウスルックが反応していることを確認できる"
+      };
+    }
+
+    if (
+      sourceVersion < 4 &&
+      migrated.id === "wasd_move" &&
+      migrated.description === "W/A/S/Dを使って短時間移動し、画面上の変化を確認する" &&
+      migrated.expected === "プレイヤー、カメラ、座標など移動を示す画面変化が確認できる"
+    ) {
+      migrated = {
+        ...migrated,
+        description: "Wキーを短時間入力し、Runtime Test BridgeのPlayer座標変化を確認する",
+        expected: "Player positionが入力前後で変化し、移動入力がRuntime上で反映される"
+      };
+    }
+
+    if (
+      sourceVersion < 4 &&
+      migrated.id === "mouse_click" &&
+      migrated.name === "マウス視点" &&
+      migrated.description === "マウスを右方向へ小さく動かし、ゲーム内の視点変化を確認する" &&
+      migrated.expected === "カメラまたは背景の見え方が変化し、マウスルックが反応していることを確認できる"
+    ) {
+      migrated = {
+        ...migrated,
+        description: "マウスを右方向へ小さく動かし、Runtime Test BridgeのCamera角度変化を確認する",
+        expected: "Camera yawまたはpitchが入力前後で変化し、マウスルックがRuntime上で反映される"
       };
     }
 
@@ -869,7 +896,7 @@ export async function inspectExecutable(exePath) {
   }
 }
 
-export async function launchTestExecutable(config) {
+export async function launchTestExecutable(config, extraArgs = []) {
   const executable = await inspectExecutable(config.exePath);
   if (!executable.ok) {
     const error = new Error(executable.message);
@@ -877,13 +904,20 @@ export async function launchTestExecutable(config) {
     throw error;
   }
 
-  const child = spawn(config.exePath, config.launchArgs || [], {
-    cwd: path.dirname(config.exePath),
-    windowsHide: false,
-    detached: false,
-    stdio: ["ignore", "pipe", "pipe"],
-    shell: false
-  });
+  const child = spawn(
+    config.exePath,
+    [
+      ...(Array.isArray(config.launchArgs) ? config.launchArgs : []),
+      ...(Array.isArray(extraArgs) ? extraArgs : [])
+    ],
+    {
+      cwd: path.dirname(config.exePath),
+      windowsHide: false,
+      detached: false,
+      stdio: ["ignore", "pipe", "pipe"],
+      shell: false
+    }
+  );
 
   const logs = [];
   const append = (stream, prefix) => {
@@ -965,6 +999,193 @@ function targetWindowAllowed(actualTitle, allowedTitles) {
     const value = text(allowed, 180).toLowerCase();
     return value && titleLower.includes(value);
   });
+}
+
+function numericTriple(value) {
+  if (!Array.isArray(value) || value.length !== 3) return null;
+  const numbers = value.map(Number);
+  return numbers.every(Number.isFinite) ? numbers : null;
+}
+
+function wrappedAngleDistance(a, b) {
+  const first = Number(a);
+  const second = Number(b);
+  if (!Number.isFinite(first) || !Number.isFinite(second)) return null;
+  let delta = second - first;
+  while (delta > Math.PI) delta -= Math.PI * 2;
+  while (delta < -Math.PI) delta += Math.PI * 2;
+  return Math.abs(delta);
+}
+
+export async function waitForRuntimeTestBridgeState(
+  filePath,
+  sessionId,
+  { afterSequence = 0, timeoutMs = 15000, signal } = {}
+) {
+  const expectedSession = text(sessionId, 180);
+  const deadline = Date.now() + Math.max(500, Number(timeoutMs) || 15000);
+
+  while (Date.now() < deadline) {
+    if (signal?.aborted) throw new Error("AI_TEST_ABORTED");
+
+    try {
+      const raw = await fs.readFile(filePath, "utf8");
+      const payload = JSON.parse(raw);
+      const sequence = Number(payload?.sequence || 0);
+      if (
+        payload?.schemaVersion === 1 &&
+        String(payload?.sessionId || "") === expectedSession &&
+        sequence > Number(afterSequence || 0) &&
+        payload?.state &&
+        typeof payload.state === "object" &&
+        !Array.isArray(payload.state)
+      ) {
+        return payload;
+      }
+    } catch (error) {
+      if (error?.code !== "ENOENT" && !(error instanceof SyntaxError)) throw error;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  throw new Error("RUNTIME_TEST_BRIDGE_TIMEOUT");
+}
+
+export function evaluateRuntimeBridgeTest(testId, beforeEnvelope, afterEnvelope) {
+  const before = beforeEnvelope?.state || {};
+  const after = afterEnvelope?.state || {};
+
+  if (testId === "game_launch") {
+    if (after?.ready === true) {
+      return {
+        status: "PASS",
+        confidence: "high",
+        actual: "Runtime Test Bridgeがready=trueを返しました。",
+        reason: "Game WindowとRuntime telemetry sessionの両方を確認できました。"
+      };
+    }
+    return {
+      status: "UNKNOWN",
+      confidence: "low",
+      actual: "",
+      reason: "Runtime Test Bridgeのready状態を確認できませんでした。"
+    };
+  }
+
+  if (testId === "wasd_move") {
+    const from = numericTriple(before?.player?.position);
+    const to = numericTriple(after?.player?.position);
+    if (!from || !to) {
+      return {
+        status: "UNKNOWN",
+        confidence: "low",
+        actual: "",
+        reason: "Player position telemetryを取得できませんでした。"
+      };
+    }
+
+    const distance = Math.hypot(to[0] - from[0], to[1] - from[1], to[2] - from[2]);
+    return distance >= 0.05
+      ? {
+          status: "PASS",
+          confidence: "high",
+          actual: "W入力後にPlayer positionが" + distance.toFixed(3) + "m変化しました。",
+          reason: "Screenshot推測ではなくRuntime座標のBefore / After差分で移動を確認しました。"
+        }
+      : {
+          status: "FAIL",
+          confidence: "high",
+          actual: "W入力後のPlayer position変化は" + distance.toFixed(3) + "mでした。",
+          reason: "Runtime座標が移動判定閾値0.05mを超えませんでした。"
+        };
+  }
+
+  if (testId === "mouse_click") {
+    const yaw = wrappedAngleDistance(before?.player?.yaw, after?.player?.yaw);
+    const pitch = wrappedAngleDistance(before?.player?.pitch, after?.player?.pitch);
+    if (yaw === null || pitch === null) {
+      return {
+        status: "UNKNOWN",
+        confidence: "low",
+        actual: "",
+        reason: "Camera yaw / pitch telemetryを取得できませんでした。"
+      };
+    }
+
+    const delta = Math.max(yaw, pitch);
+    return delta >= 0.003
+      ? {
+          status: "PASS",
+          confidence: "high",
+          actual:
+            "マウス入力後にCamera角度が変化しました（yaw " +
+            yaw.toFixed(4) + " rad / pitch " + pitch.toFixed(4) + " rad）。",
+          reason: "Runtime Test BridgeのCamera角度差分でマウスルックを確認しました。"
+        }
+      : {
+          status: "FAIL",
+          confidence: "high",
+          actual:
+            "マウス入力後のCamera角度変化は小さいままでした（yaw " +
+            yaw.toFixed(4) + " rad / pitch " + pitch.toFixed(4) + " rad）。",
+          reason: "Camera角度が判定閾値0.003 radを超えませんでした。"
+        };
+  }
+
+  return {
+    status: "UNKNOWN",
+    confidence: "low",
+    actual: "",
+    reason: "この固定テストにはRuntime Test Bridgeの判定方法がまだ定義されていません。"
+  };
+}
+
+export async function executeDeterministicGameInput({
+  testId,
+  allowedWindowTitles,
+  signal,
+  onProgress = () => {}
+}) {
+  if (signal?.aborted) throw new Error("AI_TEST_ABORTED");
+
+  const active = await activeWindowContext();
+  if (!targetWindowAllowed(active.title, allowedWindowTitles || [])) {
+    throw new Error("AI_TEST_WINDOW_SCOPE_VIOLATION");
+  }
+
+  const nut = await import("@computer-use/nut-js");
+
+  if (testId === "wasd_move") {
+    onProgress({
+      phase: "action",
+      message: "Wキーを短時間入力しています",
+      action: "W key 350ms"
+    });
+    await nut.keyboard.pressKey(nut.Key.W);
+    try {
+      await nut.sleep(350);
+    } finally {
+      await nut.keyboard.releaseKey(nut.Key.W);
+    }
+    await nut.sleep(300);
+    return [{ action: "W key 350ms", windowTitle: active.title }];
+  }
+
+  if (testId === "mouse_click") {
+    const current = await nut.mouse.getPosition();
+    nut.mouse.config.mouseSpeed = 1800;
+    onProgress({
+      phase: "action",
+      message: "マウスを右へ小さく動かしています",
+      action: "mouse move +80px"
+    });
+    await nut.mouse.move(nut.straightTo(new nut.Point(current.x + 80, current.y)));
+    await nut.sleep(350);
+    return [{ action: "mouse move +80px", windowTitle: active.title }];
+  }
+
+  return [];
 }
 
 export function createUiTarsRuntimeFetch(signal, fetchImpl = globalThis.fetch) {

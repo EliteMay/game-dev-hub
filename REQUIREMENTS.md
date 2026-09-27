@@ -313,6 +313,8 @@ Game更新後のWindows実機PlaytestをGame Dev Hubから開始し、指定Game
 - UI-TARS最終判定は公式SDKの `onData.data.conversations[].predictionParsed` をPrimaryとして読み、`finished(...)` の `action_inputs.content` を構造化Resultとして解析する
 - SDKのfinal status eventで `conversations: []` が届いても、直前のfinished resultを上書きして失わない
 - 固定のWASD / Mouse smoke testは探索を続けず最小Actionで終了し、Default timeoutはLocal 7Bモデルの実機速度を考慮して120秒とする
+- Third-party AI SDKの内部Request timeoutがProject Test timeoutより短い場合、Local Model inferenceをその内部Timeoutだけで早期終了させない
+- UI-TARS Model requestのCancellation authorityはHub所有のAbortSignalとし、User stop / Emergency stop / Project Test timeoutを必ず維持する
 - 固定テスト開始前にHubが対象Game Windowを検出・フォーカス済みなら、そのRuntime confirmationと実際のWindow titleをAI Promptへ渡す
 - 固定テストでは `call_user()` でゲーム起動確認へ戻らず、対象Windowへ直接操作する。実行不能なら `finished(...UNKNOWN...)` で終了理由を返す
 - WASD固定Smoke Testは、まずWキーを短く1回入力して次画面の変化を確認する

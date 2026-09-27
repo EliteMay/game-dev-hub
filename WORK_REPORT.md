@@ -391,5 +391,12 @@ UI-TARSへ「対象Window名」は渡していたが、「HubがこのRunでWind
 
 ### Validation
 
-- Local Node test / Windows installer build: PR CIで確認予定
-- v0.1.21 Windows実機WASD再テスト: Release後にUser環境で確認
+- PR #27 CI: PASS
+- Unit / contract tests: PASS
+- Production runtime dependency verification: PASS
+- Windows installer build: PASS
+- Updater artifact verification: PASS
+- PR #27をmainへsquash merge済み（`b02b07715d0a9fbe59a799e053dfb049c6fa9493`）
+- v0.1.21 Release workflow: PASS
+- `game_dev_hub_0.1.21_setup.exe` / blockmap / latest.yml の公開を確認
+- v0.1.21 Windows実機WASD再テスト: User環境で確認待ち

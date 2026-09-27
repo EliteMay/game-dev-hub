@@ -13,6 +13,7 @@
 - UI-TARSは「AI探索（実験）」へ分離して残す
 - Agent-Sは将来候補のままで、通常固定テストには不要
 - Config v4で旧Default WASD / Mouse説明だけをBridge向けにMigrationし、User独自Testは保持
+- 2026-09-27 Windows実機でDeep Factory commit `8cbeb87f`を固定テストし、Game起動 / WASD / Mouseの3項目がRuntime Test BridgeでPASSした
 
 ## v0.1.23 AI Test Evidence Reliability
 

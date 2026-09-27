@@ -244,9 +244,10 @@ export function evaluateMouseLook(beforeState, afterState, minimumRadians = 0.00
   };
 }
 
-async function activeWindowTitle(nut) {
+async function activeWindowContext(nut) {
   const current = await nut.getActiveWindow();
   let title = "";
+  let region = null;
   try {
     title = await current.title;
   } catch {
@@ -254,24 +255,31 @@ async function activeWindowTitle(nut) {
       title = await current.getTitle();
     }
   }
-  return String(title || "");
+  try {
+    region = await current.region;
+  } catch {
+    if (typeof current?.getRegion === "function") {
+      region = await current.getRegion();
+    }
+  }
+  return { title: String(title || ""), region };
 }
 
 async function assertTargetWindow(nut, expectedWindowTitle) {
-  const actual = await activeWindowTitle(nut);
+  const context = await activeWindowContext(nut);
   const expected = text(expectedWindowTitle, 180).toLowerCase();
-  if (!expected || !actual.toLowerCase().includes(expected)) {
+  if (!expected || !context.title.toLowerCase().includes(expected)) {
     const error = new Error("RUNTIME_TEST_WINDOW_SCOPE_VIOLATION");
-    error.actualWindowTitle = actual;
+    error.actualWindowTitle = context.title;
     throw error;
   }
-  return actual;
+  return context;
 }
 
 export async function performRuntimeInput(kind, expectedWindowTitle, signal) {
   aborted(signal);
   const nut = await import("@computer-use/nut-js");
-  const windowTitle = await assertTargetWindow(nut, expectedWindowTitle);
+  const active = await assertTargetWindow(nut, expectedWindowTitle);
 
   if (kind === "wasd_move") {
     await nut.keyboard.pressKey(nut.Key.W);
@@ -284,16 +292,22 @@ export async function performRuntimeInput(kind, expectedWindowTitle, signal) {
     await assertTargetWindow(nut, expectedWindowTitle);
     return {
       action: "press W for 420ms",
-      windowTitle
+      windowTitle: active.title
     };
   }
 
   if (kind === "mouse_look") {
-    const width = Number(await nut.screen.width());
-    const height = Number(await nut.screen.height());
-    const centerX = Math.max(1, Math.round(width / 2));
-    const centerY = Math.max(1, Math.round(height / 2));
-    const targetX = Math.min(Math.max(1, width - 2), centerX + 160);
+    const region = active.region;
+    const left = Number(region?.left ?? region?.x);
+    const top = Number(region?.top ?? region?.y);
+    const width = Number(region?.width);
+    const height = Number(region?.height);
+    if (![left, top, width, height].every(Number.isFinite) || width <= 20 || height <= 20) {
+      throw new Error("RUNTIME_TEST_WINDOW_REGION_UNAVAILABLE");
+    }
+    const centerX = Math.round(left + width / 2);
+    const centerY = Math.round(top + height / 2);
+    const targetX = Math.min(Math.round(left + width - 10), centerX + 160);
     nut.mouse.config.mouseSpeed = 2400;
     await nut.mouse.move(nut.straightTo(new nut.Point(centerX, centerY)));
     await delay(80, signal);
@@ -302,7 +316,7 @@ export async function performRuntimeInput(kind, expectedWindowTitle, signal) {
     await assertTargetWindow(nut, expectedWindowTitle);
     return {
       action: "move mouse right by " + Math.max(0, targetX - centerX) + "px",
-      windowTitle
+      windowTitle: active.title
     };
   }
 

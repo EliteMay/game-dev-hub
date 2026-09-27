@@ -318,8 +318,11 @@ Game更新後のWindows実機PlaytestをGame Dev Hubから開始し、指定Game
 - 固定テスト開始前にHubが対象Game Windowを検出・フォーカス済みなら、そのRuntime confirmationと実際のWindow titleをAI Promptへ渡す
 - 固定テストでは `call_user()` でゲーム起動確認へ戻らず、対象Windowへ直接操作する。実行不能なら `finished(...UNKNOWN...)` で終了理由を返す
 - WASD固定Smoke Testは、まずWキーを短く1回入力して次画面の変化を確認する
-- 旧Config v1のDefault 45秒だけをv2へMigrationし、Userが明示変更したtimeoutは保持する
+- Mouse固定Smoke Testはクリック対象探索ではなく、マウスを小さく1回動かしてカメラ / 背景の見え方の変化を確認する
+- Fixed TestはLocal 7Bの推論時間を考慮し、原則3ターン以内で操作 → 確認 → finishedへ収束させる
+- 旧Config v1のDefault 45秒だけを120秒へMigrationし、旧Default Mouse TestはConfig v3でMouse Look確認へMigrationする。User独自Test定義と明示timeoutは保持する
 - 判断Evidenceが不足する場合はPASS/FAILを推測せずUNKNOWNとする
+- AIがPASSを返しても、actual / reasonに「変化なし」「確認不能」等の明確な自己矛盾がある場合はUNKNOWNへ補正する
 - Testごとに可能な限りBefore / After / FAIL screenshotとAction logを保存する
 - FAILからReproduction stepsを生成する
 - Previous FAILだけ再実行できる

@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { Jimp } from "jimp";
 import { readJsonRecovering, writeJsonAtomic } from "./storage.mjs";
 
-export const AI_TEST_CONFIG_VERSION = 2;
+export const AI_TEST_CONFIG_VERSION = 3;
 export const AI_TEST_REPORT_VERSION = 1;
 export const AI_TEST_STATUSES = Object.freeze(["PASS", "FAIL", "WARNING", "UNKNOWN"]);
 export const AI_TEST_ENGINES = Object.freeze(["ui-tars", "agent-s", "disabled"]);
@@ -30,9 +30,9 @@ export const DEFAULT_AI_TESTS = Object.freeze([
   },
   {
     id: "mouse_click",
-    name: "マウス操作",
-    description: "ゲーム画面内の安全な操作対象を1つクリックする",
-    expected: "クリックに応じたUIまたはゲーム状態の変化が確認できる",
+    name: "マウス視点",
+    description: "マウスを右方向へ小さく動かし、ゲーム内の視点変化を確認する",
+    expected: "カメラまたは背景の見え方が変化し、マウスルックが反応していることを確認できる",
     timeout: 120,
     enabled: true
   }
@@ -162,14 +162,32 @@ export function sanitizeAiTestConfig(value = {}, defaults = {}) {
   const rawTests = Array.isArray(value.tests) ? value.tests.slice(0, MAX_TESTS) : DEFAULT_AI_TESTS;
   const tests = rawTests.map((item, index) => {
     const safe = sanitizeAiTestDefinition(item, index);
+    let migrated = { ...safe };
+
     if (
       sourceVersion < 2 &&
-      (safe.id === "wasd_move" || safe.id === "mouse_click") &&
-      safe.timeout === 45
+      (migrated.id === "wasd_move" || migrated.id === "mouse_click") &&
+      migrated.timeout === 45
     ) {
-      return { ...safe, timeout: 120 };
+      migrated.timeout = 120;
     }
-    return safe;
+
+    if (
+      sourceVersion < 3 &&
+      migrated.id === "mouse_click" &&
+      migrated.name === "マウス操作" &&
+      migrated.description === "ゲーム画面内の安全な操作対象を1つクリックする" &&
+      migrated.expected === "クリックに応じたUIまたはゲーム状態の変化が確認できる"
+    ) {
+      migrated = {
+        ...migrated,
+        name: "マウス視点",
+        description: "マウスを右方向へ小さく動かし、ゲーム内の視点変化を確認する",
+        expected: "カメラまたは背景の見え方が変化し、マウスルックが反応していることを確認できる"
+      };
+    }
+
+    return migrated;
   });
   const seen = new Set();
   const uniqueTests = tests.filter((item) => {
@@ -514,16 +532,55 @@ function parseUiTarsResultPayload(value) {
   return null;
 }
 
-function normalizedUiTarsResult(payload) {
-  const status = AI_TEST_STATUSES.includes(String(payload?.status).toUpperCase())
-    ? String(payload.status).toUpperCase()
-    : "UNKNOWN";
-  return {
-    status,
-    actual: text(payload?.actual || payload?.result || "", 1500),
-    reason: text(payload?.reason || payload?.explanation || "", 1500),
-    confidence: normalizeConfidence(payload?.confidence)
+const CONTRADICTORY_PASS_PATTERNS = [
+  /変化(?:は|が|を)?(?:見られ|確認でき)(?:ない|ません|なかった)/i,
+  /変化なし/i,
+  /反応(?:が|は)?(?:ない|ありません|なかった)/i,
+  /確認でき(?:ない|ません|なかった)/i,
+  /見られ(?:ない|ません|なかった)/i,
+  /no\s+(?:visible\s+)?change/i,
+  /no\s+response/i,
+  /could\s+not\s+confirm/i,
+  /unable\s+to\s+confirm/i,
+  /did\s+not\s+(?:move|change|respond)/i,
+  /没有变化/i,
+  /未观察到/i,
+  /无法确认/i
+];
+
+export function normalizeUiTarsEvidenceResult(result = {}) {
+  const normalized = {
+    status: AI_TEST_STATUSES.includes(String(result?.status).toUpperCase())
+      ? String(result.status).toUpperCase()
+      : "UNKNOWN",
+    actual: text(result?.actual || result?.result || "", 1500),
+    reason: text(result?.reason || result?.explanation || "", 1500),
+    confidence: normalizeConfidence(result?.confidence)
   };
+
+  const evidenceText = [normalized.actual, normalized.reason]
+    .filter(Boolean)
+    .join("\n");
+
+  if (
+    normalized.status === "PASS" &&
+    CONTRADICTORY_PASS_PATTERNS.some((pattern) => pattern.test(evidenceText))
+  ) {
+    return {
+      ...normalized,
+      status: "UNKNOWN",
+      confidence: "low",
+      reason:
+        "AIはPASSを返しましたが、説明内容には成功条件を確認できなかった記述が含まれるためUNKNOWNに補正しました。" +
+        (normalized.reason ? " 元の説明: " + normalized.reason : "")
+    };
+  }
+
+  return normalized;
+}
+
+function normalizedUiTarsResult(payload) {
+  return normalizeUiTarsEvidenceResult(payload);
 }
 
 export function parseUiTarsFinished(value) {
@@ -739,12 +796,12 @@ export function buildUiTarsTestPrompt(test, context = {}) {
   const focusedGuidance = test.id === "wasd_move"
     ? "WASD移動テストでは、まずWキーを短く1回押し、次の画面で変化を1回確認したらすぐ終了してください。画面が読み取りづらくてもゲーム未起動とは推測せず、対象ゲームへ直接キー入力を試してください。探索や長距離移動は不要です。"
     : (test.id === "mouse_click"
-        ? "マウス操作テストでは、安全なクリック対象を1つだけ選び、1回クリックして次の画面を1回確認したらすぐ終了してください。探索を続けないでください。"
+        ? "マウス視点テストでは、対象ゲームはフォーカス済みなので、マウスを画面中央付近から右方向へ小さく1回だけ動かしてください。クリック対象を探したり複数回クリックしたりせず、次の画面で背景・照準・カメラの見え方が変わったかを1回確認してすぐ終了してください。"
         : "");
 
   const fixedTestLimit = test.id === "ai_exploration"
     ? ""
-    : "固定テストでは最小限の操作だけを行い、遅くとも6回以内の画面確認で必ず終了してください。固定テストでは call_user() を使わず、操作不能なら finished(...UNKNOWN...) で理由を返してください。";
+    : "固定テストでは最小限の操作だけを行い、遅くとも3回以内の画面確認で必ず終了してください。固定テストでは call_user() を使わず、操作不能なら finished(...UNKNOWN...) で理由を返してください。";
 
   return [
     "あなたはGame Dev HubのWindowsゲーム専用テスト担当です。",
@@ -1025,7 +1082,7 @@ export async function runUiTarsTest({
   let agentTurns = 0;
   let lastAgentMessage = "";
   let agentError = "";
-  const maxLoopCount = test.id === "ai_exploration" ? 20 : 8;
+  const maxLoopCount = test.id === "ai_exploration" ? 20 : 3;
 
   const agent = new GUIAgent({
     model: {

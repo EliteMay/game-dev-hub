@@ -12,6 +12,7 @@ import {
   extractUiTarsFinishedResult,
   maskScreenshotToWindow,
   normalizeMaskRegion,
+  normalizeUiTarsEvidenceResult,
   parseUiTarsFinished,
   probeOpenAiModelEndpoint,
   resolveUiTarsModelId,
@@ -60,6 +61,27 @@ test("UI-TARS machine-readable result falls back to UNKNOWN when evidence is mis
   );
   assert.equal(pass.status, "PASS");
   assert.equal(pass.confidence, "high");
+});
+
+test("contradictory PASS evidence is downgraded to UNKNOWN", () => {
+  const result = normalizeUiTarsEvidenceResult({
+    status: "PASS",
+    actual: "プレイヤーやカメラの位置が変化するなどの確認を行ったが、変化は見られない。",
+    confidence: "low",
+    reason: "変化は見られない。"
+  });
+
+  assert.equal(result.status, "UNKNOWN");
+  assert.equal(result.confidence, "low");
+  assert.match(result.reason, /UNKNOWNに補正/);
+
+  const positive = normalizeUiTarsEvidenceResult({
+    status: "PASS",
+    actual: "背景の位置が右へ動いた",
+    confidence: "medium",
+    reason: "視点変化を確認した"
+  });
+  assert.equal(positive.status, "PASS");
 });
 
 test("result summary preserves PASS FAIL WARNING UNKNOWN separately", () => {
@@ -418,9 +440,44 @@ test("v1 default basic AI tests migrate from 45s to 120s for local model latency
     ]
   });
 
-  assert.equal(config.version, 2);
+  assert.equal(config.version, 3);
   assert.equal(config.tests[0].timeout, 120);
   assert.equal(config.tests[1].timeout, 120);
+});
+
+test("legacy default mouse click smoke test migrates to a mouse-look check without overwriting custom tests", () => {
+  const migrated = sanitizeAiTestConfig({
+    version: 2,
+    tests: [{
+      id: "mouse_click",
+      name: "マウス操作",
+      description: "ゲーム画面内の安全な操作対象を1つクリックする",
+      expected: "クリックに応じたUIまたはゲーム状態の変化が確認できる",
+      timeout: 120,
+      enabled: true
+    }]
+  });
+
+  assert.equal(migrated.version, 3);
+  assert.equal(migrated.tests[0].name, "マウス視点");
+  assert.match(migrated.tests[0].description, /視点変化/);
+  assert.match(migrated.tests[0].expected, /マウスルック/);
+
+  const custom = sanitizeAiTestConfig({
+    version: 2,
+    tests: [{
+      id: "mouse_click",
+      name: "UIクリック確認",
+      description: "メニューをクリックする",
+      expected: "メニューが開く",
+      timeout: 120,
+      enabled: true
+    }]
+  });
+
+  assert.equal(custom.tests[0].name, "UIクリック確認");
+  assert.equal(custom.tests[0].description, "メニューをクリックする");
+  assert.equal(custom.tests[0].expected, "メニューが開く");
 });
 
 test("custom AI test timeout is not overwritten by the v2 migration", () => {
@@ -451,18 +508,18 @@ test("focused fixed-test prompts tell UI-TARS to finish quickly instead of explo
   });
   const mouse = buildUiTarsTestPrompt({
     id: "mouse_click",
-    name: "マウス操作",
-    description: "クリック",
-    expected: "UI変化"
+    name: "マウス視点",
+    description: "右へ小さく動かす",
+    expected: "視点変化"
   });
 
   assert.match(wasd, /Wキーを短く1回押し/);
   assert.match(wasd, /実際に検出・フォーカス済み/);
   assert.match(wasd, /Deep Factory \(DEBUG\)/);
   assert.match(wasd, /call_user\(\) を使わず/);
-  assert.match(wasd, /6回以内/);
-  assert.match(mouse, /1回クリック/);
-  assert.match(mouse, /探索を続けない/);
+  assert.match(wasd, /3回以内/);
+  assert.match(mouse, /右方向へ小さく1回/);
+  assert.match(mouse, /クリック対象を探したり複数回クリックしたりせず/);
 });
 
 

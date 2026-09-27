@@ -462,8 +462,8 @@ test("legacy default mouse click smoke test migrates to a mouse-look check witho
 
   assert.equal(migrated.version, 4);
   assert.equal(migrated.tests[0].name, "マウス視点");
-  assert.match(migrated.tests[0].description, /視点変化/);
-  assert.match(migrated.tests[0].expected, /マウスルック/);
+  assert.match(migrated.tests[0].description, /Runtime Test Bridge/);
+  assert.match(migrated.tests[0].expected, /Camera yaw/);
 
   const custom = sanitizeAiTestConfig({
     version: 2,

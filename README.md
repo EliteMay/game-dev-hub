@@ -1,5 +1,15 @@
 # Game Dev Hub
 
+## v0.1.23 AI Test Evidence Reliability
+
+v0.1.22のWindows実機テストで、UI-TARSが実際にWASD移動とマウスによる視点移動まで到達した一方、自動判定に矛盾が残ったため修正します。
+
+- DefaultのマウスSmoke Testを「適当な場所をクリック」から「マウスを小さく動かして視点変化を確認」へ変更
+- 旧DefaultマウステストだけをConfig v3へ安全にMigrationし、User独自テストは保持
+- AIが `PASS` を返しても、説明に「変化は見られない」「確認できない」等の明確な矛盾がある場合は `UNKNOWN` へ補正
+- Fixed Testを最大3ターンへ絞り、Local 7B Vision Modelが120秒内に操作 → 確認 → finishedへ到達しやすくする
+- User実機Evidenceでは、v0.1.22でWASD移動とマウス視点移動が実際に発生したことを確認
+
 ## v0.1.22 UI-TARS Model Request Timeout Fix
 
 v0.1.21のWindows実機再テストで、Game起動はPASSした一方、WASD / Mouseの両方がAIの最初の応答前に `Request timed out.` で終了する事象を確認したため修正します。

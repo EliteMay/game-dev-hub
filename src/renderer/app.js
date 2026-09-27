@@ -1274,11 +1274,20 @@ function renderDetail() {
   }
 
   const foundation = project.foundation || {};
-  if (!foundation.installed) {
+  const isFoundationSourceProject =
+    project.repositorySlug === "EliteMay/godot-game-foundation";
+
+  if (isFoundationSourceProject) {
+    setDot(el.foundationDot, "ok");
+    el.foundationValue.textContent = "Foundation本体";
+    el.foundationDescription.textContent =
+      "このRepositoryは共通基盤そのものです。Game Foundationの導入対象ではありません。";
+    el.foundationUpdate.classList.add("hidden");
+  } else if (!foundation.installed) {
     setDot(el.foundationDot, "warning");
     el.foundationValue.textContent = "未導入";
     el.foundationDescription.textContent =
-      "既存Gameです。Phase 8のPilotまでは自動導入しません。";
+      "Foundation未導入の既存Gameです。必要な場合だけStarter作成または明示導入を行います。";
     el.foundationUpdate.classList.add("hidden");
   } else if (!foundation.valid) {
     setDot(el.foundationDot, "error");

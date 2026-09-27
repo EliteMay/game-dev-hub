@@ -480,8 +480,13 @@ v0.1.22 / Deep Factory fixed AI Test:
 
 ### Validation
 
-- Unit / contract tests: PR CIで確認予定
-- Production runtime dependency verification: PR CIで確認予定
-- Windows installer build: PR CIで確認予定
-- updater artifact verification: PR CIで確認予定
-- Windows実機の新Mouse Look判定 / contradiction guard: v0.1.23 Release後に確認
+- PR #29 CI: PASS
+- Unit / contract tests: PASS
+- Production runtime dependency verification: PASS
+- Windows installer build: PASS
+- updater artifact verification: PASS
+- PR #29をmainへsquash merge済み（`d11168ea73452d36a6aad7738b9068d67383c6f5`）
+- v0.1.23 main CI: PASS
+- v0.1.23 Release workflow: PASS
+- `game_dev_hub_0.1.23_setup.exe` / blockmap / latest.yml の公開を確認
+- Windows実機の新Mouse Look判定 / contradiction guard: v0.1.23でUser環境確認待ち

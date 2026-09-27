@@ -9,6 +9,7 @@ import {
   computerActionSource,
   createUiTarsRuntimeFetch,
   DEFAULT_UI_TARS_MODEL,
+  evaluateRuntimeBridgeTest,
   extractUiTarsFinishedResult,
   maskScreenshotToWindow,
   normalizeMaskRegion,
@@ -18,7 +19,8 @@ import {
   resolveUiTarsModelId,
   sanitizeAiTestConfig,
   summarizeAiTestResults,
-  validateComputerAction
+  validateComputerAction,
+  waitForRuntimeTestBridgeState
 } from "../src/services/ai-testing.mjs";
 
 test("AI test config keeps executable automation narrow and project-specific", () => {
@@ -440,7 +442,7 @@ test("v1 default basic AI tests migrate from 45s to 120s for local model latency
     ]
   });
 
-  assert.equal(config.version, 3);
+  assert.equal(config.version, 4);
   assert.equal(config.tests[0].timeout, 120);
   assert.equal(config.tests[1].timeout, 120);
 });
@@ -458,10 +460,10 @@ test("legacy default mouse click smoke test migrates to a mouse-look check witho
     }]
   });
 
-  assert.equal(migrated.version, 3);
+  assert.equal(migrated.version, 4);
   assert.equal(migrated.tests[0].name, "マウス視点");
-  assert.match(migrated.tests[0].description, /視点変化/);
-  assert.match(migrated.tests[0].expected, /マウスルック/);
+  assert.match(migrated.tests[0].description, /Runtime Test Bridge/);
+  assert.match(migrated.tests[0].expected, /Camera yaw/);
 
   const custom = sanitizeAiTestConfig({
     version: 2,
@@ -560,4 +562,115 @@ test("UI-TARS runtime fetch ignores the SDK request-timeout signal but preserves
   const pending = pendingFetch("http://127.0.0.1:1234/v1/chat/completions");
   emergencyController.abort("emergency-stop");
   await assert.rejects(pending, /hub-abort-reached-fetch/);
+});
+
+
+test("Runtime Test Bridge verdicts use telemetry instead of screenshot interpretation", () => {
+  const before = {
+    schemaVersion: 1,
+    sessionId: "session",
+    sequence: 1,
+    state: {
+      ready: true,
+      player: {
+        position: [0, 0, 0],
+        yaw: 0,
+        pitch: 0
+      }
+    }
+  };
+  const moved = {
+    ...before,
+    sequence: 2,
+    state: {
+      ...before.state,
+      player: {
+        position: [0, 0, 0.4],
+        yaw: 0,
+        pitch: 0
+      }
+    }
+  };
+  const looked = {
+    ...before,
+    sequence: 3,
+    state: {
+      ...before.state,
+      player: {
+        position: [0, 0, 0],
+        yaw: 0.1,
+        pitch: 0
+      }
+    }
+  };
+
+  assert.equal(evaluateRuntimeBridgeTest("game_launch", before, before).status, "PASS");
+  assert.equal(evaluateRuntimeBridgeTest("wasd_move", before, moved).status, "PASS");
+  assert.equal(evaluateRuntimeBridgeTest("wasd_move", before, before).status, "FAIL");
+  assert.equal(evaluateRuntimeBridgeTest("mouse_click", before, looked).status, "PASS");
+  assert.equal(evaluateRuntimeBridgeTest("mouse_click", before, before).status, "FAIL");
+});
+
+test("Runtime Test Bridge reader requires the exact session and a newer sequence", async () => {
+  const fs = await import("node:fs/promises");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "game-dev-hub-bridge-"));
+  const file = path.join(root, "state.json");
+
+  await fs.writeFile(file, JSON.stringify({
+    schemaVersion: 1,
+    sessionId: "other-session",
+    sequence: 8,
+    state: { ready: true }
+  }));
+
+  const controller = new AbortController();
+  const pending = waitForRuntimeTestBridgeState(file, "target-session", {
+    afterSequence: 8,
+    timeoutMs: 2000,
+    signal: controller.signal
+  });
+
+  setTimeout(async () => {
+    await fs.writeFile(file, JSON.stringify({
+      schemaVersion: 1,
+      sessionId: "target-session",
+      sequence: 9,
+      state: { ready: true }
+    }));
+  }, 100);
+
+  const result = await pending;
+  assert.equal(result.sessionId, "target-session");
+  assert.equal(result.sequence, 9);
+  await fs.rm(root, { recursive: true, force: true });
+});
+
+test("v3 fixed-test defaults migrate to Runtime Test Bridge descriptions", () => {
+  const config = sanitizeAiTestConfig({
+    version: 3,
+    tests: [
+      {
+        id: "wasd_move",
+        name: "WASD移動",
+        description: "W/A/S/Dを使って短時間移動し、画面上の変化を確認する",
+        expected: "プレイヤー、カメラ、座標など移動を示す画面変化が確認できる",
+        timeout: 120,
+        enabled: true
+      },
+      {
+        id: "mouse_click",
+        name: "マウス視点",
+        description: "マウスを右方向へ小さく動かし、ゲーム内の視点変化を確認する",
+        expected: "カメラまたは背景の見え方が変化し、マウスルックが反応していることを確認できる",
+        timeout: 120,
+        enabled: true
+      }
+    ]
+  });
+
+  assert.equal(config.version, 4);
+  assert.match(config.tests[0].description, /Runtime Test Bridge/);
+  assert.match(config.tests[1].expected, /Camera yaw/);
 });

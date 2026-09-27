@@ -231,7 +231,7 @@ test("selected game shows installed Foundation version and explicit update actio
   assert.match(source, /updateProjectFoundation/);
 });
 
-test("AI auto-test tab exposes safe progress diagnostics evidence and retest controls", async () => {
+test("auto-test tab makes deterministic fixed tests primary and keeps AI exploration experimental", async () => {
   const html = await fs.readFile(new URL("src/renderer/index.html", root), "utf8");
   const source = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
   const preload = await fs.readFile(new URL("src/preload.cjs", root), "utf8");
@@ -246,7 +246,10 @@ test("AI auto-test tab exposes safe progress diagnostics evidence and retest con
   assert.match(html, /id="ai-test-history-list"/);
   assert.match(source, /renderAiTestReport/);
   assert.match(source, /onAiTestProgress/);
-  assert.match(html, /AI操作を緊急停止/);
+  assert.match(html, /固定テスト開始/);
+  assert.match(html, /Runtime Test Bridge/);
+  assert.match(html, /AI探索（実験）/);
+  assert.match(html, /自動テストを停止/);
   assert.match(source, /stopAiTest/);
   assert.match(preload, /hub:ai-test-stop/);
 });

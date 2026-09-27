@@ -109,3 +109,14 @@ test("AI screenshots are masked to the active target game window before model us
   assert.match(aiSource, /targetWindowAllowed/);
   assert.match(mainSource, /aiScreenshotScope: "target-window-region-only"/);
 });
+
+
+test("deterministic fixed tests keep the Runtime Test Bridge local and read-only", () => {
+  const aiSource = fs.readFileSync(new URL("../src/services/ai-testing.mjs", import.meta.url), "utf8");
+  assert.match(mainSource, /--foundation-test-state=/);
+  assert.match(mainSource, /--foundation-test-session=/);
+  assert.match(mainSource, /runtimeBridgeNetworkListener:\s*false/);
+  assert.match(mainSource, /runtimeBridgeCommandChannel:\s*false/);
+  assert.match(aiSource, /waitForRuntimeTestBridgeState/);
+  assert.doesNotMatch(aiSource, /createServer\(|listen\(/);
+});

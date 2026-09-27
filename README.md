@@ -1,5 +1,19 @@
 # Game Dev Hub
 
+## v0.1.24 Deterministic Runtime Test Bridge
+
+固定テストをUI-TARSのScreenshot判断から分離し、Godot Game Foundation 0.9.0-devのRuntime Test BridgeをPrimary verifierとして使う構成へ変更します。
+
+- 通常の「固定テスト開始」はAI / LM Studio / API Key不要
+- Game Dev HubがWASD / Mouseを対象Game Windowへ直接入力
+- Game側がLocal JSONへ公開したPlayer position / Camera yaw・pitch等をBefore / After比較してPASS / FAIL判定
+- Runtime Test BridgeはSession IDとSequenceを検証し、別Runの古いSnapshotを採用しない
+- ScreenshotはPrimary判定ではなく補助Evidenceとして保存
+- Deep FactoryはFoundation 0.9.0-devのBridge統合済みで、Test Run中の操作を通常Saveへ書き込まない
+- UI-TARSは「AI探索（実験）」へ分離して残す
+- Agent-Sは将来候補のままで、通常固定テストには不要
+- Config v4で旧Default WASD / Mouse説明だけをBridge向けにMigrationし、User独自Testは保持
+
 ## v0.1.23 AI Test Evidence Reliability
 
 v0.1.22のWindows実機テストで、UI-TARSが実際にWASD移動とマウスによる視点移動まで到達した一方、自動判定に矛盾が残ったため修正します。

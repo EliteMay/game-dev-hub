@@ -1433,14 +1433,13 @@ function renderAiTestState() {
   el.aiTestExePath.textContent = godotProjectMode
     ? "設定済みGodotからこのProjectを直接起動します（Windows Export不要）。"
     : (config.exePath || "テスト起動対象を設定してください。");
-  el.aiTestEngineLabel.textContent =
-    config.engine === "ui-tars" ? "UI-TARS" :
-    config.engine === "agent-s" ? "Agent-S" : "無効";
+  el.aiTestEngineLabel.textContent = "Runtime Test Bridge";
   el.aiTestLastRun.textContent = latest?.completedAt
     ? "最終: " + new Date(latest.completedAt).toLocaleString("ja-JP")
     : "まだ実行していません。";
   el.aiTestSafetyNote.textContent =
-    "操作範囲: " + (config.windowTitle || "対象ゲーム") +
+    "固定テスト: Runtime Test Bridge + 対象Game入力 / 操作範囲: " +
+    (config.windowTitle || "対象ゲーム") +
     " / 緊急停止: " + (aiTestState.emergencyShortcutDisplay || "Ctrl + Shift + F12");
 
   el.aiTestExePathInput.value = config.exePath || "";
@@ -1849,7 +1848,7 @@ el.aiTestDiagnosticsButton.addEventListener("click", async () => {
 el.aiTestStart.addEventListener("click", () => {
   const project = requireSelected();
   if (!project) return;
-  runAiTestAction("AI自動テスト", () => api.runAiTest(project.id));
+  runAiTestAction("固定自動テスト", () => api.runAiTest(project.id));
 });
 
 el.aiTestRetestFailed.addEventListener("click", () => {
@@ -1866,8 +1865,8 @@ el.aiTestExploration.addEventListener("click", () => {
 
 el.aiTestEmergencyStop.addEventListener("click", async () => {
   const result = await api.stopAiTest();
-  addLog(result?.message || "AI操作を停止しました。", "warning");
-  el.aiTestProgressState.textContent = result?.message || "AI操作を停止しました。";
+  addLog(result?.message || "自動テストを停止しました。", "warning");
+  el.aiTestProgressState.textContent = result?.message || "自動テストを停止しました。";
 });
 
 api.onAiTestProgress((progress) => {
@@ -1875,7 +1874,7 @@ api.onAiTestProgress((progress) => {
   const current = Number(progress.current || 0);
   const total = Number(progress.total || 0);
   el.aiTestProgressCount.textContent = total ? "テスト " + current + " / " + total : "準備中";
-  el.aiTestProgressTitle.textContent = progress.testName || "AI自動テスト";
+  el.aiTestProgressTitle.textContent = progress.testName || "ゲーム自動テスト";
   el.aiTestProgressState.textContent = progress.message || progress.phase || "実行中";
   if (progress.action) el.aiTestProgressAction.textContent = "操作: " + progress.action;
   if (progress.phase === "completed" || progress.phase === "stopped") {

@@ -94,6 +94,18 @@ Primary Taskは「ゲームを選んで開発を開始する」。
 - Starter CreateはUserが明示した空Repositoryだけを対象にし、既存Remote Contentを上書きしない。
 - GitHub Tokenを保存せず、既存のGit Credentialを利用する。
 
+## Deterministic Windows Test Boundary
+
+- 通常のFixed TestはAI modelをPrimary verifierにせず、Main Processが対象Gameへ決められたInputを送り、Runtime Test Bridgeの内部State差分で判定する。
+- Rendererへraw mouse / keyboard / arbitrary shell / arbitrary filesystem capabilityを公開しない。
+- Runtime Test Bridgeは明示Test RunのLocal JSON outputだけを利用し、Network Listener / arbitrary Command Channelを追加しない。
+- BridgeのSession ID / Sequenceを照合し、別Runのstale StateをEvidenceとして採用しない。
+- Game固有Telemetry Fieldは各Game Repositoryの責務とし、HubやFoundationへDeep Factory固有Schemaを埋め込まない。
+- Fixed Test Screenshotは補助Evidenceとし、取得可能な内部Stateより上位の判定Oracleにしない。
+- Runtime Test操作をGameの通常Saveへ永続化しないContractをGame側で守る。
+- Target Game Window以外がActiveになったらDeterministic Inputを停止する。
+- Fixed Test ResultはDerived Runtime Evidenceであり、Game RepositoryのRoadmap completionを自動変更しない。
+
 ## AI Desktop Test Safety Boundary
 
 - AI Computer Use capabilityはMain Processのdedicated serviceだけが所有し、Rendererへraw mouse / keyboard / shell capabilityを公開しない。

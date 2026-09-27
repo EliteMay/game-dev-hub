@@ -296,3 +296,17 @@
 - Decision: 明確な否定表現を含むPASSはUNKNOWNへdowngradeする。Default Mouse Testは1回の小さなMouse Moveによる視点変化確認へ変更し、Fixed Testは最大3ターンへ制限する。
 - Regression Guard: Contradictory PASS normalization、legacy default mouse test migration、focused mouse-look promptをUnit Testで固定する。
 - Prevention: AI-generated verdictはstatus fieldだけをOracleにせず、Observation / Reason / Action log / Screenshot / Human Evidenceを相互照合する。
+
+
+## GL-029 — 固定テストのOracleをVision AIにしない
+
+- Date: 2026-09-27
+- Type: Testing / Architecture
+- Status: Adopted
+- Evidence: v0.1.23実機RunではGame起動だけPASSし、WASDは120秒で `turns=0 / actions=0`、Mouseは120秒近くで1 actionに留まった。以前のRunでは実際に移動・視点移動していてもAI説明とstatusが矛盾した。
+- Root Cause: 「決められたInputで内部Stateが変わったか」というDeterministicな条件まで、Vision ModelのScreenshot理解・推論速度・自然言語Verdictへ委譲していた。
+- Decision: Fixed TestのPrimary verifierをRuntime Test Bridgeへ移し、HubがDeterministic Inputを実行してGame内部StateのBefore / Afterを比較する。Screenshotは補助Evidenceへ下げ、UI-TARSは未知Bug探索・自由操作のExperimental機能に限定する。
+- Cross-Repository Contract: Godot Game FoundationがGenericなLocal JSON Bridgeを提供し、各Game Repositoryが公開可能なTelemetry Providerを所有する。HubはGame固有Schemaを第二Source of Truthとして持たない。
+- Safety: Bridgeは明示Test Runだけ有効、Network Listener / Command Channelなし、Session / Sequenceを照合する。Deep FactoryではRuntime Test Mode中のInputを通常Saveへ書き込まない。
+- Regression Guard: Telemetry verdict、Session mismatch、Sequence更新、Config v4 Migration、UI primary-flow、Security boundaryをHub Unit Testで固定する。
+- Prevention: 数値・Boolean・State machineで直接取得できる完了条件は、AIやScreenshot similarityをPrimary Oracleにしない。

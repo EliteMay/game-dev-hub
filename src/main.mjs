@@ -53,6 +53,8 @@ import {
 import {
   DEFAULT_AI_TESTS,
   buildReproductionSteps,
+  evaluateRuntimeBridgeTest,
+  executeDeterministicGameInput,
   findAndFocusTargetWindow,
   inspectExecutable,
   inspectUiTarsDependencies,
@@ -65,7 +67,8 @@ import {
   runUiTarsTest,
   saveAiTestConfig,
   saveAiTestReport,
-  summarizeAiTestResults
+  summarizeAiTestResults,
+  waitForRuntimeTestBridgeState
 } from "./services/ai-testing.mjs";
 import updaterPackage from "electron-updater";
 
@@ -560,7 +563,7 @@ function publishAiTestProgress(projectId, patch = {}) {
 
 async function stopAiTest(reason = "user") {
   if (!activeAiTestRun) {
-    return { ok: true, message: "実行中のAIテストはありません。" };
+    return { ok: true, message: "実行中の自動テストはありません。" };
   }
 
   activeAiTestRun.controller.abort(reason);
@@ -571,9 +574,9 @@ async function stopAiTest(reason = "user") {
   } catch {}
   publishAiTestProgress(activeAiTestRun.projectId, {
     phase: "stopped",
-    message: "AI操作を緊急停止しました。"
+    message: "自動テストを緊急停止しました。"
   });
-  return { ok: true, message: "AI操作を緊急停止しました。" };
+  return { ok: true, message: "自動テストを緊急停止しました。" };
 }
 
 function aiFailureResult(test, error, evidence = {}) {
@@ -618,6 +621,301 @@ function aiFailureResult(test, error, evidence = {}) {
     actions: [],
     reproductionSteps: []
   };
+}
+
+function bridgeFailureResult(test, error, evidence = {}) {
+  const code = String(error?.message || error || "UNKNOWN");
+  let reason = "固定テストを完了できませんでした。";
+
+  if (code.includes("RUNTIME_TEST_BRIDGE_TIMEOUT")) {
+    reason =
+      "Runtime Test BridgeのStateを取得できませんでした。Foundation 0.9.0-dev以降とGame側Telemetry統合を確認してください。";
+  } else if (code.includes("AI_TEST_WINDOW_SCOPE_VIOLATION")) {
+    reason = "対象ゲーム以外のWindowがActiveになったため、安全のため入力を停止しました。";
+  } else if (code.includes("AI_TEST_ABORTED")) {
+    reason = "緊急停止されました。";
+  }
+
+  return {
+    id: test.id,
+    name: test.name,
+    description: test.description,
+    expected: test.expected,
+    actual: "",
+    status: "UNKNOWN",
+    confidence: "low",
+    reason,
+    startedAt: evidence.startedAt || new Date().toISOString(),
+    completedAt: new Date().toISOString(),
+    evidence: {
+      beforeScreenshot: evidence.beforeScreenshot || "",
+      afterScreenshot: evidence.afterScreenshot || "",
+      failScreenshot: ""
+    },
+    actions: evidence.actions || [],
+    reproductionSteps: []
+  };
+}
+
+async function runDeterministicTestSuite(payload = {}) {
+  const project = await findProject(payload.projectId);
+  if (activeAiTestRun) {
+    throw new HubError("AI_TEST_ALREADY_RUNNING", "別の自動テストが実行中です。先に停止してください。");
+  }
+
+  const config = await loadAiTestConfig(
+    appDataRoot(),
+    project.id,
+    await aiTestProjectDefaults(project)
+  );
+  const executable = await inspectExecutable(config.exePath);
+  if (!executable.ok) throw new HubError(executable.code, executable.message);
+  if (!config.windowTitle) {
+    throw new HubError("WINDOW_TITLE_REQUIRED", "テスト対象のウィンドウ名を設定してください。");
+  }
+
+  const repository = await inspectRepository(project);
+  const runId = makeTestRunId();
+  const sessionId = project.id + "-" + runId;
+  const bridgeRoot = path.join(
+    appDataRoot(),
+    "ai-testing",
+    "runs",
+    project.id,
+    runId,
+    "runtime-bridge"
+  );
+  const bridgeStatePath = path.join(bridgeRoot, "state.json");
+  await fs.mkdir(bridgeRoot, { recursive: true });
+  await fs.rm(bridgeStatePath, { force: true }).catch(() => {});
+
+  const hasUserArgSeparator = Array.isArray(config.launchArgs) && config.launchArgs.includes("--");
+  const bridgeArgs = [
+    ...(hasUserArgSeparator ? [] : ["--"]),
+    "--foundation-test-state=" + bridgeStatePath,
+    "--foundation-test-session=" + sessionId
+  ];
+
+  const controller = new AbortController();
+  const launched = await launchTestExecutable(config, bridgeArgs);
+  activeAiTestRun = {
+    projectId: project.id,
+    runId,
+    controller,
+    child: launched.child
+  };
+
+  const startedAt = new Date().toISOString();
+  const tests = [];
+  let windowInfo = null;
+
+  try {
+    publishAiTestProgress(project.id, {
+      phase: "launching",
+      testRunId: runId,
+      current: 0,
+      total: 0,
+      message: "ゲームをテストモードで起動しています。"
+    });
+
+    windowInfo = await findAndFocusTargetWindow(config.windowTitle, 20000, controller.signal);
+    if (!windowInfo.ok) throw new HubError(windowInfo.code, windowInfo.message);
+
+    let bridgeState;
+    try {
+      bridgeState = await waitForRuntimeTestBridgeState(
+        bridgeStatePath,
+        sessionId,
+        { timeoutMs: 15000, signal: controller.signal }
+      );
+    } catch (error) {
+      throw new HubError(
+        "RUNTIME_TEST_BRIDGE_UNAVAILABLE",
+        "Runtime Test Bridgeへ接続できません。Game Foundation 0.9.0-dev以降とGame側Telemetry統合を確認してください。"
+      );
+    }
+
+    let selectedTests = config.tests.filter((item) => item.enabled !== false);
+    if (payload.failedOnly) {
+      const previous = await latestAiTestReport(appDataRoot(), project.id);
+      const failedIds = new Set(
+        (previous?.tests || []).filter((item) => item.status === "FAIL").map((item) => item.id)
+      );
+      selectedTests = selectedTests.filter((item) => failedIds.has(item.id));
+      if (!selectedTests.length) {
+        throw new HubError("NO_FAILED_TESTS", "前回FAILした固定テストはありません。");
+      }
+    }
+
+    publishAiTestProgress(project.id, {
+      phase: "running",
+      testRunId: runId,
+      current: 0,
+      total: selectedTests.length,
+      message: "AIを使わない固定テストを開始します。"
+    });
+
+    for (let index = 0; index < selectedTests.length; index += 1) {
+      if (controller.signal.aborted) break;
+      const test = selectedTests[index];
+      const testStartedAt = new Date().toISOString();
+
+      publishAiTestProgress(project.id, {
+        phase: "test",
+        testRunId: runId,
+        current: index + 1,
+        total: selectedTests.length,
+        testId: test.id,
+        testName: test.name,
+        message: test.description
+      });
+
+      const beforeScreenshot = await captureAiTestEvidence(
+        project, config, runId, test.id, "before"
+      );
+
+      try {
+        const beforeState = await waitForRuntimeTestBridgeState(
+          bridgeStatePath,
+          sessionId,
+          { afterSequence: 0, timeoutMs: 5000, signal: controller.signal }
+        );
+
+        let actions = [];
+        let afterState = beforeState;
+        if (test.id !== "game_launch") {
+          actions = await executeDeterministicGameInput({
+            testId: test.id,
+            allowedWindowTitles: [config.windowTitle],
+            signal: controller.signal,
+            onProgress: (progress) => publishAiTestProgress(project.id, {
+              ...progress,
+              testRunId: runId,
+              current: index + 1,
+              total: selectedTests.length,
+              testId: test.id,
+              testName: test.name
+            })
+          });
+
+          afterState = await waitForRuntimeTestBridgeState(
+            bridgeStatePath,
+            sessionId,
+            {
+              afterSequence: Number(beforeState.sequence || 0),
+              timeoutMs: 5000,
+              signal: controller.signal
+            }
+          );
+        }
+
+        bridgeState = afterState;
+        const verdict = evaluateRuntimeBridgeTest(test.id, beforeState, afterState);
+        const afterScreenshot = await captureAiTestEvidence(
+          project, config, runId, test.id, "after"
+        );
+
+        tests.push({
+          id: test.id,
+          name: test.name,
+          description: test.description,
+          expected: test.expected,
+          actual: verdict.actual || "",
+          status: verdict.status || "UNKNOWN",
+          confidence: verdict.confidence || "low",
+          reason: verdict.reason || "",
+          startedAt: testStartedAt,
+          completedAt: new Date().toISOString(),
+          evidence: {
+            beforeScreenshot,
+            afterScreenshot,
+            failScreenshot: verdict.status === "FAIL" ? afterScreenshot : ""
+          },
+          actions,
+          bridge: {
+            schemaVersion: Number(afterState.schemaVersion || 0),
+            sessionMatched: String(afterState.sessionId || "") === sessionId,
+            beforeSequence: Number(beforeState.sequence || 0),
+            afterSequence: Number(afterState.sequence || 0)
+          },
+          reproductionSteps: verdict.status === "FAIL"
+            ? buildReproductionSteps(actions)
+            : []
+        });
+      } catch (error) {
+        const afterScreenshot = await captureAiTestEvidence(
+          project, config, runId, test.id, "after"
+        ).catch(() => "");
+        tests.push(bridgeFailureResult(test, error, {
+          startedAt: testStartedAt,
+          beforeScreenshot,
+          afterScreenshot
+        }));
+      }
+    }
+
+    const completedAt = new Date().toISOString();
+    const homePath = app.getPath("home");
+    const runtimeLogTail = (launched.logs || []).slice(-30).map((line) =>
+      redactHomePath(String(line), homePath).slice(0, 1200)
+    );
+    const report = {
+      project: project.name,
+      projectId: project.id,
+      testRunId: runId,
+      mode: payload.failedOnly ? "failed-retest" : "fixed",
+      engine: "Runtime Test Bridge",
+      targetVersion: config.targetVersion || app.getVersion(),
+      gitCommit: repository.commit || "",
+      startedAt,
+      completedAt,
+      stopped: controller.signal.aborted,
+      summary: summarizeAiTestResults(tests),
+      tests,
+      runtimeLogTail,
+      bridge: {
+        schemaVersion: Number(bridgeState?.schemaVersion || 0),
+        sessionMatched: String(bridgeState?.sessionId || "") === sessionId,
+        finalSequence: Number(bridgeState?.sequence || 0),
+        statePrimaryVerdict: true
+      },
+      safety: {
+        windowScope: [config.windowTitle],
+        emergencyShortcut: AI_TEST_EMERGENCY_SHORTCUT,
+        arbitraryShellAllowed: false,
+        arbitraryExternalActionsAllowed: false,
+        modelEndpointExternal: false,
+        externalModelScreenSendConfirmed: false,
+        aiScreenshotScope: "not-used",
+        screenshotRole: "supplemental-evidence-only",
+        runtimeBridgeNetworkListener: false,
+        runtimeBridgeCommandChannel: false
+      }
+    };
+
+    const saved = await saveAiTestReport(appDataRoot(), project.id, report);
+    publishAiTestProgress(project.id, {
+      phase: "completed",
+      testRunId: runId,
+      current: tests.length,
+      total: tests.length,
+      message: controller.signal.aborted
+        ? "固定テストを停止しました。"
+        : "固定テストが完了しました。",
+      summary: saved.report.summary
+    });
+
+    return {
+      ok: true,
+      message: controller.signal.aborted
+        ? "固定テストを停止し、途中結果を保存しました。"
+        : "固定テスト結果を保存しました。",
+      report: saved.report,
+      history: await listAiTestHistory(appDataRoot(), project.id, 20)
+    };
+  } finally {
+    activeAiTestRun = null;
+  }
 }
 
 async function runAiTestSuite(payload = {}) {
@@ -1911,7 +2209,7 @@ async function exportChatGptPack(payload) {
     },
     verification: {
       source: "Game Dev Hub runtime snapshot",
-      note: "Gameの実プレイ結果はUserがHubで選択した確認結果、AI自動テスト結果、画像、User messageをEvidenceとして判断する。",
+      note: "Gameの実プレイ結果はUserがHubで選択した確認結果、Runtime Test Bridge固定テスト、AI探索結果、画像、User messageをEvidenceとして判断する。",
       summary: verificationSummary,
       allUserTaskResults,
       activeTaskResult: activeVerification
@@ -1998,13 +2296,13 @@ async function exportChatGptPack(payload) {
     "User実機確認結果まとめ:",
     verificationLines.length ? verificationLines.join("\n") : "- まだ確認結果はありません。",
     "",
-    "AI自動テスト:",
+    "ゲーム自動テスト:",
     latestAiTest
       ? "- " + latestAiTest.testRunId + " / PASS " + (latestAiTest.summary?.passed || 0) +
         " / FAIL " + (latestAiTest.summary?.failed || 0) +
         " / WARNING " + (latestAiTest.summary?.warning || 0) +
         " / UNKNOWN " + (latestAiTest.summary?.unknown || 0)
-      : "- まだAI自動テスト結果はありません。",
+      : "- まだゲーム自動テスト結果はありません。",
     "",
     activeTask ? "現在選択中のタスク: " + activeTask.section + " / " + activeTask.text : "現在選択中のタスク: 未選択",
     "",
@@ -2014,7 +2312,7 @@ async function exportChatGptPack(payload) {
     "- 問題があるTaskは原因を調査して修正する",
     "- できたTaskはEvidenceが十分ならRoadmapへ反映する",
     "- 添付画像から確認できる実装・見た目・不具合も確認する",
-    "- AI自動テストEvidenceがある場合は、AI判定だけでなくScreenshot・操作記録も根拠として扱う",
+    "- 自動テストEvidenceがある場合は、Runtime telemetry・操作記録・Screenshotの役割を分けて評価する",
     "",
     "※ HubはTokenやFile本文を自動収集しません。User確認メモへ入力した文字列はそのままJSONへ入ります。必要なCodeはGitHub RepositoryをSource of Truthとして確認してください。"
   ];
@@ -2330,8 +2628,8 @@ if (!singleInstanceLock) {
     registerIpc("hub:ai-test-state", aiTestState);
     registerIpc("hub:ai-test-choose-executable", chooseAiTestExecutable);
     registerIpc("hub:ai-test-config-save", saveAiTestingConfiguration);
-    registerIpc("hub:ai-test-run", (payload) => runAiTestSuite({ ...payload, mode: "fixed", failedOnly: false }));
-    registerIpc("hub:ai-test-retest-failed", (payload) => runAiTestSuite({ ...payload, mode: "fixed", failedOnly: true }));
+    registerIpc("hub:ai-test-run", (payload) => runDeterministicTestSuite({ ...payload, failedOnly: false }));
+    registerIpc("hub:ai-test-retest-failed", (payload) => runDeterministicTestSuite({ ...payload, failedOnly: true }));
     registerIpc("hub:ai-test-exploration", (payload) => runAiTestSuite({ ...payload, mode: "exploration", failedOnly: false }));
     registerIpc("hub:ai-test-stop", () => stopAiTest("ipc"));
     registerIpc("hub:ai-test-diagnostics", aiTestDiagnostics);

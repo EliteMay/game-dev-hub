@@ -67,6 +67,16 @@ import {
   saveAiTestReport,
   summarizeAiTestResults
 } from "./services/ai-testing.mjs";
+import {
+  DEFAULT_RUNTIME_TESTS,
+  buildRuntimeBridgeLaunchArgs,
+  evaluateMouseLook,
+  evaluateMovement,
+  makeRuntimeTestSessionId,
+  performRuntimeInput,
+  runtimeTestStatePath,
+  waitForRuntimeSnapshot
+} from "./services/runtime-testing.mjs";
 import updaterPackage from "electron-updater";
 
 const { autoUpdater } = updaterPackage;
@@ -85,6 +95,7 @@ let lastError = null;
 let recoveryDialogOpen = false;
 let windowStateSaveTimer = null;
 let activeAiTestRun = null;
+let activeRuntimeTestRun = null;
 
 const AI_TEST_EMERGENCY_SHORTCUT = "CommandOrControl+Shift+F12";
 const AI_TEST_EMERGENCY_SHORTCUT_DISPLAY = "Ctrl + Shift + F12";
@@ -559,21 +570,22 @@ function publishAiTestProgress(projectId, patch = {}) {
 }
 
 async function stopAiTest(reason = "user") {
-  if (!activeAiTestRun) {
-    return { ok: true, message: "実行中のAIテストはありません。" };
+  const active = activeRuntimeTestRun || activeAiTestRun;
+  if (!active) {
+    return { ok: true, message: "実行中の自動テストはありません。" };
   }
 
-  activeAiTestRun.controller.abort(reason);
+  active.controller.abort(reason);
   try {
-    if (activeAiTestRun.child && !activeAiTestRun.child.killed) {
-      activeAiTestRun.child.kill();
+    if (active.child && !active.child.killed) {
+      active.child.kill();
     }
   } catch {}
-  publishAiTestProgress(activeAiTestRun.projectId, {
+  publishAiTestProgress(active.projectId, {
     phase: "stopped",
-    message: "AI操作を緊急停止しました。"
+    message: "自動テストを停止しました。"
   });
-  return { ok: true, message: "AI操作を緊急停止しました。" };
+  return { ok: true, message: "自動テストを停止しました。" };
 }
 
 function aiFailureResult(test, error, evidence = {}) {
@@ -622,8 +634,8 @@ function aiFailureResult(test, error, evidence = {}) {
 
 async function runAiTestSuite(payload = {}) {
   const project = await findProject(payload.projectId);
-  if (activeAiTestRun) {
-    throw new HubError("AI_TEST_ALREADY_RUNNING", "別のAIテストが実行中です。先に停止してください。");
+  if (activeAiTestRun || activeRuntimeTestRun) {
+    throw new HubError("AI_TEST_ALREADY_RUNNING", "別の自動テストが実行中です。先に停止してください。");
   }
 
   const config = await loadAiTestConfig(
@@ -902,6 +914,310 @@ async function runAiTestSuite(payload = {}) {
     };
   } finally {
     activeAiTestRun = null;
+  }
+}
+
+
+function runtimeFailureResult(test, error, evidence = {}) {
+  const code = String(error?.message || error || "UNKNOWN");
+  let status = "UNKNOWN";
+  let reason = "固定テストを完了できませんでした。";
+
+  if (code.includes("RUNTIME_TEST_WINDOW_SCOPE_VIOLATION")) {
+    status = "WARNING";
+    reason = "対象ゲーム以外がActiveになったため、安全のため入力を停止しました。";
+  } else if (code.includes("RUNTIME_TEST_ABORTED")) {
+    reason = "自動テストが停止されました。";
+  } else if (code.includes("RUNTIME_TEST_BRIDGE_TIMEOUT")) {
+    reason = "Game Test Bridgeから新しい内部状態を取得できませんでした。";
+  }
+
+  return {
+    id: test.id,
+    name: test.name,
+    description: test.description,
+    expected: test.expected,
+    actual: "",
+    status,
+    confidence: "low",
+    reason,
+    startedAt: evidence.startedAt || new Date().toISOString(),
+    completedAt: new Date().toISOString(),
+    evidence: {
+      beforeScreenshot: evidence.beforeScreenshot || "",
+      afterScreenshot: evidence.afterScreenshot || "",
+      failScreenshot: evidence.afterScreenshot || ""
+    },
+    actions: evidence.actions || [],
+    reproductionSteps: []
+  };
+}
+
+async function runRuntimeTestSuite(payload = {}) {
+  const project = await findProject(payload.projectId);
+  if (activeRuntimeTestRun || activeAiTestRun) {
+    throw new HubError(
+      "RUNTIME_TEST_ALREADY_RUNNING",
+      "別の自動テストが実行中です。先に停止してください。"
+    );
+  }
+
+  const config = await loadAiTestConfig(
+    appDataRoot(),
+    project.id,
+    await aiTestProjectDefaults(project)
+  );
+  const executable = await inspectExecutable(config.exePath);
+  if (!executable.ok) throw new HubError(executable.code, executable.message);
+  if (!config.windowTitle) {
+    throw new HubError("WINDOW_TITLE_REQUIRED", "テスト対象のウィンドウ名を設定してください。");
+  }
+
+  const repository = await inspectRepository(project);
+  const runId = makeTestRunId();
+  const sessionId = makeRuntimeTestSessionId();
+  const statePath = runtimeTestStatePath(appDataRoot(), project.id, runId);
+  await fs.mkdir(path.dirname(statePath), { recursive: true });
+  await fs.rm(statePath, { force: true }).catch(() => {});
+
+  const launchConfig = {
+    ...config,
+    launchArgs: buildRuntimeBridgeLaunchArgs(
+      config.launchArgs || [],
+      statePath,
+      sessionId
+    )
+  };
+
+  const controller = new AbortController();
+  const launched = await launchTestExecutable(launchConfig);
+  activeRuntimeTestRun = {
+    projectId: project.id,
+    runId,
+    controller,
+    child: launched.child
+  };
+
+  const startedAt = new Date().toISOString();
+  const tests = [];
+  let windowInfo = null;
+  let initialSnapshot = null;
+
+  try {
+    publishAiTestProgress(project.id, {
+      phase: "launching",
+      testRunId: runId,
+      current: 0,
+      total: DEFAULT_RUNTIME_TESTS.length,
+      message: "ゲームとGame Test Bridgeを起動しています。"
+    });
+
+    windowInfo = await findAndFocusTargetWindow(
+      config.windowTitle,
+      20000,
+      controller.signal
+    );
+    if (!windowInfo.ok) {
+      throw new HubError(windowInfo.code, windowInfo.message);
+    }
+
+    try {
+      initialSnapshot = await waitForRuntimeSnapshot(
+        statePath,
+        sessionId,
+        { timeoutMs: 15000, signal: controller.signal }
+      );
+    } catch (error) {
+      if (String(error?.message || error).includes("RUNTIME_TEST_BRIDGE_TIMEOUT")) {
+        throw new HubError(
+          "RUNTIME_TEST_BRIDGE_UNAVAILABLE",
+          "Game Test Bridgeを確認できませんでした。ゲームRepositoryを最新版へ同期し、Foundation 0.9.0-dev以降が導入されているか確認してください。"
+        );
+      }
+      throw error;
+    }
+
+    for (let index = 0; index < DEFAULT_RUNTIME_TESTS.length; index += 1) {
+      if (controller.signal.aborted) break;
+      const test = DEFAULT_RUNTIME_TESTS[index];
+      const testStartedAt = new Date().toISOString();
+
+      publishAiTestProgress(project.id, {
+        phase: "test",
+        testRunId: runId,
+        current: index + 1,
+        total: DEFAULT_RUNTIME_TESTS.length,
+        testId: test.id,
+        testName: test.name,
+        message: test.description
+      });
+
+      const beforeScreenshot = await captureAiTestEvidence(
+        project, config, runId, test.id, "before"
+      );
+
+      if (test.id === "game_launch") {
+        const afterScreenshot = await captureAiTestEvidence(
+          project, config, runId, test.id, "after"
+        );
+        tests.push({
+          ...test,
+          actual:
+            "対象Window「" + windowInfo.title +
+            "」とGame内部Telemetryを確認しました（sequence " +
+            initialSnapshot.sequence + "）。",
+          status: "PASS",
+          confidence: "high",
+          reason: "Window検出とRuntime Test BridgeのSession一致をHubが機械的に確認しました。",
+          startedAt: testStartedAt,
+          completedAt: new Date().toISOString(),
+          evidence: { beforeScreenshot, afterScreenshot, failScreenshot: "" },
+          actions: [],
+          reproductionSteps: []
+        });
+        continue;
+      }
+
+      let before = await waitForRuntimeSnapshot(
+        statePath,
+        sessionId,
+        {
+          minSequence: Math.max(0, Number(initialSnapshot?.sequence || 0) - 1),
+          timeoutMs: 5000,
+          signal: controller.signal
+        }
+      );
+      const actions = [];
+
+      try {
+        const input = await performRuntimeInput(
+          test.id,
+          config.windowTitle,
+          controller.signal
+        );
+        actions.push({
+          at: new Date().toISOString(),
+          action: input.action,
+          windowTitle: input.windowTitle
+        });
+        publishAiTestProgress(project.id, {
+          phase: "action",
+          testRunId: runId,
+          current: index + 1,
+          total: DEFAULT_RUNTIME_TESTS.length,
+          testId: test.id,
+          testName: test.name,
+          message: "ゲームへ固定入力を実行しました。",
+          action: input.action
+        });
+
+        const after = await waitForRuntimeSnapshot(
+          statePath,
+          sessionId,
+          {
+            minSequence: before.sequence,
+            timeoutMs: 5000,
+            signal: controller.signal
+          }
+        );
+        initialSnapshot = after;
+
+        const verdict = test.id === "wasd_move"
+          ? evaluateMovement(before.state, after.state)
+          : evaluateMouseLook(before.state, after.state);
+        const afterScreenshot = await captureAiTestEvidence(
+          project, config, runId, test.id, "after"
+        );
+
+        tests.push({
+          ...test,
+          actual: verdict.actual || "",
+          status: verdict.status || "UNKNOWN",
+          confidence: verdict.confidence || "low",
+          reason: verdict.reason || "",
+          metric: Number.isFinite(verdict.metric) ? verdict.metric : null,
+          startedAt: testStartedAt,
+          completedAt: new Date().toISOString(),
+          evidence: {
+            beforeScreenshot,
+            afterScreenshot,
+            failScreenshot: verdict.status === "FAIL" ? afterScreenshot : ""
+          },
+          actions,
+          reproductionSteps: verdict.status === "FAIL"
+            ? buildReproductionSteps(actions)
+            : []
+        });
+      } catch (error) {
+        const afterScreenshot = await captureAiTestEvidence(
+          project, config, runId, test.id, "after"
+        ).catch(() => "");
+        tests.push(runtimeFailureResult(test, error, {
+          startedAt: testStartedAt,
+          beforeScreenshot,
+          afterScreenshot,
+          actions
+        }));
+      }
+    }
+
+    const completedAt = new Date().toISOString();
+    const homePath = app.getPath("home");
+    const runtimeLogTail = (launched.logs || []).slice(-30).map((line) =>
+      redactHomePath(String(line), homePath).slice(0, 1200)
+    );
+    const report = {
+      project: project.name,
+      projectId: project.id,
+      testRunId: runId,
+      mode: "deterministic",
+      engine: "Game Test Bridge",
+      targetVersion: config.targetVersion || app.getVersion(),
+      gitCommit: repository.commit || "",
+      startedAt,
+      completedAt,
+      stopped: controller.signal.aborted,
+      summary: summarizeAiTestResults(tests),
+      tests,
+      runtimeLogTail,
+      safety: {
+        windowScope: [config.windowTitle],
+        emergencyShortcut: AI_TEST_EMERGENCY_SHORTCUT,
+        arbitraryShellAllowed: false,
+        arbitraryExternalActionsAllowed: false,
+        modelEndpointExternal: false,
+        runtimeStateTransport: "local-file-read-only",
+        screenshotRole: "supporting-evidence-only"
+      }
+    };
+
+    const saved = await saveAiTestReport(appDataRoot(), project.id, report);
+    publishAiTestProgress(project.id, {
+      phase: "completed",
+      testRunId: runId,
+      current: tests.length,
+      total: DEFAULT_RUNTIME_TESTS.length,
+      message: controller.signal.aborted
+        ? "自動テストを停止しました。"
+        : "固定自動テストが完了しました。",
+      summary: saved.report.summary
+    });
+
+    return {
+      ok: true,
+      message: controller.signal.aborted
+        ? "自動テストを停止し、途中結果を保存しました。"
+        : "Game内部状態を使った固定テスト結果を保存しました。",
+      report: saved.report,
+      history: await listAiTestHistory(appDataRoot(), project.id, 20)
+    };
+  } finally {
+    try {
+      if (launched.child && !launched.child.killed) {
+        launched.child.kill();
+      }
+    } catch {}
+    activeRuntimeTestRun = null;
   }
 }
 
@@ -2330,6 +2646,7 @@ if (!singleInstanceLock) {
     registerIpc("hub:ai-test-state", aiTestState);
     registerIpc("hub:ai-test-choose-executable", chooseAiTestExecutable);
     registerIpc("hub:ai-test-config-save", saveAiTestingConfiguration);
+    registerIpc("hub:runtime-test-run", runRuntimeTestSuite);
     registerIpc("hub:ai-test-run", (payload) => runAiTestSuite({ ...payload, mode: "fixed", failedOnly: false }));
     registerIpc("hub:ai-test-retest-failed", (payload) => runAiTestSuite({ ...payload, mode: "fixed", failedOnly: true }));
     registerIpc("hub:ai-test-exploration", (payload) => runAiTestSuite({ ...payload, mode: "exploration", failedOnly: false }));
@@ -2376,10 +2693,11 @@ if (!singleInstanceLock) {
 
 app.on("before-quit", () => {
   globalShortcut.unregisterAll();
-  if (activeAiTestRun) {
-    activeAiTestRun.controller.abort("app-quit");
+  for (const active of [activeRuntimeTestRun, activeAiTestRun]) {
+    if (!active) continue;
+    active.controller.abort("app-quit");
     try {
-      activeAiTestRun.child?.kill();
+      active.child?.kill();
     } catch {}
   }
   void persistWindowState();

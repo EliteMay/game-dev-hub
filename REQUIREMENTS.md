@@ -296,61 +296,61 @@ Foundation導入済みGameを選択
 - Hub CI / Windows installer buildが成功する
 - Windows実機のCreate / Update操作はCIとは分離して未確認事項として扱う
 
-## AI Windows Game Auto Test
+## Windows Game Automatic Test
 
 ### Goal
 
-Game更新後のWindows実機PlaytestをGame Dev Hubから開始し、指定Game Window内でAIがScreenを確認しながらMouse / Keyboardを操作してEvidenceを残す。
+Game更新後のWindows実機PlaytestをGame Dev Hubから開始し、固定条件はVision AIではなくGame内部Stateを使って高速・再現可能に検証する。
 
-### Required
+### Primary Fixed Test — Game Test Bridge
 
-- Projectごとにexe path / launch args / window title / timeout / AI engine / UI-TARS connection / Test listを保存する
-- Windows Export前のGodot Projectでは、Hubに設定済みのGodot executable + `--path <project>` を安全な開発用Test targetとして自動利用できる
-- UserがWindows game.exeを明示選択した場合はGodot用launch argsを引き継がず、そのexeを直接起動する
-- AI engineはUI-TARSをPrimary、Agent-SをFallback候補として扱う
-- Fixed TestはProjectごとに id / name / description / expected / timeout / enabled を持つ
-- Resultは PASS / FAIL / WARNING / UNKNOWN とConfidenceを持つ
-- UI-TARS最終判定は公式SDKの `onData.data.conversations[].predictionParsed` をPrimaryとして読み、`finished(...)` の `action_inputs.content` を構造化Resultとして解析する
-- SDKのfinal status eventで `conversations: []` が届いても、直前のfinished resultを上書きして失わない
-- 固定のWASD / Mouse smoke testは探索を続けず最小Actionで終了し、Default timeoutはLocal 7Bモデルの実機速度を考慮して120秒とする
-- Third-party AI SDKの内部Request timeoutがProject Test timeoutより短い場合、Local Model inferenceをその内部Timeoutだけで早期終了させない
-- UI-TARS Model requestのCancellation authorityはHub所有のAbortSignalとし、User stop / Emergency stop / Project Test timeoutを必ず維持する
-- 固定テスト開始前にHubが対象Game Windowを検出・フォーカス済みなら、そのRuntime confirmationと実際のWindow titleをAI Promptへ渡す
-- 固定テストでは `call_user()` でゲーム起動確認へ戻らず、対象Windowへ直接操作する。実行不能なら `finished(...UNKNOWN...)` で終了理由を返す
-- WASD固定Smoke Testは、まずWキーを短く1回入力して次画面の変化を確認する
-- Mouse固定Smoke Testはクリック対象探索ではなく、マウスを小さく1回動かしてカメラ / 背景の見え方の変化を確認する
-- Fixed TestはLocal 7Bの推論時間を考慮し、原則3ターン以内で操作 → 確認 → finishedへ収束させる
-- 旧Config v1のDefault 45秒だけを120秒へMigrationし、旧Default Mouse TestはConfig v3でMouse Look確認へMigrationする。User独自Test定義と明示timeoutは保持する
-- 判断Evidenceが不足する場合はPASS/FAILを推測せずUNKNOWNとする
-- AIがPASSを返しても、actual / reasonに「変化なし」「確認不能」等の明確な自己矛盾がある場合はUNKNOWNへ補正する
-- Testごとに可能な限りBefore / After / FAIL screenshotとAction logを保存する
-- FAILからReproduction stepsを生成する
-- Previous FAILだけ再実行できる
-- Exploration modeを持つ
+- 固定テストのPrimary verifierはGodot Game Foundation 0.9.0-dev以降のRuntime Test Bridgeとする
+- Windows Export前のGodot Projectでは、Hubに設定済みのGodot executable + `--path <project>` を開発用Test targetとして利用できる
+- UserがWindows game.exeを明示選択した場合はそのexeを直接起動できる
+- HubはTest Runごとに一意なSession IDとLocal State JSON Pathを起動引数として渡す
+- Gameは明示Test Runだけread-only Runtime StateをLocal JSONへ出力し、通常PlayではBridgeを無効にする
+- HubはSession ID / Schema / Sequenceを検証し、古いRunや別ProcessのSnapshotを採用しない
+- Game固有TelemetryのFieldは各Game Repositoryが定義し、FoundationへDomain Fieldを固定しない
+- Deep Factory PilotではPlayer position / velocity、Camera yaw / pitch、Mouse capture、Inventory、Money、Upgrade、Small Miner、Save stateを公開する
+- WASD固定TestはHubがWを短時間入力し、Game内部Player positionのBefore / After差を判定する
+- Mouse Look固定TestはHubがMouseを小さく移動し、Game内部Camera yaw / pitchのBefore / After差を判定する
+- Screenshotは補助Evidenceとして保存できるが、内部Stateで判定できる固定条件のPrimary verdictには使わない
+- ResultはPASS / FAIL / WARNING / UNKNOWNとConfidenceを持つ
+- Target Game Window以外がActiveになった場合は入力を停止する
+- Emergency stop / timeoutはAI実験機能と固定Testの両方へ適用する
+- Runtime TestはNetwork Listener、arbitrary shell、任意Command Channelを追加しない
+- Test入力がGameの通常Saveへ永続化されないようGame側Test ModeでSave writeを停止する
 - Run historyをLocal App Dataへ保存する
-- Latest AI Test resultを既存ChatGPT shared packへ含める
-- ProgressはCurrent test / state / elapsed / current actionを表示する
-- UI-TARS診断はBase URLへの単純到達だけでOK扱いせず、OpenAI互換 `/models` から設定Model名の存在まで確認する
-- 新規ProjectのUI-TARS default Model IDは `ui-tars-1.5-7b` とする
-- 旧Default Model `ui-tars-1.5` は、`/models` に一意な `ui-tars-1.5-*` が存在する場合だけCompatibility aliasとして自動解決する
-- Model alias候補が複数ある場合は推測せず、Userが正しいModel IDを選ぶまでNGとする
-- HTTP 404等のError responseを「Endpoint OK」と扱わない
+- Latest automatic test resultを既存ChatGPT shared packへ含める
+- ProgressはCurrent test / elapsed / current fixed actionを表示する
+- Windows実機でのInput deliveryとRuntime State変化はCIだけで確認済み扱いにしない
+
+### Experimental Computer Use
+
+- UI-TARSは自由探索・未知Bug探索の実験機能として残す
+- Agent-SはFallback候補として保持するが未接続のままでもPrimary固定Testを阻害しない
+- AI探索を利用しない通常開発ではLM Studio / AI Model Serverを要求しない
+- UI-TARSを使う場合はTarget Game Window allowlist、Action allowlist、Screenshot mask、AbortController、Repeat guardを維持する
+- 外部AI endpointではScreenshot送信とProvider課金可能性を開始前にUserへ明示する
+- API Keyはplain settingsへ保存しない
+- AI-generated verdictはGame RepositoryのRoadmap completionを自動変更しない
+- AI探索のScreenshot / Action logは探索Evidenceであり、固定Testの内部State verifierを置き換えない
 
 ### Computer Control Safety
 
-- Rendererへarbitrary shell / filesystem / raw mouse-keyboard APIを公開しない
-- AI actionはMain側のdedicated serviceでvalidationしてから実行する
-- Default allow scopeはconfigured target game windowだけ
-- File delete / uninstall / GitHub push-release / external send / purchase / password / admin / system settings / PowerShell-Terminal / personal data accessをAIへ許可しない
-- Allowed scope以外のactive windowを検知した場合は停止する
-- Same action repetition / timeoutを停止する
-- UI emergency stopとglobal shortcutを持つ
-- API Keyはplain settingsへ保存しない
-- Screenshotはtarget windowが見つからない時にdesktop full-screen captureへFallbackしない
-- AI Modelへ渡すComputer screenshotもtarget Game Window領域以外をMaskし、Mask不能時は送信せず停止する
+- Rendererへraw mouse / keyboard / filesystem / shell capabilityを公開しない
+- Fixed inputとAI actionはMain Processのoperation-specific serviceだけが所有する
+- Default allow scopeはconfigured target Game Windowだけ
+- File delete / uninstall / GitHub push-release / external send / purchase / password / admin / system settings / PowerShell-Terminal / personal data accessをComputer Useへ許可しない
+- Allowed scope以外のActive Windowを検知した場合は停止する
+- Emergency stopは `Ctrl + Shift + F12` を維持する
+- Target Windowを取得できない時にDesktop全体ScreenshotへFallbackしない
+- AI Modelへ渡すScreenshotはtarget Game Window領域以外をMaskし、Mask不能時は送信せず停止する
 
-### Phase 1 Completion
+### Phase Completion
 
-Game Dev Hub → AI test start → configured game.exe または Godot開発実行をlaunch → target window detection/focus → UI-TARS model readiness確認 → UI-TARS sees game → allowed WASD/mouse action → evidence screenshot → PASS/FAIL/WARNING/UNKNOWN → result display/history → JSON report → ChatGPT pack integration.
+Game Dev Hub → fixed test start → game.exeまたはGodot開発実行をlaunch → target window detection/focus → Runtime Test Bridge Session確認 → deterministic WASD / Mouse input → Game内部State Before / After比較 → PASS/FAIL/WARNING/UNKNOWN → supporting screenshot → result/history → JSON report → ChatGPT pack integration.
 
-Windows actual game operation remains a real-device validation gate and must not be considered verified from Node tests/installer build alone.
+UI-TARS / Agent-Sによる自由探索はこのPrimary Completion条件とは分離する。
+
+Windows actual game input remains a real-device validation gate and must not be considered verified from Node tests / installer build alone.

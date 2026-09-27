@@ -2228,7 +2228,7 @@ async function exportChatGptPack(payload) {
     },
     verification: {
       source: "Game Dev Hub runtime snapshot",
-      note: "Gameの実プレイ結果はUserがHubで選択した確認結果、AI自動テスト結果、画像、User messageをEvidenceとして判断する。",
+      note: "Gameの実プレイ結果はUser確認、自動テストのGame内部Telemetry、補助Screenshot、User messageをEvidenceとして判断する。",
       summary: verificationSummary,
       allUserTaskResults,
       activeTaskResult: activeVerification
@@ -2315,13 +2315,13 @@ async function exportChatGptPack(payload) {
     "User実機確認結果まとめ:",
     verificationLines.length ? verificationLines.join("\n") : "- まだ確認結果はありません。",
     "",
-    "AI自動テスト:",
+    "自動テスト:",
     latestAiTest
       ? "- " + latestAiTest.testRunId + " / PASS " + (latestAiTest.summary?.passed || 0) +
         " / FAIL " + (latestAiTest.summary?.failed || 0) +
         " / WARNING " + (latestAiTest.summary?.warning || 0) +
         " / UNKNOWN " + (latestAiTest.summary?.unknown || 0)
-      : "- まだAI自動テスト結果はありません。",
+      : "- まだ自動テスト結果はありません。",
     "",
     activeTask ? "現在選択中のタスク: " + activeTask.section + " / " + activeTask.text : "現在選択中のタスク: 未選択",
     "",
@@ -2331,7 +2331,7 @@ async function exportChatGptPack(payload) {
     "- 問題があるTaskは原因を調査して修正する",
     "- できたTaskはEvidenceが十分ならRoadmapへ反映する",
     "- 添付画像から確認できる実装・見た目・不具合も確認する",
-    "- AI自動テストEvidenceがある場合は、AI判定だけでなくScreenshot・操作記録も根拠として扱う",
+    "- 自動テストEvidenceがある場合は、EngineとGame内部Telemetry / Screenshot / 操作記録の役割を分けて評価する",
     "",
     "※ HubはTokenやFile本文を自動収集しません。User確認メモへ入力した文字列はそのままJSONへ入ります。必要なCodeはGitHub RepositoryをSource of Truthとして確認してください。"
   ];

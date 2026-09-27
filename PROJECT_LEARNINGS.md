@@ -271,3 +271,16 @@
 - Decision: Fixed Testでは実際に検出したWindow titleと「起動・Focus確認済み」をPromptへ渡す。WASDは最初のActionをWの短押しまで具体化し、Fixed Testで `call_user()` を使わせない。
 - Recurrence Guard: Runtime confirmation / actual Window title / no-call_user guidanceをPrompt Unit Testで固定し、もし `call_user` が返っても専用ReasonをReportへ残す。
 - Prevention: Deterministic Harnessが既に確認したRuntime factをVision Modelへ再推論させず、ObservationとHarness Evidenceの責務を分離する。
+
+
+## GL-027 — Third-party AI SDKの内部TimeoutをProduct timeoutと混同しない
+
+- Date: 2026-09-27
+- Type: AI Integration / Reliability
+- Status: Adopted
+- Evidence: v0.1.21実機TestではGame起動がPASSした一方、WASD / Mouseの両方が約37秒でUNKNOWNになり、Agentは `status=error`、`turns=0`、`actions=0`、`Request timed out.` を記録した。
+- Root Cause: `@ui-tars/sdk@1.2.3` の `UITarsModel.invokeModelProvider()` がOpenAI互換の各Model requestへ30秒timeoutをhard-codeしており、HubのFixed Test timeout 120秒より先に初回推論を停止していた。
+- Decision: SDKへCustom fetchを渡し、SDKが生成する短いRequest signalではなくHub所有のeffective AbortSignalを使用する。これにより内部30秒だけを回避し、Emergency stop / User stop / overall Test timeoutは維持する。
+- Detection: Test結果の `agent.error`、turn数、action数、実行時間を合わせてProvider request failureとAgent logic failureを分離する。
+- Regression Guard: Custom runtime fetchがSDK側signalを置き換え、Hub signalのabortがunderlying fetchまで届くUnit Testを追加する。
+- Prevention: Third-party Agent SDKではAgent loop timeout / Provider request timeout / Product operation timeoutを別Boundaryとして確認し、User-configured timeoutが実際の最短停止条件になっているか実機Evidenceで検証する。

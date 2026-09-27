@@ -306,7 +306,27 @@ Selected Game
 
 Foundation Update IPCは任意PathやCommandを受け取らない。Managed Pathが将来変わった場合は自動で権限を拡大せず停止する。
 
-## AI Desktop Game Testing
+## Windows Game Auto Testing
+
+### Fixed Test Primary Path
+
+```text
+Renderer
+→ operation-specific IPC
+→ Electron Main Test Orchestrator
+→ Game launch with Foundation test arguments
+→ target Window focus
+→ deterministic keyboard / mouse input
+→ Runtime Test Bridge local state.json
+→ before / after compare
+→ PASS / FAIL / UNKNOWN
+```
+
+Runtime Test BridgeはGodot Game Foundation 0.9.0-devが提供し、Game側がJSON互換Telemetry Providerを所有する。HubはGame固有Field Schemaを持たず、現在の共通Smoke Testが必要とするStateだけをTest Adapterで読む。
+
+BridgeはNetwork ListenerやCommand Channelを持たない。Session ID / SequenceでCurrent Runを検証し、Screenshotは補助Evidenceとしてのみ扱う。
+
+### Experimental AI Exploration
 
 Renderer → operation-specific IPC → Electron Main AI Test Orchestrator → target exe launcher / target window detector / screenshot capture / Safe UI-TARS Operator Adapter → ai-testing local store.
 

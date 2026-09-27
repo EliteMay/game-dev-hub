@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld("gameDevHub", {
   getAiTestState: (projectId) => ipcRenderer.invoke("hub:ai-test-state", projectId),
   chooseAiTestExecutable: (projectId) => ipcRenderer.invoke("hub:ai-test-choose-executable", projectId),
   saveAiTestConfig: (payload) => ipcRenderer.invoke("hub:ai-test-config-save", payload),
+  runRuntimeTest: (projectId) => ipcRenderer.invoke("hub:runtime-test-run", { projectId }),
   runAiTest: (projectId) => ipcRenderer.invoke("hub:ai-test-run", { projectId }),
   retestFailedAiTests: (projectId) => ipcRenderer.invoke("hub:ai-test-retest-failed", { projectId }),
   runAiExplorationTest: (projectId) => ipcRenderer.invoke("hub:ai-test-exploration", { projectId }),

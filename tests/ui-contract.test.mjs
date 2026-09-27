@@ -306,3 +306,12 @@ test("AI test runtime uses the resolved model id without manual config edits", a
   assert.match(mainSource, /configuredModel: config\.uiTars\.model/);
   assert.match(mainSource, /resolvedModel: endpoint\.resolvedModel/);
 });
+
+
+test("Foundation source repository is not shown as an uninstalled game", async () => {
+  const source = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
+
+  assert.match(source, /EliteMay\/godot-game-foundation/);
+  assert.match(source, /Foundation本体/);
+  assert.match(source, /共通基盤そのものです。Game Foundationの導入対象ではありません/);
+});

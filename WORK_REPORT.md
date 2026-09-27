@@ -534,10 +534,17 @@ AI:
 
 ### Validation
 
-- Unit / contract tests: PR CIで確認予定
-- Production runtime dependency verification: PR CIで確認予定
-- Windows installer build: PR CIで確認予定
-- updater artifact verification: PR CIで確認予定
+- PR #31 CI: PASS
+- Unit / contract tests: PASS
+- Runtime Test Bridge verdict / session / migration regression: PASS
+- Production runtime dependency verification: PASS
+- Windows installer build: PASS
+- updater artifact verification: PASS
+- PR #31をmainへsquash merge済み（`f17d3c5a23371d65002ebc80e70b3b8a44b94569`）
+- v0.1.24 main CI: PASS
+- v0.1.24 Release workflow: PASS
+- `game_dev_hub_0.1.24_setup.exe` / blockmap / latest.yml の公開を確認
 - Foundation Runtime Test Bridge単体CI: Foundation mainで実装済み
-- Deep Factory Runtime telemetry integration CI: Deep Factory mainで実装済み
-- Windows実機 Fixed Test E2E: v0.1.24 Release後に確認
+- Deep Factory Runtime telemetry integration / Test Save isolation: Deep Factory mainで実装済み
+- Windows実機 Fixed Test E2E: v0.1.24でUser環境確認待ち
+- Windows実画面の最終Visual確認: 未確認

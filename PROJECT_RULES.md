@@ -115,3 +115,15 @@ Primary Taskは「ゲームを選んで開発を開始する」。
 - Setup.exe build成功だけではruntime import成功を保証しないため、既知の必須runtime importはRegression Testへ含める。
 - Third-party AI SDKの内部Timeoutを回避する場合も、Hub所有のAbortSignal / Emergency stop / overall Test timeoutを外してはならない。
 - SDK固有Workaroundは固定しているDependency Versionと対応付け、Regression TestでCancellation boundaryを確認する。
+
+
+## Deterministic Runtime Test Boundary
+
+- 固定TestのPrimary verdictはRuntime Test BridgeのGame内部Stateとし、Vision AI / ScreenshotをOracleにしない。
+- Runtime Test Bridgeは明示Test Runだけで有効化し、Network Listener / arbitrary command / shell capabilityを追加しない。
+- Rendererへraw keyboard / mouse / telemetry File accessを公開せず、Main Processのoperation-specific IPCだけを使う。
+- HubはSession ID / Schema / Sequenceを検証し、stale Runtime Snapshotを別RunのEvidenceとして採用しない。
+- Fixed input実行直前と実行後にTarget Game Window scopeを確認する。
+- Screenshotは補助Evidenceであり、Position / Camera等の数値Stateで判定できる固定条件を上書きしない。
+- Runtime Testが通常SaveへTest操作を永続化しないことをPilot Game側Contractとして維持する。
+- UI-TARS / Agent-SはExperimental explorationとして分離し、AI Provider障害やLM Studio停止でPrimary固定Testを使えなくしない。

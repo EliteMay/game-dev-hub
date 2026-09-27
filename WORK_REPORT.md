@@ -490,3 +490,65 @@ v0.1.22 / Deep Factory fixed AI Test:
 - v0.1.23 Release workflow: PASS
 - `game_dev_hub_0.1.23_setup.exe` / blockmap / latest.yml の公開を確認
 - Windows実機の新Mouse Look判定 / contradiction guard: v0.1.23でUser環境確認待ち
+
+
+---
+
+## v0.1.24 Deterministic Game Test Bridge
+
+### Trigger
+
+v0.1.23 Windows実機固定Test:
+
+- Game launch: PASS
+- WASD: UNKNOWN / 120秒 / turns=0 / actions=0
+- Mouse Look: UNKNOWN / 120秒付近 / 1 drag action
+- Screenshot Visionを固定TestのPrimary判定へ使う構成は、Local 7BのLatencyと小さな3D画面差分に対して不安定
+
+### Architecture Change
+
+Primary fixed testを次へ変更:
+
+```text
+Game Dev Hub deterministic input
+→ Target Window scope check
+→ Godot Game Foundation Runtime Test Bridge
+→ Game-owned read-only telemetry
+→ Before / After comparison
+→ PASS / FAIL / UNKNOWN
+```
+
+UI-TARSは削除せずExperimental explorationへ分離する。
+
+### Cross-Repository Work
+
+- Godot Game Foundation 0.9.0-dev
+  - Runtime Test Bridge追加
+  - Local JSON / Session / Sequence Contract
+  - Network / Command capabilityなし
+  - Foundation PR #3 / Godot CI PASS / Windows Build PASS
+- Deep Factory
+  - Player / Camera / Inventory / Money / Upgrade / Small Miner telemetryを提供
+  - Runtime Test中のSave writeを停止
+  - Runtime Bridge integration smoke追加
+  - PR #12 / #13 Godot CI PASS
+
+### Game Dev Hub Changes
+
+- `src/services/runtime-testing.mjs` を追加
+- Fixed TestのWASD / Mouse inputをHubが直接実行
+- Game内部Position / Camera angleで機械判定
+- Session / Schema / Sequence検証
+- Screenshotはsupporting evidenceへ変更
+- Primary UIをGame Test Bridgeへ切替
+- AI探索を明示的な実験機能へ格下げ
+- ChatGPT Packの自動Test説明をTelemetry中心へ更新
+- Versionをv0.1.24へ更新
+
+### Validation
+
+- Unit / security / UI contract: PR CIで確認予定
+- Windows installer build: PR CIで確認予定
+- updater artifact verification: PR CIで確認予定
+- v0.1.24 Windows実機Fixed Test: Release後にUser環境で確認
+- Deep Factory Phase 6 Save / Load real-device validation: 未完了

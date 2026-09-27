@@ -76,6 +76,19 @@ test("GitHub save blocks likely secret files before staging", () => {
   assert.match(repositorySource, /SENSITIVE_FILE_BLOCKED/);
 });
 
+test("deterministic runtime testing keeps input and telemetry behind operation-specific IPC", () => {
+  const runtimeSource = fs.readFileSync(new URL("../src/services/runtime-testing.mjs", import.meta.url), "utf8");
+
+  assert.match(preloadSource, /runRuntimeTest/);
+  assert.match(preloadSource, /hub:runtime-test-run/);
+  assert.doesNotMatch(preloadSource, /mouse\.move|keyboard\.pressKey|readFile|writeFile/);
+  assert.match(runtimeSource, /assertTargetWindow/);
+  assert.match(runtimeSource, /RUNTIME_TEST_WINDOW_SCOPE_VIOLATION/);
+  assert.match(runtimeSource, /foundation-test-state/);
+  assert.match(runtimeSource, /foundation-test-session/);
+  assert.doesNotMatch(runtimeSource, /child_process|exec\s*\(|spawn\s*\(/);
+});
+
 test("AI desktop testing keeps privileged computer control behind operation-specific IPC", () => {
   const aiSource = fs.readFileSync(new URL("../src/services/ai-testing.mjs", import.meta.url), "utf8");
 

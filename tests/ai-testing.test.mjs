@@ -442,7 +442,7 @@ test("v1 default basic AI tests migrate from 45s to 120s for local model latency
     ]
   });
 
-  assert.equal(config.version, 3);
+  assert.equal(config.version, 4);
   assert.equal(config.tests[0].timeout, 120);
   assert.equal(config.tests[1].timeout, 120);
 });
@@ -460,7 +460,7 @@ test("legacy default mouse click smoke test migrates to a mouse-look check witho
     }]
   });
 
-  assert.equal(migrated.version, 3);
+  assert.equal(migrated.version, 4);
   assert.equal(migrated.tests[0].name, "マウス視点");
   assert.match(migrated.tests[0].description, /視点変化/);
   assert.match(migrated.tests[0].expected, /マウスルック/);

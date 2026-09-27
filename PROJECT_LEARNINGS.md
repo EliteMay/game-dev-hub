@@ -284,3 +284,15 @@
 - Detection: Test結果の `agent.error`、turn数、action数、実行時間を合わせてProvider request failureとAgent logic failureを分離する。
 - Regression Guard: Custom runtime fetchがSDK側signalを置き換え、Hub signalのabortがunderlying fetchまで届くUnit Testを追加する。
 - Prevention: Third-party Agent SDKではAgent loop timeout / Provider request timeout / Product operation timeoutを別Boundaryとして確認し、User-configured timeoutが実際の最短停止条件になっているか実機Evidenceで検証する。
+
+
+## GL-028 — Agentのstatusだけでなく説明内容との整合性を検証する
+
+- Date: 2026-09-27
+- Type: AI Integration / Verification
+- Status: Adopted
+- Evidence: v0.1.22実機TestでWASDは実際にW入力まで到達しUser目視では移動したが、UI-TARSは `status=PASS` と返しながら `actual/reason` に「変化は見られない」と記録した。Mouse TestもUser目視では視点移動した一方、複数Click探索で120秒timeoutとなった。
+- Root Cause: HubがModelの機械可読 `status` を正として受け入れ、同じResult内のactual/reasonとの意味的矛盾を検証していなかった。またDefault Mouse Smoke TestがFPSのマウスルックではなくgeneric clickを要求していた。
+- Decision: 明確な否定表現を含むPASSはUNKNOWNへdowngradeする。Default Mouse Testは1回の小さなMouse Moveによる視点変化確認へ変更し、Fixed Testは最大3ターンへ制限する。
+- Regression Guard: Contradictory PASS normalization、legacy default mouse test migration、focused mouse-look promptをUnit Testで固定する。
+- Prevention: AI-generated verdictはstatus fieldだけをOracleにせず、Observation / Reason / Action log / Screenshot / Human Evidenceを相互照合する。

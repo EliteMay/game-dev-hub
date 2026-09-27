@@ -400,3 +400,43 @@ UI-TARSへ「対象Window名」は渡していたが、「HubがこのRunでWind
 - v0.1.21 Release workflow: PASS
 - `game_dev_hub_0.1.21_setup.exe` / blockmap / latest.yml の公開を確認
 - v0.1.21 Windows実機WASD再テスト: User環境で確認待ち
+
+
+---
+
+## v0.1.22 UI-TARS model request timeout fix
+
+### User実機Evidence
+
+v0.1.21 / Deep Factory fixed AI Test:
+
+- App version: 0.1.21
+- Game launch: PASS
+- WASD: UNKNOWN
+- Mouse: UNKNOWN
+- WASD agent: `status=error / turns=0 / actions=0 / Request timed out.`
+- Mouse agent: `status=error / turns=0 / actions=0 / Request timed out.`
+- WASD / Mouseとも開始から約37秒で終了
+- Hub設定のFixed Test timeoutは120秒
+
+### Root Cause
+
+`@ui-tars/sdk@1.2.3` のModel実装は、OpenAI互換の各Chat Completion Requestに30秒timeoutをhard-codeしている。Hubの120秒Test timeoutへ到達する前に初回Vision inferenceが停止していた。
+
+### 修正
+
+- UI-TARS Model configへHub管理のCustom fetchを接続
+- SDK内部の短いRequest AbortSignalをHubのeffective AbortSignalへ置換
+- Hub側120秒Test timeout / User stop / Emergency stopは維持
+- Model provider errorをUNKNOWN Resultのreasonへ直接保存
+- Runtime transport cancellation boundaryのRegression Testを追加
+- Requirements / Project Rules / Project Learningsを更新
+- Versionをv0.1.22へ更新
+
+### Validation
+
+- Unit / contract tests: PR CIで確認予定
+- Production runtime dependency verification: PR CIで確認予定
+- Windows installer build: PR CIで確認予定
+- updater artifact verification: PR CIで確認予定
+- Windows実機WASD / Mouse Computer Use: v0.1.22 Release後に確認

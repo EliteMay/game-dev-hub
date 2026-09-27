@@ -5,6 +5,28 @@ import { randomUUID } from "node:crypto";
 const BRIDGE_SCHEMA_VERSION = 1;
 const POLL_INTERVAL_MS = 80;
 
+export const DEFAULT_RUNTIME_TESTS = Object.freeze([
+  {
+    id: "game_launch",
+    name: "ゲーム起動 + Test Bridge",
+    description: "ゲームを起動し、対象WindowとGame内部Telemetryの準備を確認する",
+    expected: "対象Game WindowとRuntime Test Bridgeが利用可能になる"
+  },
+  {
+    id: "wasd_move",
+    name: "WASD移動",
+    description: "Wキーを短時間入力し、Game内部Player座標の変化を確認する",
+    expected: "Player positionが入力前後で変化する"
+  },
+  {
+    id: "mouse_look",
+    name: "マウス視点",
+    description: "マウスを右へ動かし、Game内部Camera角度の変化を確認する",
+    expected: "Camera yawまたはpitchが入力前後で変化する"
+  }
+]);
+
+
 function text(value, max = 500) {
   return String(value ?? "").trim().slice(0, max);
 }

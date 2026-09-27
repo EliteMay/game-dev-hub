@@ -365,15 +365,15 @@
             </article>
           </section>
 
-          <section class="auto-test-panel hidden" id="auto-test-panel" data-project-tab-panel="auto-test" aria-label="AI自動テスト">
+          <section class="auto-test-panel hidden" id="auto-test-panel" data-project-tab-panel="auto-test" aria-label="自動テスト">
             <div class="auto-test-header">
               <div>
-                <p class="section-kicker">Windows Computer Use</p>
-                <h3>AI自動テスト</h3>
-                <p>実際のゲーム.exeを起動し、UI-TARSが画面を見ながらゲームだけを操作します。</p>
+                <p class="section-kicker">Windows Runtime Test</p>
+                <h3>自動テスト</h3>
+                <p>Game Test Bridgeの内部状態を使ってWASD・マウス入力を機械判定します。AI操作は実験機能として残します。</p>
               </div>
               <button class="button button-danger" id="ai-test-emergency-stop" type="button">
-                AI操作を緊急停止
+                テストを停止
               </button>
             </div>
 
@@ -389,16 +389,16 @@
                 <p id="ai-test-exe-path">テスト対象.exeを選択してください。</p>
               </article>
               <article class="status-card">
-                <span>AI操作エンジン</span>
-                <strong id="ai-test-engine-label">UI-TARS</strong>
+                <span>通常テスト方式</span>
+                <strong id="ai-test-engine-label">Game Test Bridge</strong>
                 <p id="ai-test-last-run">まだ実行していません。</p>
               </article>
             </div>
 
             <div class="auto-test-primary-actions">
-              <button class="button button-primary button-large" id="ai-test-start" type="button">AIテスト開始</button>
-              <button class="button button-muted" id="ai-test-retest-failed" type="button">失敗項目を再テスト</button>
-              <button class="button button-muted" id="ai-test-exploration" type="button">AI探索テスト</button>
+              <button class="button button-primary button-large" id="ai-test-start" type="button">固定テスト開始</button>
+              <button class="button button-muted" id="ai-test-retest-failed" type="button">もう一度固定テスト</button>
+              <button class="button button-muted" id="ai-test-exploration" type="button">実験: AI探索テスト</button>
             </div>
 
             <section class="ai-test-progress-card" aria-live="polite">
@@ -406,7 +406,7 @@
                 <strong id="ai-test-progress-count">待機中</strong>
                 <span id="ai-test-progress-elapsed">00:00</span>
               </div>
-              <h4 id="ai-test-progress-title">AIテストは停止しています</h4>
+              <h4 id="ai-test-progress-title">自動テストは停止しています</h4>
               <p id="ai-test-progress-state">設定と診断を確認してから開始してください。</p>
               <code id="ai-test-progress-action">操作: -</code>
               <p class="ai-test-safety-note" id="ai-test-safety-note">
@@ -414,8 +414,8 @@
               </p>
             </section>
 
-            <details class="ai-test-settings" open>
-              <summary>プロジェクトごとの自動テスト設定</summary>
+            <details class="ai-test-settings">
+              <summary>高度な設定 / 実験機能: AI操作</summary>
               <div class="ai-test-settings-grid">
                 <label class="field">
                   <span>テスト起動対象</span>
@@ -479,7 +479,7 @@
                 <textarea id="ai-test-definitions" rows="12" spellcheck="false"></textarea>
               </label>
               <p class="dialog-note">
-                ScreenshotはGame Dev Hubの安全なApp Data内へ自動保存します。各テストは id / name / description / expected / timeout / enabled を持ち、画面だけで判断できない場合はUNKNOWNになります。
+                固定テストの判定はGame内部TelemetryをPrimaryにし、Screenshotは補助Evidenceとして保存します。下のUI-TARS設定はAI探索テスト用の実験機能です。
               </p>
               <div class="dialog-actions ai-test-config-actions">
                 <button class="button button-muted" id="ai-test-diagnostics-button" type="button">自動テスト診断</button>
@@ -491,7 +491,7 @@
               <div class="dev-panel-heading">
                 <div>
                   <p class="section-kicker">環境確認</p>
-                  <h3>自動テスト診断</h3>
+                  <h3>AI操作診断</h3>
                 </div>
               </div>
               <div class="ai-test-diagnostic-list" id="ai-test-diagnostic-list"></div>
@@ -507,7 +507,7 @@
                 <span class="dev-badge" id="ai-test-summary">未実行</span>
               </div>
               <div class="ai-test-result-list" id="ai-test-result-list"></div>
-              <p class="dev-empty" id="ai-test-result-empty">まだAI自動テスト結果はありません。</p>
+              <p class="dev-empty" id="ai-test-result-empty">まだ自動テスト結果はありません。</p>
             </section>
 
             <section class="ai-test-history">

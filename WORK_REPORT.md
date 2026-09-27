@@ -435,8 +435,13 @@ v0.1.21 / Deep Factory fixed AI Test:
 
 ### Validation
 
-- Unit / contract tests: PR CIで確認予定
-- Production runtime dependency verification: PR CIで確認予定
-- Windows installer build: PR CIで確認予定
-- updater artifact verification: PR CIで確認予定
-- Windows実機WASD / Mouse Computer Use: v0.1.22 Release後に確認
+- PR #28 CI: PASS
+- Unit / contract tests: PASS
+- Production runtime dependency verification: PASS
+- Windows installer build: PASS
+- updater artifact verification: PASS
+- PR #28をmainへsquash merge済み（`91e4f6586b1841e3657e2ae148e6d4fe7156c1d5`）
+- v0.1.22 main CI: PASS
+- v0.1.22 Release workflow: PASS
+- `game_dev_hub_0.1.22_setup.exe` / blockmap / latest.yml の公開を確認
+- Windows実機WASD / Mouse Computer Use: v0.1.22でUser環境確認待ち

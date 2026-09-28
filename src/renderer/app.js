@@ -98,6 +98,9 @@ const el = {
   foundationCreateForm: document.querySelector("#foundation-create-form"),
   foundationGameNameInput: document.querySelector("#foundation-game-name-input"),
   foundationRepositoryUrlInput: document.querySelector("#foundation-repository-url-input"),
+  foundationProfileSelect: document.querySelector("#foundation-profile-select"),
+  foundationProfileDescription: document.querySelector("#foundation-profile-description"),
+  foundationCreateSubmit: document.querySelector("#foundation-create-submit-button"),
   foundationCreateError: document.querySelector("#foundation-create-error"),
   addDialog: document.querySelector("#add-dialog"),
   addDialogClose: document.querySelector("#add-dialog-close-button"),
@@ -2167,17 +2170,95 @@ el.refresh.addEventListener("click", () => runAction("状態更新", async () =>
 
 el.godot.addEventListener("click", () => runAction("Godot設定", () => api.chooseGodot()));
 
+function selectedFoundationProfile() {
+  const profileId = el.foundationProfileSelect?.value || "";
+  return el.foundationProfileSelect?._profiles?.find((item) => item.id === profileId) || null;
+}
+
+function renderFoundationProfileDescription() {
+  const profile = selectedFoundationProfile();
+  if (!el.foundationProfileDescription) return;
+
+  if (!profile) {
+    el.foundationProfileDescription.textContent =
+      "利用できるStarter構成をFoundation最新版から確認します。";
+    return;
+  }
+
+  el.foundationProfileDescription.textContent =
+    profile.description || profile.label || profile.id;
+}
+
+async function loadFoundationProfiles() {
+  el.foundationProfileSelect.replaceChildren();
+  const loadingOption = document.createElement("option");
+  loadingOption.value = "";
+  loadingOption.textContent = "Foundationから取得中…";
+  el.foundationProfileSelect.append(loadingOption);
+  el.foundationProfileSelect.disabled = true;
+  el.foundationCreateSubmit.disabled = true;
+  el.foundationProfileDescription.textContent =
+    "利用できるStarter構成をFoundation最新版から確認します。";
+
+  try {
+    const result = await api.getFoundationProfiles();
+    if (!result?.ok) {
+      throw new Error(result?.message || "Starter構成を取得できませんでした。");
+    }
+
+    const profiles = (result.profiles || []).filter((item) => item.selectable !== false);
+    if (!profiles.length) {
+      throw new Error("現在選択できるStarter構成がありません。");
+    }
+
+    el.foundationProfileSelect.replaceChildren();
+    el.foundationProfileSelect._profiles = profiles;
+
+    for (const profile of profiles) {
+      const option = document.createElement("option");
+      option.value = profile.id;
+      option.textContent = profile.label || profile.id;
+      el.foundationProfileSelect.append(option);
+    }
+
+    const hasDefault = profiles.some((item) => item.id === result.defaultProfile);
+    el.foundationProfileSelect.value = hasDefault
+      ? result.defaultProfile
+      : profiles[0].id;
+    el.foundationProfileSelect.disabled = false;
+    el.foundationCreateSubmit.disabled = false;
+    renderFoundationProfileDescription();
+    return true;
+  } catch (error) {
+    el.foundationProfileSelect._profiles = [];
+    el.foundationProfileSelect.replaceChildren();
+    const errorOption = document.createElement("option");
+    errorOption.value = "";
+    errorOption.textContent = "Starter構成を取得できません";
+    el.foundationProfileSelect.append(errorOption);
+    el.foundationCreateError.textContent =
+      String(error?.message || error || "Starter構成を取得できませんでした。");
+    el.foundationCreateError.classList.remove("hidden");
+    el.foundationProfileDescription.textContent =
+      "ネット接続とGodot Game Foundationの状態を確認してください。";
+    return false;
+  }
+}
+
 el.createFoundationProject.addEventListener("click", () => {
   el.foundationGameNameInput.value = "";
   el.foundationRepositoryUrlInput.value = "";
+  el.foundationProfileSelect._profiles = [];
   el.foundationCreateError.textContent = "";
   el.foundationCreateError.classList.add("hidden");
   el.foundationCreateDialog.showModal();
   el.foundationGameNameInput.focus();
+  void loadFoundationProfiles();
 });
 
 el.foundationCreateClose.addEventListener("click", () => closeDialog(el.foundationCreateDialog));
 el.foundationCreateCancel.addEventListener("click", () => closeDialog(el.foundationCreateDialog));
+el.foundationProfileSelect.addEventListener("change", renderFoundationProfileDescription);
 
 el.foundationCreateForm.addEventListener("submit", async (event) => {
   const submitter = event.submitter;
@@ -2191,7 +2272,8 @@ el.foundationCreateForm.addEventListener("submit", async (event) => {
     "Foundation付きゲーム作成",
     () => api.createFoundationProject({
       name: el.foundationGameNameInput.value,
-      repositoryUrl: el.foundationRepositoryUrlInput.value
+      repositoryUrl: el.foundationRepositoryUrlInput.value,
+      profileId: el.foundationProfileSelect.value
     })
   );
 

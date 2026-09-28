@@ -85,7 +85,9 @@ Primary Taskは「ゲームを選んで開発を開始する」。
 
 - Godot共通基盤のSource of Truthは `EliteMay/godot-game-foundation` とする。
 - HubはFoundation Repositoryの `foundation-template.json` をValidationしてから利用する。
-- 生成Gameの `.game-foundation.json` はFoundation Version / Commit / Managed Pathを記録するIntegration Metadataであり、Game固有仕様のSource of Truthにしない。
+- 生成Gameの `.game-foundation.json` はFoundation Version / Commit / Managed Path / Starter Profileを記録するIntegration Metadataであり、Game固有仕様のSource of Truthにしない。
+- Starter Profile一覧・Label・選択可否・Profile固有File SetはFoundation ManifestをSource of Truthとし、HubへProfile内容を固定複製しない。
+- Profile未記録の既存Installation Metadataは互換上 `minimal` として扱い、Foundation更新でも導入Profileを保持する。
 - Foundation更新は `.game-foundation.json` と最新ManifestのManaged Pathが一致する時だけ実行する。
 - 現在Hubが自動更新してよいGame Repository内Pathは `addons/game_foundation/` だけ。
 - Foundation更新でGame固有の `project.godot`、Roadmap、Scene、Script、Data、Assetを自動上書きしない。

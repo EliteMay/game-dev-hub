@@ -560,6 +560,22 @@
       </div>
 
       <label class="field">
+        <span>開始構成</span>
+        <select
+          id="foundation-profile-select"
+          name="foundationProfile"
+          required
+          aria-describedby="foundation-profile-description"
+          disabled
+        >
+          <option value="">Foundationから取得中…</option>
+        </select>
+        <small class="field-help" id="foundation-profile-description">
+          利用できるStarter構成をFoundation最新版から確認します。
+        </small>
+      </label>
+
+      <label class="field">
         <span>ゲーム名</span>
         <input
           id="foundation-game-name-input"

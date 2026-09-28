@@ -7,7 +7,9 @@ import test from "node:test";
 import {
   FOUNDATION_INSTALLATION_FILE,
   applyFoundationTemplate,
+  foundationProfileCatalog,
   inspectFoundationInstallation,
+  resolveFoundationProfile,
   updateManagedFoundationFromSource,
   validateFoundationManifest
 } from "../src/services/foundation-template.mjs";
@@ -40,8 +42,44 @@ function manifest(version = "1.0.0") {
       "{{GAME_NAME_GODOT}}",
       "{{GAME_SLUG}}",
       "{{FOUNDATION_VERSION}}"
+    ],
+    defaultProfile: "minimal",
+    starterProfiles: [
+      {
+        id: "minimal",
+        label: "最小構成",
+        description: "既存互換Starter",
+        selectable: true,
+        capabilities: ["integrated_foundation_runtime"]
+      },
+      {
+        id: "standard",
+        label: "標準構成",
+        description: "共通Shell付きStarter",
+        selectable: true,
+        capabilities: ["application_shell", "recovery_screen_contract"],
+        starterFiles: [
+          {
+            source: "starter/standard/project.godot.template",
+            target: "project.godot",
+            tokens: true
+          },
+          {
+            source: "starter/docs/ROADMAP.md.template",
+            target: "docs/ROADMAP.md",
+            tokens: true
+          }
+        ]
+      }
     ]
   };
+}
+
+function legacyManifest(version = "1.0.0") {
+  const value = manifest(version);
+  delete value.defaultProfile;
+  delete value.starterProfiles;
+  return value;
 }
 
 async function fixture() {
@@ -50,12 +88,18 @@ async function fixture() {
   const targetRoot = path.join(root, "target");
 
   await fs.mkdir(path.join(sourceRoot, "starter", "docs"), { recursive: true });
+  await fs.mkdir(path.join(sourceRoot, "starter", "standard"), { recursive: true });
   await fs.mkdir(path.join(sourceRoot, "addons", "game_foundation"), { recursive: true });
   await fs.mkdir(targetRoot, { recursive: true });
 
   await fs.writeFile(
     path.join(sourceRoot, "starter", "project.godot.template"),
-    'config/name="{{GAME_NAME_GODOT}}"\nfoundation="{{FOUNDATION_VERSION}}"\n',
+    'config/name="{{GAME_NAME_GODOT}}"\nprofile="minimal"\nfoundation="{{FOUNDATION_VERSION}}"\n',
+    "utf8"
+  );
+  await fs.writeFile(
+    path.join(sourceRoot, "starter", "standard", "project.godot.template"),
+    'config/name="{{GAME_NAME_GODOT}}"\nprofile="standard"\nfoundation="{{FOUNDATION_VERSION}}"\n',
     "utf8"
   );
   await fs.writeFile(
@@ -82,14 +126,43 @@ async function fixture() {
 test("foundation manifest rejects paths outside managed contract", () => {
   const invalid = manifest();
   invalid.starterFiles[0].target = "../project.godot";
-  assert.throws(() => validateFoundationManifest(invalid), /Starter File|Path/);
+  assert.throws(() => validateFoundationManifest(invalid), /Starter|Path/);
 
   const expanded = manifest();
   expanded.managedPaths = ["addons/game_foundation", "scripts"];
   assert.throws(() => validateFoundationManifest(expanded), /管理Path/);
 });
 
-test("starter generation expands tokens and writes installation metadata", async () => {
+test("foundation manifest validates starter profile contract", () => {
+  const value = manifest();
+  assert.equal(validateFoundationManifest(value), value);
+
+  const duplicate = manifest();
+  duplicate.starterProfiles[1].id = "minimal";
+  assert.throws(() => validateFoundationManifest(duplicate), /重複/);
+
+  const unknownDefault = manifest();
+  unknownDefault.defaultProfile = "missing";
+  assert.throws(() => validateFoundationManifest(unknownDefault), /既定Starter構成/);
+
+  const unsafeProfile = manifest();
+  unsafeProfile.starterProfiles[1].starterFiles[0].source = "../outside.template";
+  assert.throws(() => validateFoundationManifest(unsafeProfile), /Starter構成|正しく/);
+});
+
+test("profile catalog exposes safe selectable metadata without file paths", () => {
+  const catalog = foundationProfileCatalog(manifest());
+  assert.equal(catalog.defaultProfile, "minimal");
+  assert.deepEqual(catalog.profiles.map((item) => item.id), ["minimal", "standard"]);
+  assert.equal(catalog.profiles[1].label, "標準構成");
+  assert.equal("starterFiles" in catalog.profiles[1], false);
+
+  const standard = resolveFoundationProfile(manifest(), "standard");
+  assert.equal(standard.id, "standard");
+  assert.equal(standard.starterFiles[0].source, "starter/standard/project.godot.template");
+});
+
+test("default starter generation remains minimal and writes profile metadata", async () => {
   const f = await fixture();
   try {
     const metadata = await applyFoundationTemplate({
@@ -104,36 +177,121 @@ test("starter generation expands tokens and writes installation metadata", async
 
     assert.equal(metadata.foundationVersion, "1.0.0");
     assert.equal(metadata.foundationCommit, commitA);
+    assert.equal(metadata.starterProfile, "minimal");
 
     const project = await fs.readFile(path.join(f.targetRoot, "project.godot"), "utf8");
     assert.match(project, /config\/name="My \\"Game\\""/);
+    assert.match(project, /profile="minimal"/);
     assert.match(project, /foundation="1\.0\.0"/);
 
     const roadmap = await fs.readFile(path.join(f.targetRoot, "docs", "ROADMAP.md"), "utf8");
     assert.match(roadmap, /# My "Game"/);
     assert.match(roadmap, /EliteMay\/my-game/);
 
-    assert.equal(
-      await fs.readFile(path.join(f.targetRoot, "addons", "game_foundation", "foundation.gd"), "utf8"),
-      'const FOUNDATION_VERSION = "1.0.0"\n'
-    );
-
     const installed = JSON.parse(
       await fs.readFile(path.join(f.targetRoot, FOUNDATION_INSTALLATION_FILE), "utf8")
     );
+    assert.equal(installed.starterProfile, "minimal");
     assert.deepEqual(installed.managedPaths, ["addons/game_foundation"]);
-    assert.equal(installed.installedAt, "2026-09-25T00:00:00.000Z");
 
     const inspection = await inspectFoundationInstallation(f.targetRoot);
     assert.equal(inspection.installed, true);
     assert.equal(inspection.valid, true);
     assert.equal(inspection.version, "1.0.0");
+    assert.equal(inspection.profile, "minimal");
   } finally {
     await f.cleanup();
   }
 });
 
-test("foundation update changes only managed path and metadata", async () => {
+test("standard starter uses profile-specific files and persists selection", async () => {
+  const f = await fixture();
+  try {
+    const metadata = await applyFoundationTemplate({
+      sourceRoot: f.sourceRoot,
+      targetRoot: f.targetRoot,
+      manifest: manifest(),
+      gameName: "Standard Game",
+      repositorySlug: "EliteMay/standard-game",
+      foundationCommit: commitA,
+      profileId: "standard",
+      installedAt: "2026-09-25T00:00:00.000Z"
+    });
+
+    assert.equal(metadata.starterProfile, "standard");
+    const project = await fs.readFile(path.join(f.targetRoot, "project.godot"), "utf8");
+    assert.match(project, /profile="standard"/);
+    assert.doesNotMatch(project, /profile="minimal"/);
+
+    const inspection = await inspectFoundationInstallation(f.targetRoot);
+    assert.equal(inspection.profile, "standard");
+  } finally {
+    await f.cleanup();
+  }
+});
+
+test("unknown and unavailable starter profiles fail closed", async () => {
+  const f = await fixture();
+  try {
+    await assert.rejects(
+      applyFoundationTemplate({
+        sourceRoot: f.sourceRoot,
+        targetRoot: f.targetRoot,
+        manifest: manifest(),
+        gameName: "Unknown",
+        repositorySlug: "EliteMay/unknown",
+        foundationCommit: commitA,
+        profileId: "missing"
+      }),
+      /Starter構成/
+    );
+
+    const unavailable = manifest();
+    unavailable.starterProfiles[1].selectable = false;
+    await assert.rejects(
+      applyFoundationTemplate({
+        sourceRoot: f.sourceRoot,
+        targetRoot: f.targetRoot,
+        manifest: unavailable,
+        gameName: "Unavailable",
+        repositorySlug: "EliteMay/unavailable",
+        foundationCommit: commitA,
+        profileId: "standard"
+      }),
+      /利用できません/
+    );
+  } finally {
+    await f.cleanup();
+  }
+});
+
+test("legacy manifest and installation metadata remain minimal-compatible", async () => {
+  const f = await fixture();
+  try {
+    const metadata = await applyFoundationTemplate({
+      sourceRoot: f.sourceRoot,
+      targetRoot: f.targetRoot,
+      manifest: legacyManifest(),
+      gameName: "Legacy Game",
+      repositorySlug: "EliteMay/legacy-game",
+      foundationCommit: commitA
+    });
+    assert.equal(metadata.starterProfile, "minimal");
+
+    const metadataPath = path.join(f.targetRoot, FOUNDATION_INSTALLATION_FILE);
+    const installed = JSON.parse(await fs.readFile(metadataPath, "utf8"));
+    delete installed.starterProfile;
+    await fs.writeFile(metadataPath, JSON.stringify(installed, null, 2) + "\n", "utf8");
+
+    const inspection = await inspectFoundationInstallation(f.targetRoot);
+    assert.equal(inspection.valid, true);
+    assert.equal(inspection.profile, "minimal");
+  } finally {
+    await f.cleanup();
+  }
+});
+
+test("foundation update changes only managed path and preserves starter profile", async () => {
   const f = await fixture();
   try {
     await applyFoundationTemplate({
@@ -143,6 +301,7 @@ test("foundation update changes only managed path and metadata", async () => {
       gameName: "My Game",
       repositorySlug: "EliteMay/my-game",
       foundationCommit: commitA,
+      profileId: "standard",
       installedAt: "2026-09-25T00:00:00.000Z"
     });
 
@@ -166,6 +325,7 @@ test("foundation update changes only managed path and metadata", async () => {
 
     assert.equal(updated.changed, true);
     assert.equal(updated.metadata.foundationVersion, "1.1.0");
+    assert.equal(updated.metadata.starterProfile, "standard");
     assert.equal(
       await fs.readFile(path.join(f.targetRoot, "addons", "game_foundation", "foundation.gd"), "utf8"),
       'const FOUNDATION_VERSION = "1.1.0"\n'
@@ -182,6 +342,7 @@ test("foundation update changes only managed path and metadata", async () => {
     const inspection = await inspectFoundationInstallation(f.targetRoot);
     assert.equal(inspection.version, "1.1.0");
     assert.equal(inspection.commit, commitB);
+    assert.equal(inspection.profile, "standard");
   } finally {
     await f.cleanup();
   }

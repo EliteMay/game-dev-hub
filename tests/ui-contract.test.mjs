@@ -202,21 +202,30 @@ test("completed user verification tasks are not shown as actionable re-checks", 
   assert.match(mainSource, /!item\.doneInRoadmap && item\.result\?\.overall === "stale"/);
 });
 
-test("Foundation starter flow is explicit and preserves required-field cancel recovery", async () => {
+test("Foundation starter flow loads selectable profiles and preserves required-field cancel recovery", async () => {
   const html = await fs.readFile(new URL("src/renderer/index.html", root), "utf8");
   const source = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
+  const preload = await fs.readFile(new URL("src/preload.cjs", root), "utf8");
+  const mainSource = await fs.readFile(new URL("src/main.mjs", root), "utf8");
 
   assert.match(html, /id="create-foundation-project-button"/);
   assert.match(html, /id="foundation-create-dialog"/);
+  assert.match(html, /id="foundation-profile-select"[^>]*required/);
+  assert.match(html, /id="foundation-profile-description"/);
   assert.match(html, /id="foundation-game-name-input"[^>]*required/);
   assert.match(html, /id="foundation-repository-url-input"[^>]*required/);
   assert.match(html, /id="foundation-create-close-button"[^>]*type="button"/);
   assert.match(html, /id="foundation-create-cancel-button"[^>]*type="button"/);
   assert.match(html, /Fileのない空Repository/);
   assert.match(html, /既存FileがあるRepositoryは上書きせず停止/);
-  assert.match(source, /createFoundationProject/);
+  assert.match(source, /getFoundationProfiles/);
+  assert.match(source, /loadFoundationProfiles/);
+  assert.match(source, /profileId: el\.foundationProfileSelect\.value/);
   assert.match(source, /foundationCreateError/);
   assert.match(source, /Foundation付きゲーム作成/);
+  assert.match(preload, /hub:get-foundation-profiles/);
+  assert.match(mainSource, /getFoundationProfileCatalog/);
+  assert.match(mainSource, /hub:get-foundation-profiles/);
 });
 
 test("selected game shows installed Foundation version and explicit update action", async () => {

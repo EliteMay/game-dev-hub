@@ -576,3 +576,68 @@ RendererのFoundation status表示が `.game-foundation.json` のinstalled state
 ### 未確認
 
 - v0.1.25のWindows実画面でFoundation本体表示を最終確認
+
+---
+
+## v0.1.26 Foundation Starter Profile Selection
+
+### 目的
+
+Godot Game Foundation Phase 17で追加したStarter Profile ContractをGame Dev Hubへ接続し、新規Game作成時に既存互換の最小構成とGame-readyな標準構成を安全に選べるようにする。
+
+### Cross-Repository Foundation
+
+- Godot Game Foundation PR #33
+- Foundation main commit: `445f5e86d3940210dfeb6c82dee1f93442097f0d`
+- `minimal` / `standard` の両StarterをFoundation CIでmaterialize / import / Main Scene / Integration Smoke済み
+- Foundation Windows Build PASS
+
+### 実装
+
+- `foundation-template.mjs`
+  - Manifest Profile validation
+  - Manifest未対応旧形式のimplicit `minimal` fallback
+  - Profile Catalogの安全なRenderer向けProjection
+  - User選択Profileのfail-closed解決
+  - Profile固有 `starterFiles` materialization
+  - Installation Metadataへ `starterProfile`
+  - 旧Metadataの `minimal` compatibility
+  - Foundation Update時のProfile保持
+- Main / Preload
+  - Foundation最新版からProfile一覧を取得する専用IPC
+  - Create requestへ選択Profile IDを追加
+  - RendererへFilesystem / Shell等の汎用Capabilityは追加しない
+- Renderer
+  - 新規Game Dialogへ「開始構成」を追加
+  - ManifestでselectableなProfileだけ表示
+  - Foundation取得中は作成Buttonを無効化
+  - Profile説明を選択に追従
+  - Profile取得失敗時は作成を停止して理由を表示
+  - Foundation導入状態へProfile IDを表示
+- Version
+  - Game Dev Hub `0.1.26`
+
+### Compatibility / Safety
+
+- Existing root `starterFiles` は `minimal` として互換維持
+- 旧 `.game-foundation.json` にProfileが無い場合は `minimal`
+- Foundation更新対象は引き続き `addons/game_foundation` のみ
+- Starter作成は既存どおりFileのない空Repository限定
+- Profile固有Scene / Scriptは初回生成だけで、Foundation更新時に上書きしない
+
+### Validation
+
+- Foundation Profile Unit / Regression Testを追加
+- UI Contract TestへProfile selector / IPC / payloadを追加
+- PR #39 初回CI: 110/111 PASS
+  - Updater Contractだけが旧Version `0.1.25` 固定のままでFAIL
+  - `0.1.26`へ同期して修正
+- PR #39 修正後 Node Test: 111/111 PASS
+- Production runtime dependency verification: PASS
+- Windows installer build: PASS
+- Updater artifact verification: PASS
+- Installer artifact upload: PASS
+- Dependency Review: PASS（Dependency graph unavailable時はlatest shared security baselineにより安全にskip）
+- CodeQL: PASS
+- Windows実機でのminimal / standard新規生成・起動はRelease後のUser確認対象
+

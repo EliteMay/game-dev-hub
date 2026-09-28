@@ -254,10 +254,11 @@ v0.1は、Windows実機で次を確認して初めて完成扱いとする。
 
 ```text
 Foundationから新しいゲームを作る
+→ Godot Game Foundation最新版から選択可能なStarter構成を取得
+→ 最小構成 / 標準構成などManifestで許可されたProfileを選択
 → ゲーム名 + 空のGitHub Repository URL
 → GitHub Repositoryが空であることを確認
-→ Godot Game Foundation最新版を取得
-→ Starter + Managed Foundationを生成
+→ 選択ProfileのStarter + Managed Foundationを生成
 → Initial Commit / Push
 → Hubへ登録
 → Godotで開発開始
@@ -279,6 +280,8 @@ Foundation導入済みGameを選択
 
 - Foundation Source of Truthは `EliteMay/godot-game-foundation`
 - 配布ContractはFoundation Repositoryの `foundation-template.json`
+- Starter Profile一覧・既定Profile・Profile固有File SetはManifestをSource of Truthとし、Hub側へ固定複製しない
+- 選択Profileは `.game-foundation.json` へ記録し、旧MetadataにProfileが無い場合は既存互換の `minimal` として扱う
 - 生成先GitHub Repositoryは既存Fileのない空Repositoryに限定する
 - HubからGitHub Repositoryそのものを新規作成するためのTokenは保持しない
 - Foundation更新対象はManifestで許可されたManaged Pathだけ
@@ -290,6 +293,7 @@ Foundation導入済みGameを選択
 ### Completion
 
 - Starter生成のPure Logic Testが通る
+- `minimal` / `standard`等、選択可能Profileの解決・生成・Metadata保持Regression Testが通る
 - Foundation Version / CommitをHub上で確認できる
 - Managed Pathだけ更新されるRegression Testが通る
 - Existing FileをStarter生成で上書きしない

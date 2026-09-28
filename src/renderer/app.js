@@ -1303,6 +1303,7 @@ function renderDetail() {
     el.foundationValue.textContent = "v" + foundation.version;
     el.foundationDescription.textContent =
       "導入Commit " + String(foundation.commit || "").slice(0, 8) +
+      " / 構成: " + String(foundation.profile || "minimal") +
       " / 更新対象: addons/game_foundation";
     el.foundationUpdate.classList.remove("hidden");
     el.foundationUpdate.disabled =

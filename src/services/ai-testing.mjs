@@ -1033,7 +1033,7 @@ export async function waitForRuntimeTestBridgeState(
       const payload = JSON.parse(raw);
       const sequence = Number(payload?.sequence || 0);
       if (
-        payload?.schemaVersion === 1 &&
+        [1, 2].includes(Number(payload?.schemaVersion || 0)) &&
         String(payload?.sessionId || "") === expectedSession &&
         sequence > Number(afterSequence || 0) &&
         payload?.state &&
@@ -1513,4 +1513,11 @@ export async function latestAiTestReport(dataRoot, projectId) {
   const history = await listAiTestHistory(dataRoot, projectId, 1);
   if (!history.length) return null;
   return loadAiTestReport(dataRoot, projectId, history[0].testRunId);
+}
+
+export async function latestRuntimeBridgeReport(dataRoot, projectId) {
+  const history = await listAiTestHistory(dataRoot, projectId, MAX_HISTORY);
+  const match = history.find((item) => item.engine === "Runtime Test Bridge");
+  if (!match) return null;
+  return loadAiTestReport(dataRoot, projectId, match.testRunId);
 }

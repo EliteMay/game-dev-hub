@@ -23,6 +23,7 @@ import { detectGodot, inspectSelectedGodot, openGodotEditor, runGodotProject } f
 import { addProject, loadProjects, removeProject, saveProjects } from "./services/project-registry.mjs";
 import {
   bootstrapFoundationProject,
+  getFoundationProfileCatalog,
   inspectFoundationInstallation,
   updateProjectFoundation as updateManagedFoundationProject
 } from "./services/foundation-template.mjs";
@@ -306,6 +307,7 @@ function safeError(error) {
 const LOGGED_IPC_CHANNELS = new Set([
   "hub:choose-godot",
   "hub:add-github-project",
+  "hub:get-foundation-profiles",
   "hub:create-foundation-project",
   "hub:update-project-foundation",
   "hub:import-existing-project",
@@ -1512,6 +1514,15 @@ async function addGitHubProject(payload) {
   };
 }
 
+async function getFoundationProfiles() {
+  requireNetwork();
+  const catalog = await getFoundationProfileCatalog(appDataRoot());
+  return {
+    ok: true,
+    ...catalog
+  };
+}
+
 async function createFoundationProject(payload) {
   requireNetwork();
 
@@ -1545,7 +1556,11 @@ async function createFoundationProject(payload) {
     engine: "godot"
   });
 
-  const generated = await bootstrapFoundationProject(project, appDataRoot());
+  const generated = await bootstrapFoundationProject(
+    project,
+    appDataRoot(),
+    String(payload.profileId || "")
+  );
 
   await addProject(
     appDataRoot(),
@@ -2605,6 +2620,7 @@ if (!singleInstanceLock) {
     registerIpc("hub:get-state", getState);
     registerIpc("hub:choose-godot", chooseGodot);
     registerIpc("hub:add-github-project", addGitHubProject);
+    registerIpc("hub:get-foundation-profiles", getFoundationProfiles);
     registerIpc("hub:create-foundation-project", createFoundationProject);
     registerIpc("hub:update-project-foundation", updateSelectedFoundation);
     registerIpc("hub:import-existing-project", importExistingProject);

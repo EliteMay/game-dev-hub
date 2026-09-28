@@ -1,5 +1,18 @@
 # Game Dev Hub
 
+## v0.1.26 Foundation Starter Profile Selection
+
+新しいGodot Gameを作る時に、Foundation最新版が公開しているStarter構成をGame Dev Hubから選べるようにします。
+
+- 作成ダイアログでFoundation最新版のProfile一覧を取得
+- `最小構成` — 既存Starter互換
+- `標準構成` — Main Menu / Loading / Recovery等を初期配線したGame-ready Starter
+- Profile一覧・既定値・説明は `godot-game-foundation/foundation-template.json` をSource of Truthにする
+- 選択Profileを `.game-foundation.json` へ保存
+- 旧MetadataにProfileが無いGameは `minimal` として互換読込
+- Foundation更新時も導入時Profileを保持し、Game固有Scene / Scriptを上書きしない
+- 選択済みGameのFoundation状態へ導入Profile IDを表示
+
 ## v0.1.25 Foundation Source Status Clarification
 
 `EliteMay/godot-game-foundation` 自体をGame Dev Hubへ登録した時に、通常Gameと同じ「Game Foundation 未導入」と表示されていたUIを修正します。

@@ -18,6 +18,93 @@ function safeRelativePath(value) {
   return normalized === value && !normalized.startsWith("../") && normalized !== "..";
 }
 
+const FOUNDATION_PROFILE_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
+
+function validateStarterFiles(files, label = "Starter") {
+  if (!Array.isArray(files) || files.length === 0) {
+    throw new HubError("FOUNDATION_STARTER_FILES_INVALID", label + " File一覧がありません。");
+  }
+
+  const targets = new Set();
+  for (const item of files) {
+    if (!item || typeof item !== "object" || Array.isArray(item) ||
+        !safeRelativePath(item.source) ||
+        !safeRelativePath(item.target) ||
+        !item.source.startsWith("starter/")) {
+      throw new HubError("FOUNDATION_STARTER_FILE_INVALID", label + " File指定が正しくありません。");
+    }
+
+    if (item.target === FOUNDATION_INSTALLATION_FILE || item.target.startsWith(".git/")) {
+      throw new HubError("FOUNDATION_STARTER_TARGET_INVALID", label + "の出力先が予約領域と競合しています。");
+    }
+
+    if (targets.has(item.target)) {
+      throw new HubError("FOUNDATION_STARTER_TARGET_DUPLICATE", label + "の出力先が重複しています。");
+    }
+    targets.add(item.target);
+  }
+
+  return files;
+}
+
+function normalizedProfiles(manifest) {
+  if (!Array.isArray(manifest.starterProfiles) || manifest.starterProfiles.length === 0) {
+    return [{
+      id: "minimal",
+      label: "最小構成",
+      description: "Foundationの既存互換Starter。",
+      selectable: true,
+      capabilities: [],
+      starterFiles: manifest.starterFiles
+    }];
+  }
+
+  return manifest.starterProfiles.map((profile) => ({
+    id: profile.id,
+    label: profile.label,
+    description: profile.description || "",
+    selectable: profile.selectable !== false,
+    capabilities: [...(profile.capabilities || [])],
+    starterFiles: profile.starterFiles || manifest.starterFiles
+  }));
+}
+
+export function foundationProfileCatalog(manifest) {
+  validateFoundationManifest(manifest);
+  const profiles = normalizedProfiles(manifest);
+  const defaultProfile = typeof manifest.defaultProfile === "string" && manifest.defaultProfile
+    ? manifest.defaultProfile
+    : "minimal";
+
+  return {
+    foundationVersion: manifest.foundationVersion,
+    defaultProfile,
+    profiles: profiles.map(({ starterFiles: _starterFiles, ...profile }) => ({ ...profile }))
+  };
+}
+
+export function resolveFoundationProfile(manifest, requestedProfileId = "") {
+  validateFoundationManifest(manifest);
+  const profiles = normalizedProfiles(manifest);
+  const defaultProfile = typeof manifest.defaultProfile === "string" && manifest.defaultProfile
+    ? manifest.defaultProfile
+    : "minimal";
+  const profileId = String(requestedProfileId || defaultProfile).trim();
+  const profile = profiles.find((item) => item.id === profileId);
+
+  if (!profile) {
+    throw new HubError("FOUNDATION_PROFILE_UNKNOWN", "選択したStarter構成がFoundationにありません。");
+  }
+  if (!profile.selectable) {
+    throw new HubError("FOUNDATION_PROFILE_UNAVAILABLE", "選択したStarter構成は現在利用できません。");
+  }
+
+  return {
+    ...profile,
+    starterFiles: profile.starterFiles.map((item) => ({ ...item }))
+  };
+}
+
 function inside(root, relativePath) {
   if (!safeRelativePath(relativePath)) {
     throw new HubError("FOUNDATION_PATH_INVALID", "Foundation Manifestに安全でないPathがあります。");
@@ -82,27 +169,44 @@ export function validateFoundationManifest(manifest) {
     throw new HubError("FOUNDATION_GODOT_BASELINE_INVALID", "FoundationのGodot Versionが正しくありません。");
   }
 
-  if (!Array.isArray(manifest.starterFiles) || manifest.starterFiles.length === 0) {
-    throw new HubError("FOUNDATION_STARTER_FILES_INVALID", "Starter File一覧がありません。");
-  }
+  validateStarterFiles(manifest.starterFiles);
 
-  const targets = new Set();
-  for (const item of manifest.starterFiles) {
-    if (!item || typeof item !== "object" ||
-        !safeRelativePath(item.source) ||
-        !safeRelativePath(item.target) ||
-        !item.source.startsWith("starter/")) {
-      throw new HubError("FOUNDATION_STARTER_FILE_INVALID", "Starter File指定が正しくありません。");
+  if (manifest.starterProfiles !== undefined) {
+    if (!Array.isArray(manifest.starterProfiles) || manifest.starterProfiles.length === 0) {
+      throw new HubError("FOUNDATION_PROFILES_INVALID", "Starter構成一覧が正しくありません。");
+    }
+    if (typeof manifest.defaultProfile !== "string" ||
+        !FOUNDATION_PROFILE_ID_PATTERN.test(manifest.defaultProfile)) {
+      throw new HubError("FOUNDATION_DEFAULT_PROFILE_INVALID", "既定Starter構成が正しくありません。");
     }
 
-    if (item.target === FOUNDATION_INSTALLATION_FILE || item.target.startsWith(".git/")) {
-      throw new HubError("FOUNDATION_STARTER_TARGET_INVALID", "Starterの出力先が予約領域と競合しています。");
+    const profileIds = new Set();
+    for (const profile of manifest.starterProfiles) {
+      if (!profile || typeof profile !== "object" || Array.isArray(profile) ||
+          !FOUNDATION_PROFILE_ID_PATTERN.test(String(profile.id || "")) ||
+          typeof profile.label !== "string" || !profile.label.trim() ||
+          (profile.description !== undefined && typeof profile.description !== "string") ||
+          (profile.selectable !== undefined && typeof profile.selectable !== "boolean") ||
+          !Array.isArray(profile.capabilities) ||
+          profile.capabilities.some((item) => typeof item !== "string" || !item.trim())) {
+        throw new HubError("FOUNDATION_PROFILE_INVALID", "Starter構成の定義が正しくありません。");
+      }
+      if (profileIds.has(profile.id)) {
+        throw new HubError("FOUNDATION_PROFILE_DUPLICATE", "Starter構成IDが重複しています。");
+      }
+      profileIds.add(profile.id);
+      if (profile.starterFiles !== undefined) {
+        validateStarterFiles(profile.starterFiles, "Starter構成");
+      }
     }
 
-    if (targets.has(item.target)) {
-      throw new HubError("FOUNDATION_STARTER_TARGET_DUPLICATE", "Starterの出力先が重複しています。");
+    if (!profileIds.has(manifest.defaultProfile)) {
+      throw new HubError("FOUNDATION_DEFAULT_PROFILE_UNKNOWN", "既定Starter構成が一覧にありません。");
     }
-    targets.add(item.target);
+    const defaultProfile = manifest.starterProfiles.find((profile) => profile.id === manifest.defaultProfile);
+    if (defaultProfile?.selectable === false) {
+      throw new HubError("FOUNDATION_DEFAULT_PROFILE_UNAVAILABLE", "既定Starter構成が利用不可になっています。");
+    }
   }
 
   if (!Array.isArray(manifest.managedPaths) ||
@@ -130,13 +234,19 @@ export async function readFoundationManifest(sourceRoot) {
   return validateFoundationManifest(parsed);
 }
 
-function installationFrom(manifest, foundationCommit, installedAt = new Date().toISOString()) {
+function installationFrom(
+  manifest,
+  foundationCommit,
+  installedAt = new Date().toISOString(),
+  starterProfile = "minimal"
+) {
   return {
     schemaVersion: FOUNDATION_INSTALLATION_SCHEMA_VERSION,
     sourceRepository: manifest.sourceRepository,
     foundationVersion: manifest.foundationVersion,
     foundationCommit,
     managedPaths: [...manifest.managedPaths],
+    starterProfile,
     installedAt
   };
 }
@@ -156,7 +266,14 @@ function validateInstallation(value) {
     throw new HubError("FOUNDATION_INSTALLATION_INVALID", "Foundation導入情報が現在のContractと一致しません。");
   }
 
-  return value;
+  const starterProfile = value.starterProfile === undefined
+    ? "minimal"
+    : String(value.starterProfile || "");
+  if (!FOUNDATION_PROFILE_ID_PATTERN.test(starterProfile)) {
+    throw new HubError("FOUNDATION_INSTALLATION_INVALID", "Foundation導入Profileが正しくありません。");
+  }
+
+  return { ...value, starterProfile };
 }
 
 export async function inspectFoundationInstallation(projectRoot) {
@@ -180,6 +297,7 @@ export async function inspectFoundationInstallation(projectRoot) {
       commit: parsed.foundationCommit,
       managedPaths: [...parsed.managedPaths],
       sourceRepository: parsed.sourceRepository,
+      profile: parsed.starterProfile,
       installedAt: parsed.installedAt || ""
     };
   } catch (error) {
@@ -221,15 +339,17 @@ export async function applyFoundationTemplate({
   gameName,
   repositorySlug,
   foundationCommit,
-  installedAt
+  installedAt,
+  profileId = ""
 }) {
   validateFoundationManifest(manifest);
+  const profile = resolveFoundationProfile(manifest, profileId);
 
   if (!/^[0-9a-f]{40}$/i.test(String(foundationCommit || ""))) {
     throw new HubError("FOUNDATION_COMMIT_INVALID", "Foundation Commitが正しくありません。");
   }
 
-  for (const item of manifest.starterFiles) {
+  for (const item of profile.starterFiles) {
     const source = inside(sourceRoot, item.source);
     const target = inside(targetRoot, item.target);
 
@@ -265,7 +385,12 @@ export async function applyFoundationTemplate({
     await copyManagedPath(sourceRoot, targetRoot, managedPath);
   }
 
-  const metadata = installationFrom(manifest, foundationCommit, installedAt);
+  const metadata = installationFrom(
+    manifest,
+    foundationCommit,
+    installedAt,
+    profile.id
+  );
   await writeInstallation(targetRoot, metadata);
   return metadata;
 }
@@ -306,7 +431,12 @@ export async function updateManagedFoundationFromSource({
     await copyManagedPath(sourceRoot, targetRoot, managedPath);
   }
 
-  const metadata = installationFrom(manifest, foundationCommit, installedAt);
+  const metadata = installationFrom(
+    manifest,
+    foundationCommit,
+    installedAt,
+    current.starterProfile
+  );
   await writeInstallation(targetRoot, metadata);
   return {
     changed: true,
@@ -358,7 +488,13 @@ async function withFoundationSource(appDataRoot, callback) {
   }
 }
 
-export async function bootstrapFoundationProject(project, appDataRoot) {
+export async function getFoundationProfileCatalog(appDataRoot) {
+  return withFoundationSource(appDataRoot, async ({ manifest }) =>
+    foundationProfileCatalog(manifest)
+  );
+}
+
+export async function bootstrapFoundationProject(project, appDataRoot, profileId = "") {
   if (await exists(project.localPath)) {
     throw new HubError(
       "FOUNDATION_LOCAL_PATH_EXISTS",
@@ -390,7 +526,8 @@ export async function bootstrapFoundationProject(project, appDataRoot) {
         manifest,
         gameName: project.name,
         repositorySlug: project.repositorySlug,
-        foundationCommit
+        foundationCommit,
+        profileId
       });
     });
 

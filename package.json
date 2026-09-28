@@ -69,7 +69,7 @@
     "@ui-tars/operator-nut-js": "1.2.3",
     "@ui-tars/sdk": "1.2.3",
     "electron-updater": "6.8.9",
-    "jimp": "1.6.0",
+    "jimp": "1.6.1",
     "uuid": "9.0.1"
   }
 }

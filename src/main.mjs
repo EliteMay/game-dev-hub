@@ -59,6 +59,7 @@ import {
   inspectExecutable,
   inspectUiTarsDependencies,
   latestAiTestReport,
+  latestRuntimeBridgeReport,
   probeOpenAiModelEndpoint,
   launchTestExecutable,
   listAiTestHistory,
@@ -70,6 +71,7 @@ import {
   summarizeAiTestResults,
   waitForRuntimeTestBridgeState
 } from "./services/ai-testing.mjs";
+import { loadFoundationDiagnosticsHandoff } from "./services/foundation-diagnostics.mjs";
 import updaterPackage from "electron-updater";
 
 const { autoUpdater } = updaterPackage;
@@ -2166,11 +2168,21 @@ async function exportChatGptPack(payload) {
   const referenceImages = await copyReferenceImages(appDataRoot(), project.id, packRoot);
   const diagnostics = await diagnosticsSnapshot();
   const latestAiTest = await latestAiTestReport(appDataRoot(), project.id);
+  const latestRuntimeBridge = await latestRuntimeBridgeReport(
+    appDataRoot(),
+    project.id
+  );
+  const foundationDiagnostics = await loadFoundationDiagnosticsHandoff({
+    dataRoot: appDataRoot(),
+    projectId: project.id,
+    report: latestRuntimeBridge,
+    repositoryCommit: repository.commit || ""
+  });
   const aiTestEvidence = await copyLatestAiTestEvidence(project.id, latestAiTest, packRoot);
   const homePath = app.getPath("home");
 
   const pack = {
-    schemaVersion: 4,
+    schemaVersion: 5,
     kind: "game-dev-hub-chatgpt-pack",
     capturedAt: capturedAt.toISOString(),
     purpose: "このゲームで保存したUser実機確認結果を全部まとめ、現在のGame開発状態と一緒にChatGPTへ共有する。",
@@ -2233,6 +2245,7 @@ async function exportChatGptPack(payload) {
       lastError: diagnostics.lastError,
       recentLogs: diagnostics.recentLogs
     },
+    foundationDiagnostics,
     files: {
       hubScreenshot: screenshotFile,
       referenceImages,
@@ -2243,7 +2256,8 @@ async function exportChatGptPack(payload) {
       userEnteredVerificationNoteIncluded: allUserTaskResults.some((item) => Boolean(item.result?.note)),
       sourceFileContentsIncluded: false,
       homePathRedacted: true,
-      note: "HubはToken/Secretを自動収集しません。ただしUserが確認メモへ入力した文字列はそのまま共有パックへ含まれます。"
+      foundationDiagnosticsSanitized: foundationDiagnostics.available === true,
+      note: "HubはToken/Secretを自動収集しません。Foundation診断はSanitize済みExportだけを共有対象にします。ただしUserが確認メモへ入力した文字列はそのまま共有パックへ含まれます。"
     }
   };
 
@@ -2304,6 +2318,15 @@ async function exportChatGptPack(payload) {
         " / UNKNOWN " + (latestAiTest.summary?.unknown || 0)
       : "- まだゲーム自動テスト結果はありません。",
     "",
+    "Foundation診断:",
+    foundationDiagnostics.available
+      ? "- Runtime Test Bridge " + foundationDiagnostics.testRunId +
+        " / 前回セッションの正常終了を確認できない可能性: " +
+        (foundationDiagnostics.previousSession?.possible_unclean_exit ? "あり" : "なし") +
+        " / 理由: " + (foundationDiagnostics.previousSession?.reason || "不明")
+      : "- 利用できるSanitize済みFoundation診断はありません（" +
+        (foundationDiagnostics.reason || "unknown") + "）。",
+    "",
     activeTask ? "現在選択中のタスク: " + activeTask.section + " / " + activeTask.text : "現在選択中のタスク: 未選択",
     "",
     "確認してほしい内容:",
@@ -2313,6 +2336,7 @@ async function exportChatGptPack(payload) {
     "- できたTaskはEvidenceが十分ならRoadmapへ反映する",
     "- 添付画像から確認できる実装・見た目・不具合も確認する",
     "- 自動テストEvidenceがある場合は、Runtime telemetry・操作記録・Screenshotの役割を分けて評価する",
+    "- Foundation診断がある場合は、Sanitize済みDiagnosticsとprevious-session evidenceをRecovery判断の補助Evidenceとして確認する",
     "",
     "※ HubはTokenやFile本文を自動収集しません。User確認メモへ入力した文字列はそのままJSONへ入ります。必要なCodeはGitHub RepositoryをSource of Truthとして確認してください。"
   ];

@@ -629,6 +629,15 @@ Godot Game Foundation Phase 17で追加したStarter Profile ContractをGame Dev
 
 - Foundation Profile Unit / Regression Testを追加
 - UI Contract TestへProfile selector / IPC / payloadを追加
-- Hub PR / CIでNode Test・production dependency・Windows installer・update artifactsを確認する
+- PR #39 初回CI: 110/111 PASS
+  - Updater Contractだけが旧Version `0.1.25` 固定のままでFAIL
+  - `0.1.26`へ同期して修正
+- PR #39 修正後 Node Test: 111/111 PASS
+- Production runtime dependency verification: PASS
+- Windows installer build: PASS
+- Updater artifact verification: PASS
+- Installer artifact upload: PASS
+- Dependency Review: PASS（Dependency graph unavailable時はlatest shared security baselineにより安全にskip）
+- CodeQL: PASS
 - Windows実機でのminimal / standard新規生成・起動はRelease後のUser確認対象
 

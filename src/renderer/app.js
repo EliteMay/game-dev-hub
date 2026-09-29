@@ -1277,6 +1277,7 @@ function renderDetail() {
   el.projectDetail.classList.remove("hidden");
 
   const repo = project.repository || {};
+  const localPrototype = isLocalPrototype(project);
   el.start.textContent = "開発を開始";
 
   renderDevelopmentTasks(project);
@@ -1287,35 +1288,55 @@ function renderDetail() {
     refreshReferenceImages().catch(() => {});
   }
 
-  el.detailSlug.textContent = project.repositorySlug;
+  el.detailSlug.textContent = localPrototype
+    ? "ローカル試作 / GitHub未接続"
+    : project.repositorySlug;
   el.detailName.textContent = project.name;
   el.detailPath.textContent = project.localPath;
+
+  el.sync.classList.toggle("hidden", localPrototype);
+  const githubTitle = el.github.querySelector("strong");
+  const githubDescription = el.github.querySelector("span");
+  if (githubTitle) githubTitle.textContent = localPrototype ? "GitHubで正式管理" : "GitHubを開く";
+  if (githubDescription) {
+    githubDescription.textContent = localPrototype
+      ? "気に入った試作だけRepositoryへ公開"
+      : "Repositoryをブラウザで表示";
+  }
 
   if (!repo.exists) {
     setDot(el.repoDot, "warning");
     el.repoValue.textContent = "PCにまだありません";
-    el.repoDescription.textContent = "「開発を開始」でGitHubから自動取得します。";
+    el.repoDescription.textContent = localPrototype
+      ? "ローカル試作のフォルダが見つかりません。"
+      : "「開発を開始」でGitHubから自動取得します。";
   } else if (!repo.valid) {
     setDot(el.repoDot, "error");
     el.repoValue.textContent = "要確認";
-    el.repoDescription.textContent = "ローカルフォルダと登録Repositoryが一致しません。";
+    el.repoDescription.textContent = localPrototype
+      ? "ローカル試作のGodot ProjectまたはPC内Git履歴を確認してください。"
+      : "ローカルフォルダと登録Repositoryが一致しません。";
   } else {
     setDot(el.repoDot, "ok");
-    el.repoValue.textContent = "接続済み";
-    el.repoDescription.textContent =
-      project.repositorySlug + " / " + (repo.commit || "commit確認済み");
+    el.repoValue.textContent = localPrototype ? "ローカル試作" : "接続済み";
+    el.repoDescription.textContent = localPrototype
+      ? "PC内だけで管理中 / " + (repo.commit || "履歴確認済み")
+      : project.repositorySlug + " / " + (repo.commit || "commit確認済み");
   }
 
   if (!repo.exists) {
     setDot(el.branchDot, "warning");
     el.branchValue.textContent = "未取得";
-    el.branchDescription.textContent = project.defaultBranch + " をCloneします。";
+    el.branchDescription.textContent = localPrototype
+      ? "試作フォルダを確認してください。"
+      : project.defaultBranch + " をCloneします。";
   } else if (repo.dirty) {
     setDot(el.branchDot, "warning");
     el.branchValue.textContent = "PC側に未保存の変更あり";
-    el.branchDescription.textContent =
-      repo.changedCount + "件の変更があります。「GitHubに保存」でまとめて保存できます。";
-  } else if ((repo.ahead || 0) > 0) {
+    el.branchDescription.textContent = localPrototype
+      ? repo.changedCount + "件の変更があります。「ローカル履歴に保存」でPC内に履歴を残せます。"
+      : repo.changedCount + "件の変更があります。「GitHubに保存」でまとめて保存できます。";
+  } else if (!localPrototype && (repo.ahead || 0) > 0) {
     setDot(el.branchDot, "warning");
     el.branchValue.textContent = "GitHubへの送信待ち";
     el.branchDescription.textContent =
@@ -1323,15 +1344,19 @@ function renderDetail() {
   } else if (repo.branch !== project.defaultBranch) {
     setDot(el.branchDot, "warning");
     el.branchValue.textContent = repo.branch || "Branch不明";
-    el.branchDescription.textContent =
-      "自動更新対象は " + project.defaultBranch + " です。";
+    el.branchDescription.textContent = localPrototype
+      ? "ローカル試作の基準Branchは " + project.defaultBranch + " です。"
+      : "自動更新対象は " + project.defaultBranch + " です。";
   } else {
     setDot(el.branchDot, "ok");
     el.branchValue.textContent = repo.branch + " / 変更なし";
-    const delta = repo.behind > 0
-      ? "GitHubより " + repo.behind + " commit古い可能性があります。"
-      : "ローカル変更はありません。";
-    el.branchDescription.textContent = delta;
+    if (localPrototype) {
+      el.branchDescription.textContent = "PC内のGit履歴は最新です。";
+    } else {
+      el.branchDescription.textContent = repo.behind > 0
+        ? "GitHubより " + repo.behind + " commit古い可能性があります。"
+        : "ローカル変更はありません。";
+    }
   }
 
   const foundation = project.foundation || {};
@@ -1368,7 +1393,7 @@ function renderDetail() {
       busy ||
       !repo.valid ||
       repo.dirty ||
-      (repo.ahead || 0) > 0 ||
+      (!localPrototype && (repo.ahead || 0) > 0) ||
       repo.branch !== project.defaultBranch ||
       !state?.network?.online;
   }
@@ -1380,31 +1405,44 @@ function renderDetail() {
     state.godot?.available &&
     repo.valid &&
     !repo.dirty &&
-    (repo.ahead || 0) === 0 &&
+    (localPrototype || (repo.ahead || 0) === 0) &&
     repo.branch === project.defaultBranch;
 
   if (!state.git?.available) {
     el.heroStatus.textContent = "セットアップ";
     el.heroTitle.textContent = "Gitが必要です";
     el.heroDescription.textContent =
-      "Git for Windowsを準備したあと状態を更新してください。";
+      "Git for Windowsを準備したあと状態を更新してください。ローカル試作もPC内の履歴保存にGitを使います。";
   } else if (!state.godot?.available) {
     el.heroStatus.textContent = "初回設定";
     el.heroTitle.textContent = "Godotを一度だけ設定してください";
     el.heroDescription.textContent =
       "上の「Godotを設定」からGodot.exeを選べます。";
-  } else if (repo.dirty) {
+  } else if (localPrototype && repo.dirty) {
+    el.heroStatus.textContent = "ローカル履歴への保存待ち";
+    el.heroTitle.textContent = "PC側に変更があります";
+    el.heroDescription.textContent =
+      "変更はPC内だけです。「ローカル履歴に保存」で履歴を残すか、そのままGodotで作業を続けられます。";
+    el.start.textContent = "Godotで続ける";
+  } else if (!localPrototype && repo.dirty) {
     el.heroStatus.textContent = "GitHubへの保存待ち";
     el.heroTitle.textContent = "PC側に変更があります";
     el.heroDescription.textContent =
       "下の「GitHubに保存」で変更を残したままGitHubへ保存できます。Godotでの作業を続けることもできます。";
     el.start.textContent = "保存せずGodotで続ける";
-  } else if ((repo.ahead || 0) > 0) {
+  } else if (!localPrototype && (repo.ahead || 0) > 0) {
     el.heroStatus.textContent = "GitHubへの送信待ち";
     el.heroTitle.textContent = "PC側への保存は完了しています";
     el.heroDescription.textContent =
       "GitHubへの送信だけが残っています。下の「GitHubへ送る」で再試行できます。";
     el.start.textContent = "Godotで続ける";
+  } else if (localPrototype && repo.valid) {
+    el.heroStatus.textContent = state.network?.online ? "ローカル試作" : "ローカル試作 / オフライン";
+    el.heroTitle.textContent = "GitHubなしですぐ試せます";
+    el.heroDescription.textContent = state.network?.online
+      ? "Godotで開く・ゲーム起動・PC内の履歴保存が使えます。気に入ったら「GitHubで正式管理」へ切り替えられます。"
+      : "Godotで開く・ゲーム起動・PC内の履歴保存はオフラインでも使えます。Foundation更新とGitHub公開は接続後に使えます。";
+    el.start.textContent = "Godotで開く";
   } else if (!state.network?.online && repo.valid) {
     el.heroStatus.textContent = "オフライン";
     el.heroTitle.textContent = "ローカル開発は続けられます";
@@ -1417,11 +1455,11 @@ function renderDetail() {
     el.heroDescription.textContent =
       "接続が戻ったら「開発を開始」でRepositoryを取得できます。";
   } else if (repo.valid && repo.branch !== project.defaultBranch) {
-    el.heroStatus.textContent = "同期停止";
-    el.heroTitle.textContent = "別ブランチなのでGitHub同期は停止中です";
+    el.heroStatus.textContent = localPrototype ? "ローカル履歴を確認" : "同期停止";
+    el.heroTitle.textContent = "別ブランチを使用中です";
     el.heroDescription.textContent =
-      "ローカルのGodot作業は続けられます。同期する場合は " + project.defaultBranch + " に戻してから状態を更新してください。";
-    el.start.textContent = "同期せずGodotで開く";
+      "Godot作業は続けられます。基準Branchへ戻す場合は " + project.defaultBranch + " を使ってください。";
+    el.start.textContent = "Godotで開く";
   } else if (ready) {
     el.heroStatus.textContent = "準備OK";
     el.heroTitle.textContent = "このまま開発を始められます";
@@ -1434,7 +1472,7 @@ function renderDetail() {
       "「開発を開始」でRepositoryをCloneしてGodotを開きます。";
   } else {
     el.heroStatus.textContent = "確認が必要";
-    el.heroTitle.textContent = "Repository状態を確認してください";
+    el.heroTitle.textContent = "Project状態を確認してください";
     el.heroDescription.textContent =
       "登録情報・Branch・Local folderのどこかに確認が必要です。";
   }

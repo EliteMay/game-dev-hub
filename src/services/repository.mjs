@@ -398,14 +398,14 @@ export async function publishLocalPrototypeToGitHub(project, repositoryUrl) {
     }
   }
 
-  let remoteHead = "";
+  let remoteRefs = "";
   try {
     const remote = await git(
-      ["ls-remote", "--heads", parsed.cloneUrl, "refs/heads/" + project.defaultBranch],
+      ["ls-remote", parsed.cloneUrl],
       undefined,
       30_000
     );
-    remoteHead = String(remote.stdout || "").trim().split(/\s+/)[0] || "";
+    remoteRefs = String(remote.stdout || "").trim();
   } catch {
     throw new HubError(
       "GITHUB_REPOSITORY_UNAVAILABLE",
@@ -413,7 +413,22 @@ export async function publishLocalPrototypeToGitHub(project, repositoryUrl) {
     );
   }
 
-  if (remoteHead && remoteHead.toLowerCase() !== head.toLowerCase()) {
+  const remoteLines = remoteRefs
+    ? remoteRefs.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+    : [];
+  const branchRef = "refs/heads/" + project.defaultBranch;
+  const remoteHead = remoteLines
+    .map((line) => line.split(/\s+/))
+    .find((parts) => parts[1] === branchRef)?.[0] || "";
+  const recoveryOnly =
+    remoteLines.length > 0 &&
+    remoteHead.toLowerCase() === head.toLowerCase() &&
+    remoteLines.every((line) => {
+      const parts = line.split(/\s+/);
+      return parts[1] === "HEAD" || parts[1] === branchRef;
+    });
+
+  if (remoteLines.length > 0 && !recoveryOnly) {
     throw new HubError(
       "FOUNDATION_REPOSITORY_NOT_EMPTY",
       "公開先には別の履歴があります。Fileのない空Repositoryを指定してください。"
@@ -424,7 +439,7 @@ export async function publishLocalPrototypeToGitHub(project, repositoryUrl) {
     await git(["remote", "add", "origin", parsed.cloneUrl], project.localPath, 10_000);
   }
 
-  if (!remoteHead) {
+  if (remoteLines.length === 0) {
     try {
       await git(
         ["push", "-u", "origin", "HEAD:" + project.defaultBranch],

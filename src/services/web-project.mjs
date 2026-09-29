@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { spawnDetached } from "../core/process.mjs";
+import { runFile, spawnDetached } from "../core/process.mjs";
 import { HubError } from "./repository.mjs";
 
 export const WEB_PROJECT_METADATA_FILE = "game-dev-hub.json";
@@ -57,6 +57,38 @@ export async function inspectWebProject(localPath) {
   };
 }
 
+async function webDevLaunchCommand() {
+  if (process.platform === "win32") {
+    try {
+      await runFile("where.exe", ["npm.cmd"], { timeout: 8_000 });
+    } catch {
+      throw new HubError(
+        "NPM_MISSING",
+        "npmが見つかりません。Node.jsをインストールしてから再試行してください。"
+      );
+    }
+
+    return {
+      file: process.env.ComSpec || "C:\\Windows\\System32\\cmd.exe",
+      args: ["/d", "/s", "/c", "npm.cmd run dev"]
+    };
+  }
+
+  try {
+    await runFile("npm", ["--version"], { timeout: 8_000 });
+  } catch {
+    throw new HubError(
+      "NPM_MISSING",
+      "npmが見つかりません。Node.jsをインストールしてから再試行してください。"
+    );
+  }
+
+  return {
+    file: "npm",
+    args: ["run", "dev"]
+  };
+}
+
 export async function runWebProject(project) {
   const info = await inspectWebProject(project.localPath);
   if (!info.devScript) {
@@ -66,8 +98,8 @@ export async function runWebProject(project) {
     );
   }
 
-  const executable = process.platform === "win32" ? "npm.cmd" : "npm";
-  const pid = spawnDetached(executable, ["run", "dev"], {
+  const command = await webDevLaunchCommand();
+  const pid = spawnDetached(command.file, command.args, {
     cwd: project.localPath
   });
 

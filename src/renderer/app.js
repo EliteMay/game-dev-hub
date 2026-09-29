@@ -25,6 +25,7 @@ const el = {
   foundationDescription: document.querySelector("#foundation-description"),
   foundationUpdate: document.querySelector("#foundation-update-button"),
   safetyRecovery: document.querySelector("#safety-recovery"),
+  safetyRecoveryKicker: document.querySelector("#safety-recovery-kicker"),
   safetyRecoveryTitle: document.querySelector("#safety-recovery-title"),
   safetyRecoverySummary: document.querySelector("#safety-recovery-summary"),
   safetyChangeCount: document.querySelector("#safety-change-count"),
@@ -34,6 +35,8 @@ const el = {
   safetyExport: document.querySelector("#safety-export-button"),
   safetyOpenFolder: document.querySelector("#safety-open-folder-button"),
   safetyRefresh: document.querySelector("#safety-refresh-button"),
+  safetyDetailsSummary: document.querySelector("#safety-details-summary"),
+  safetyDetailsDescription: document.querySelector("#safety-details-description"),
   heroStatus: document.querySelector("#hero-status"),
   heroTitle: document.querySelector("#hero-title"),
   heroDescription: document.querySelector("#hero-description"),
@@ -96,12 +99,24 @@ const el = {
   foundationCreateClose: document.querySelector("#foundation-create-close-button"),
   foundationCreateCancel: document.querySelector("#foundation-create-cancel-button"),
   foundationCreateForm: document.querySelector("#foundation-create-form"),
+  foundationCreateModeSelect: document.querySelector("#foundation-create-mode-select"),
   foundationGameNameInput: document.querySelector("#foundation-game-name-input"),
+  foundationRepositoryField: document.querySelector("#foundation-repository-field"),
   foundationRepositoryUrlInput: document.querySelector("#foundation-repository-url-input"),
+  foundationLocalNote: document.querySelector("#foundation-local-note"),
+  foundationGithubNote: document.querySelector("#foundation-github-note"),
+  foundationGithubSecurityNote: document.querySelector("#foundation-github-security-note"),
   foundationProfileSelect: document.querySelector("#foundation-profile-select"),
   foundationProfileDescription: document.querySelector("#foundation-profile-description"),
   foundationCreateSubmit: document.querySelector("#foundation-create-submit-button"),
   foundationCreateError: document.querySelector("#foundation-create-error"),
+  publishLocalDialog: document.querySelector("#publish-local-dialog"),
+  publishLocalForm: document.querySelector("#publish-local-form"),
+  publishLocalClose: document.querySelector("#publish-local-close-button"),
+  publishLocalCancel: document.querySelector("#publish-local-cancel-button"),
+  publishLocalUrlInput: document.querySelector("#publish-local-url-input"),
+  publishLocalError: document.querySelector("#publish-local-error"),
+  publishLocalSubmit: document.querySelector("#publish-local-submit-button"),
   addDialog: document.querySelector("#add-dialog"),
   addDialogClose: document.querySelector("#add-dialog-close-button"),
   addDialogCancel: document.querySelector("#add-dialog-cancel-button"),
@@ -114,6 +129,9 @@ const el = {
   saveChangesList: document.querySelector("#save-changes-list"),
   saveChangesSyncNote: document.querySelector("#save-changes-sync-note"),
   saveChangesMessageInput: document.querySelector("#save-changes-message-input"),
+  saveChangesKicker: document.querySelector("#save-changes-kicker"),
+  saveChangesTitle: document.querySelector("#save-changes-title"),
+  confirmSaveChanges: document.querySelector("#confirm-save-changes-button"),
   nameInput: document.querySelector("#project-name-input"),
   urlInput: document.querySelector("#project-url-input"),
   removeDialog: document.querySelector("#remove-dialog"),
@@ -262,6 +280,10 @@ function setDot(node, tone) {
 
 function selectedProject() {
   return state?.projects?.find((project) => project.id === selectedId) ?? null;
+}
+
+function isLocalPrototype(project) {
+  return project?.sourceType === "local-prototype";
 }
 
 function addLog(message, tone = "") {

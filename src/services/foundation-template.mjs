@@ -494,6 +494,68 @@ export async function getFoundationProfileCatalog(appDataRoot) {
   );
 }
 
+export async function bootstrapLocalFoundationProject(project, appDataRoot, profileId = "") {
+  if (await exists(project.localPath)) {
+    throw new HubError(
+      "FOUNDATION_LOCAL_PATH_EXISTS",
+      "同じ保存先がすでにあります。別のゲーム名を使うか、既存ProjectをHubへ登録してください。"
+    );
+  }
+
+  let localCreated = false;
+
+  try {
+    await fs.mkdir(project.localPath, { recursive: true });
+    localCreated = true;
+    await git(
+      ["init", "--initial-branch", project.defaultBranch],
+      project.localPath,
+      30_000
+    );
+
+    const metadata = await withFoundationSource(
+      appDataRoot,
+      async ({ sourceRoot, foundationCommit, manifest }) =>
+        applyFoundationTemplate({
+          sourceRoot,
+          targetRoot: project.localPath,
+          manifest,
+          gameName: project.name,
+          repositorySlug: project.repositorySlug,
+          foundationCommit,
+          profileId
+        })
+    );
+
+    await ensureCommitIdentity(project);
+    await git(["add", "-A"], project.localPath, 60_000);
+    const staged = (await git(["diff", "--cached", "--name-only"], project.localPath, 15_000)).stdout;
+    if (!staged) {
+      throw new HubError("FOUNDATION_GENERATION_EMPTY", "Starter Fileを生成できませんでした。");
+    }
+
+    await git(
+      ["commit", "-m", "chore: initialize local prototype from Godot Game Foundation"],
+      project.localPath,
+      120_000
+    );
+
+    return {
+      metadata,
+      commit: (await git(["rev-parse", "HEAD"], project.localPath, 10_000)).stdout
+    };
+  } catch (error) {
+    if (localCreated) {
+      await fs.rm(project.localPath, { recursive: true, force: true }).catch(() => {});
+    }
+    if (error instanceof HubError) throw error;
+    throw new HubError(
+      "FOUNDATION_LOCAL_CREATE_FAILED",
+      "ローカル試作を作成できませんでした。Git・Foundation取得・保存先を確認してください。"
+    );
+  }
+}
+
 export async function bootstrapFoundationProject(project, appDataRoot, profileId = "") {
   if (await exists(project.localPath)) {
     throw new HubError(

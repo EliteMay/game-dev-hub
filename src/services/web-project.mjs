@@ -1,4 +1,3 @@
-import http from "node:http";
 import net from "node:net";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -7,13 +6,17 @@ import { HubError } from "./repository.mjs";
 
 export const WEB_PROJECT_METADATA_FILE = "game-dev-hub.json";
 
-function normalizeHostname(hostname) {
-  return String(hostname || "").replace(/^\[|\]$/g, "");
+function isLoopbackHost(hostname) {
+  return (
+    hostname === "127.0.0.1" ||
+    hostname === "localhost" ||
+    hostname === "::1" ||
+    hostname === "[::1]"
+  );
 }
 
-function isLoopbackHost(hostname) {
-  const normalized = normalizeHostname(hostname);
-  return normalized === "127.0.0.1" || normalized === "localhost" || normalized === "::1";
+function socketHostname(hostname) {
+  return hostname === "[::1]" ? "::1" : hostname;
 }
 
 export function safeLoopbackUrl(value) {
@@ -66,7 +69,7 @@ export async function waitForLoopbackServer(value, options = {}) {
   }
 
   const parsed = new URL(safeUrl);
-  const host = normalizeHostname(parsed.hostname);
+  const host = socketHostname(parsed.hostname);
   const port = Number(parsed.port || (parsed.protocol === "https:" ? 443 : 80));
   const timeoutMs = Math.max(500, Number(options.timeoutMs) || 15_000);
   const intervalMs = Math.max(25, Number(options.intervalMs) || 150);

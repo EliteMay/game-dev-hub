@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld("gameDevHub", {
   addGitHubProject: (payload) => ipcRenderer.invoke("hub:add-github-project", payload),
   getFoundationProfiles: () => ipcRenderer.invoke("hub:get-foundation-profiles"),
   createFoundationProject: (payload) => ipcRenderer.invoke("hub:create-foundation-project", payload),
+  publishLocalPrototype: (payload) => ipcRenderer.invoke("hub:publish-local-prototype", payload),
   updateProjectFoundation: (projectId) => ipcRenderer.invoke("hub:update-project-foundation", projectId),
   importExistingProject: () => ipcRenderer.invoke("hub:import-existing-project"),
   startDevelopment: (projectId) => ipcRenderer.invoke("hub:start-development", projectId),

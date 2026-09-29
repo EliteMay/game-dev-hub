@@ -332,3 +332,14 @@
 - Compatibility: 既存Registry recordはGitHub管理Projectとして自動Migrationし、Local Prototype導入で既存GameのID / Path / Remoteを変更しない。
 - Prevention: Prototype / Spike / VerificationとDurable Projectを同じRemote作成Flowへ機械的に統一しない。External resource creationには継続利用価値がある時だけ進む。
 
+
+## GL-031 — Project ManagerをEngine固有Launcherへ固定しない
+
+- Date: 2026-09-29
+- Type: Architecture / Workflow
+- Status: Adopted
+- Problem: Game Dev HubのProject Registry / Clone validation / Start actionがGodot専用だったため、Web Core → ElectronのSkin Aim Trainerを同じ開発Hubへ登録できなかった。
+- Root Cause: Game management責務とGodot launch責務がProject modelの同じ`engine === "godot"`前提へ固定されていた。
+- Decision: Registryは`godot` / `web`を明示的に許可し、Repository safety / Roadmap / GitHub保存は共通化する。Engine固有差分はProject marker・Editor/Open action・Run action・Foundation適用へ限定する。
+- Safety Boundary: Web Projectは任意Shellを許可せず固定の`npm run dev`だけをMain Processから実行する。Project metadataから開けるURLはloopbackだけに限定する。
+- Prevention: 新Engine追加時はProject management共通責務を複製せず、Engine adapter相当の差分だけ追加する。Provider / Engine固有条件をRegistry全体の恒久前提にしない。

@@ -23,9 +23,12 @@ import {
   createProjectRecord,
   isLocalPrototypeProject,
   makeProjectId,
-  parseGitHubRepositoryUrl
+  parseGitHubRepositoryUrl,
+  PROJECT_ENGINE_GODOT,
+  PROJECT_ENGINE_WEB
 } from "./core/project-model.mjs";
 import { detectGodot, inspectSelectedGodot, openGodotEditor, runGodotProject } from "./services/godot.mjs";
+import { runWebProject } from "./services/web-project.mjs";
 import {
   addProject,
   loadProjects,
@@ -444,6 +447,15 @@ async function saveUiTarsApiKey(projectId, apiKey) {
 }
 
 async function aiTestProjectDefaults(project) {
+  if (project.engine !== PROJECT_ENGINE_GODOT) {
+    return {
+      exePath: "",
+      launchArgs: [],
+      windowTitle: project.name,
+      targetVersion: "dev"
+    };
+  }
+
   const settings = await getSettings();
   const godot = await detectGodot(settings.godotPath);
 
@@ -1423,7 +1435,7 @@ async function getState() {
       ? await inspectRepository(project)
       : { exists: false, valid: false };
 
-    const foundation = repository.exists
+    const foundation = project.engine === PROJECT_ENGINE_GODOT && repository.exists
       ? await inspectFoundationInstallation(project.localPath)
       : {
           installed: false,
@@ -1524,7 +1536,7 @@ async function addGitHubProject(payload) {
       repositoryUrl: parsed.cloneUrl,
       localPath,
       defaultBranch: "main",
-      engine: "godot"
+      engine: payload.engine === PROJECT_ENGINE_WEB ? PROJECT_ENGINE_WEB : PROJECT_ENGINE_GODOT
     }
   );
 
@@ -1857,6 +1869,20 @@ async function startDevelopment(projectId) {
   }
 
   const prepared = await prepareProject(project);
+
+  if (project.engine === PROJECT_ENGINE_WEB) {
+    const errorMessage = await shell.openPath(project.localPath);
+    if (errorMessage) throw new HubError("OPEN_FOLDER_FAILED", errorMessage);
+    return {
+      ok: true,
+      message:
+        prepared.action === "cloned"
+          ? project.name + " を取得してProject folderを開きました。"
+          : project.name + " を最新化してProject folderを開きました。",
+      state: await getState()
+    };
+  }
+
   const godot = await ensureGodot();
   openGodotEditor(godot.path, project);
 
@@ -1901,6 +1927,12 @@ async function updateSelectedFoundation(projectId) {
   requireNetwork();
 
   const project = await findProject(projectId);
+  if (project.engine !== PROJECT_ENGINE_GODOT) {
+    throw new HubError(
+      "FOUNDATION_NOT_APPLICABLE",
+      "Godot以外のProjectにはGodot Game Foundationを適用しません。"
+    );
+  }
   const repository = await inspectRepository(project);
   const localPrototype = isLocalPrototypeProject(project);
 
@@ -1986,6 +2018,12 @@ async function openEditor(projectId) {
     );
   }
 
+  if (project.engine === PROJECT_ENGINE_WEB) {
+    const errorMessage = await shell.openPath(project.localPath);
+    if (errorMessage) throw new HubError("OPEN_FOLDER_FAILED", errorMessage);
+    return { ok: true, message: project.name + " のProject folderを開きました。" };
+  }
+
   const godot = await ensureGodot();
   openGodotEditor(godot.path, project);
   return { ok: true, message: project.name + " をGodotで開きました。" };
@@ -1997,6 +2035,20 @@ async function runGame(projectId) {
 
   if (!repository.valid) {
     throw new HubError("REPOSITORY_INVALID", "Local Repositoryを先に準備してください。");
+  }
+
+  if (project.engine === PROJECT_ENGINE_WEB) {
+    const launched = await runWebProject(project);
+    if (launched.devUrl) {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      await shell.openExternal(launched.devUrl);
+    }
+    return {
+      ok: true,
+      message: launched.devUrl
+        ? project.name + " の開発Serverを起動してBrowserを開きました。"
+        : project.name + " の開発Serverを起動しました。"
+    };
   }
 
   const godot = await ensureGodot();

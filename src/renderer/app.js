@@ -1016,13 +1016,29 @@ function changedFileExplanation(filePath) {
 
 function renderSafetyRecovery(project) {
   const repo = project?.repository || {};
-  const visible = Boolean(repo.valid && (repo.dirty || (repo.ahead || 0) > 0));
+  const localPrototype = isLocalPrototype(project);
+  const visible = Boolean(
+    repo.valid &&
+    (repo.dirty || (!localPrototype && (repo.ahead || 0) > 0))
+  );
   el.safetyRecovery.classList.toggle("hidden", !visible);
   el.safetyChangedFiles.replaceChildren();
 
   if (!visible) return;
 
-  if (!repo.dirty && (repo.ahead || 0) > 0) {
+  if (localPrototype) {
+    el.safetyRecoveryKicker.textContent = "ローカル履歴への保存待ち";
+    el.safetyDetailsSummary.textContent = "「ローカル履歴に保存」で何をする？";
+    el.safetyDetailsDescription.textContent =
+      "今ある変更をPC内のGit履歴へ保存します。GitHub Repositoryは作成せず、ネット接続も使いません。";
+  } else {
+    el.safetyRecoveryKicker.textContent = "GitHubへの保存待ち";
+    el.safetyDetailsSummary.textContent = "「GitHubに保存」で何をする？";
+    el.safetyDetailsDescription.textContent =
+      "今ある変更をPCの履歴へ保存してGitHubへ送ります。GitHub側に新しい変更がある場合は先に安全に組み合わせます。競合した場合は自動で中断し、PC側の変更は残します。";
+  }
+
+  if (!localPrototype && !repo.dirty && (repo.ahead || 0) > 0) {
     el.safetyRecoveryTitle.textContent =
       "PCには保存済みですが、GitHubへまだ送れていない履歴が" + repo.ahead + "件あります";
     el.safetyRecoverySummary.textContent =
@@ -1041,12 +1057,16 @@ function renderSafetyRecovery(project) {
     return;
   }
 
-  el.safetyRecoveryTitle.textContent =
-    "GitHubにまだ反映されていない変更が" + repo.changedCount + "件あります";
-  el.safetyRecoverySummary.textContent =
-    "エラーではありません。PC側の変更を守るため「最新版にする」だけ一時停止しています。Godotでの作業はそのまま続けられます。";
+  el.safetyRecoveryTitle.textContent = localPrototype
+    ? "PC内の履歴にまだ保存していない変更が" + repo.changedCount + "件あります"
+    : "GitHubにまだ反映されていない変更が" + repo.changedCount + "件あります";
+  el.safetyRecoverySummary.textContent = localPrototype
+    ? "エラーではありません。変更をPC内の履歴へ保存してからでも、そのままGodotで作業を続けても大丈夫です。"
+    : "エラーではありません。PC側の変更を守るため「最新版にする」だけ一時停止しています。Godotでの作業はそのまま続けられます。";
   el.safetyChangeCount.textContent = repo.changedCount + "件";
-  el.safetySave.textContent = repo.changedCount + "件をGitHubに保存";
+  el.safetySave.textContent = localPrototype
+    ? repo.changedCount + "件をローカル履歴に保存"
+    : repo.changedCount + "件をGitHubに保存";
 
   const files = Array.isArray(repo.changedFiles) ? repo.changedFiles : [];
   if (!files.length) {

@@ -1,5 +1,34 @@
 # 作業報告書
 
+## 2026-09-29 — v0.1.29 Web Dev Server Readiness Fix
+
+### User Evidence
+
+Skin Aim TrainerをGame Dev Hub v0.1.28から起動した際、`npm run dev` Windowには `http://127.0.0.1:4173` が表示された一方、Chromeは `ERR_CONNECTION_REFUSED` になった。
+
+### Root Cause
+
+v0.1.28はWeb Project起動後に固定700msだけ待ってBrowserを開いていた。npm → Node dev serverの起動時間は環境依存のため、Browserがlisten開始より先に接続するRace conditionがあった。
+
+### 修正
+
+- Web Project起動後にloopback portへ接続Probeを実施
+- Serverが実際にlistenしてから `runWebProject` を完了させる
+- Probe timeoutは15秒
+- timeout時は `WEB_DEV_SERVER_NOT_READY` として失敗理由を返す
+- `localhost / 127.0.0.1 / ::1` のloopback制限を維持
+- IPv6 loopback URLの判定もRegression Testへ追加
+- Game Dev Hub Versionを`0.1.29`へ更新
+
+### Validation
+
+- Node / contract tests: CI確認対象
+- Windows installer build: CI確認対象
+- updater artifact verification: CI確認対象
+- Windows実機 Skin Aim Trainer初回起動: Release後にUser確認対象
+
+---
+
 ## 2026-09-29 — Web / Electron Project対応
 
 ### 目的

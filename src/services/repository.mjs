@@ -325,18 +325,6 @@ async function pushCurrentBranch(project) {
   }
 
   await git(["fetch", "--prune", "origin"], project.localPath, 120_000);
-  if (localPrototype) {
-    const repository = await inspectRepository(project);
-    return {
-      repository,
-      commit: repository.commit,
-      mergedRemote: false,
-      message: state.dirty
-        ? "変更をPC内のGit履歴へ保存しました。GitHub Repositoryは作成していません。"
-        : "PC内のGit履歴へ保存する変更はありません。"
-    };
-  }
-
   const delta = parseAheadBehind(
     (await git(
       ["rev-list", "--left-right", "--count", "HEAD...origin/" + project.defaultBranch],
@@ -503,6 +491,18 @@ export async function saveRepositoryChanges(project, commitMessage) {
       const message = normalizeCommitMessage(commitMessage);
       await git(["commit", "-m", message], project.localPath, 120_000);
     }
+  }
+
+  if (localPrototype) {
+    const repository = await inspectRepository(project);
+    return {
+      repository,
+      commit: repository.commit,
+      mergedRemote: false,
+      message: state.dirty
+        ? "変更をPC内のGit履歴へ保存しました。GitHub Repositoryは作成していません。"
+        : "PC内のGit履歴へ保存する変更はありません。"
+    };
   }
 
   const delta = parseAheadBehind(

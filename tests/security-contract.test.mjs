@@ -125,7 +125,8 @@ test("deterministic fixed tests keep the Runtime Test Bridge local and read-only
 test("web project runner stays fixed to npm run dev and loopback URLs", () => {
   const webSource = fs.readFileSync(new URL("../src/services/web-project.mjs", import.meta.url), "utf8");
 
-  assert.match(webSource, /spawnDetached\(executable, \["run", "dev"\]/);
+  assert.match(webSource, /"npm\.cmd run dev"/);
+  assert.match(webSource, /spawnDetached\(command\.file, command\.args/);
   assert.match(webSource, /hostname === "127\.0\.0\.1"/);
   assert.match(webSource, /hostname === "localhost"/);
   assert.doesNotMatch(webSource, /shell:\s*true/);

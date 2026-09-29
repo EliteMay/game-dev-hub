@@ -694,8 +694,17 @@ Foundationの `minimal / standard` を実機確認するたびに空GitHub Repos
 
 ### Validation
 
-- PR CIでNode Test / production dependency / Windows installer / updater artifactsを確認する
-- Security workflowでCodeQLを確認する
+- PR #40 初回Node Test: 115/116 PASS
+  - Local-first Repository fieldのUI Contract regexがHTML attribute順へ過剰依存してFAIL
+  - DOM Contract自体は正しく、Testをactual markupに合わせて修正
+- PR #40 修正後 Node Test: 116/116 PASS
+- Remote-free Local Prototype Git test: PASS
+- Production runtime dependency verification: PASS
+- Windows installer build: PASS
+- Updater artifact verification: PASS
+- Installer artifact upload: PASS
+- Dependency Review: PASS
+- CodeQL: PASS
 - Release後、Windows実機でLocal `minimal` をRepositoryなしで生成・起動する
 - Local Prototype → GitHub正式管理の実機Pushは別確認項目として残す
 

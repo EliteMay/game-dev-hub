@@ -14,6 +14,8 @@ Foundation付きGameを試すだけの段階では、GitHub Repositoryを作ら�
 - 公開後も同じLocal Folder / Hub Project IDを維持
 - 既存Project registryは自動的にGitHub管理Projectとして互換Migration
 
+Windows実機で `Foundation Minimal Test` をRepositoryなしに生成し、Game起動、Foundation `v0.17.0-dev` / `minimal` 表示、Foundation Updateの「すでに最新版」判定まで確認済みです。Local Prototype → GitHub正式管理の実機Pushだけは未確認として残します。
+
 ## v0.1.26 Foundation Starter Profile Selection
 
 新しいGodot Gameを作る時に、Foundation最新版が公開しているStarter構成をGame Dev Hubから選べるようにします。

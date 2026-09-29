@@ -99,6 +99,15 @@ Primary Taskは「ゲームを選んで開発を開始する」。
 - ローカル試作からGitHub管理への昇格ではLocal FolderとHub Project IDを維持する。
 - GitHub Tokenを保存せず、既存のGit Credentialを利用する。
 
+## Web / Electron Project Boundary
+
+- Project RegistryはGodotに加えてWeb / Electron用の`web` engineを許可する。
+- Web Projectは`package.json`をProject markerとして使い、Godot Game Foundationを適用しない。
+- Web Projectの起動はMain Processが固定の`npm run dev`だけを実行し、Rendererへ任意Shell / command capabilityを公開しない。
+- Game Repository側の`game-dev-hub.json`から利用できるのはVersion化した既知Fieldだけとし、任意Commandを実行しない。
+- Browser自動Openに使うURLはlocalhost / 127.0.0.1 / ::1へ限定し、外部URLをProject metadataから起動しない。
+- Web Project固有のRoadmap / Game Design / Runtime設定はGame Repository側をSource of Truthにする。
+
 ## Deterministic Windows Test Boundary
 
 - 通常のFixed TestはAI modelをPrimary verifierにせず、Main Processが対象Gameへ決められたInputを送り、Runtime Test Bridgeの内部State差分で判定する。

@@ -216,7 +216,7 @@ test("Foundation starter flow defaults to local prototypes and can opt into GitH
   assert.match(html, /id="foundation-profile-select"[^>]*required/);
   assert.match(html, /id="foundation-profile-description"/);
   assert.match(html, /id="foundation-game-name-input"[^>]*required/);
-  assert.match(html, /id="foundation-repository-field"[^>]*hidden/);
+  assert.match(html, /class="field hidden" id="foundation-repository-field"/);
   assert.match(html, /id="foundation-repository-url-input"/);
   assert.doesNotMatch(html, /id="foundation-repository-url-input"[^>]*required/);
   assert.match(html, /GitHub Repositoryは不要/);

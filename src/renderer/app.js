@@ -2286,6 +2286,18 @@ function renderFoundationProfileDescription() {
     profile.description || profile.label || profile.id;
 }
 
+function renderFoundationCreationMode() {
+  const local = el.foundationCreateModeSelect.value !== "github";
+  el.foundationRepositoryField.classList.toggle("hidden", local);
+  el.foundationRepositoryUrlInput.required = !local;
+  el.foundationLocalNote.classList.toggle("hidden", !local);
+  el.foundationGithubNote.classList.toggle("hidden", local);
+  el.foundationGithubSecurityNote.classList.toggle("hidden", local);
+  el.foundationCreateSubmit.textContent = local
+    ? "ローカル試作を作成"
+    : "GitHubへ作成";
+}
+
 async function loadFoundationProfiles() {
   el.foundationProfileSelect.replaceChildren();
   const loadingOption = document.createElement("option");
@@ -2343,11 +2355,13 @@ async function loadFoundationProfiles() {
 }
 
 el.createFoundationProject.addEventListener("click", () => {
+  el.foundationCreateModeSelect.value = "local";
   el.foundationGameNameInput.value = "";
   el.foundationRepositoryUrlInput.value = "";
   el.foundationProfileSelect._profiles = [];
   el.foundationCreateError.textContent = "";
   el.foundationCreateError.classList.add("hidden");
+  renderFoundationCreationMode();
   el.foundationCreateDialog.showModal();
   el.foundationGameNameInput.focus();
   void loadFoundationProfiles();
@@ -2355,6 +2369,7 @@ el.createFoundationProject.addEventListener("click", () => {
 
 el.foundationCreateClose.addEventListener("click", () => closeDialog(el.foundationCreateDialog));
 el.foundationCreateCancel.addEventListener("click", () => closeDialog(el.foundationCreateDialog));
+el.foundationCreateModeSelect.addEventListener("change", renderFoundationCreationMode);
 el.foundationProfileSelect.addEventListener("change", renderFoundationProfileDescription);
 
 el.foundationCreateForm.addEventListener("submit", async (event) => {
@@ -2365,11 +2380,13 @@ el.foundationCreateForm.addEventListener("submit", async (event) => {
   el.foundationCreateError.textContent = "";
   el.foundationCreateError.classList.add("hidden");
 
+  const mode = el.foundationCreateModeSelect.value === "github" ? "github" : "local";
   const result = await runAction(
-    "Foundation付きゲーム作成",
+    mode === "local" ? "ローカル試作作成" : "Foundation付きゲーム作成",
     () => api.createFoundationProject({
+      mode,
       name: el.foundationGameNameInput.value,
-      repositoryUrl: el.foundationRepositoryUrlInput.value,
+      repositoryUrl: mode === "github" ? el.foundationRepositoryUrlInput.value : "",
       profileId: el.foundationProfileSelect.value
     })
   );
@@ -2383,7 +2400,11 @@ el.foundationCreateForm.addEventListener("submit", async (event) => {
     el.foundationCreateError.textContent =
       result.message || "Foundation付きGameを作成できませんでした。";
     el.foundationCreateError.classList.remove("hidden");
-    el.foundationGameNameInput.focus();
+    if (mode === "github" && /REPOSITORY|GITHUB|URL/.test(String(result.code))) {
+      el.foundationRepositoryUrlInput.focus();
+    } else {
+      el.foundationGameNameInput.focus();
+    }
   }
 });
 

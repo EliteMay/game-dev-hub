@@ -2111,9 +2111,9 @@ el.taskOpenEditor.addEventListener("click", () => {
   const project = requireSelected();
   if (!project) return;
   runAction(
-    "Godot起動",
+    project.engine === "web" ? "Project表示" : "Godot起動",
     () => api.openEditor(project.id),
-    { pickGodotOnMissing: true }
+    { pickGodotOnMissing: project.engine !== "web" }
   );
 });
 
@@ -2500,9 +2500,9 @@ el.editor.addEventListener("click", () => {
   const project = requireSelected();
   if (!project) return;
   runAction(
-    "Godot起動",
+    project.engine === "web" ? "Project表示" : "Godot起動",
     () => api.openEditor(project.id),
-    { pickGodotOnMissing: true }
+    { pickGodotOnMissing: project.engine !== "web" }
   );
 });
 
@@ -2512,7 +2512,7 @@ el.run.addEventListener("click", () => {
   runAction(
     "ゲーム起動",
     () => api.runGame(project.id),
-    { pickGodotOnMissing: true }
+    { pickGodotOnMissing: project.engine !== "web" }
   );
 });
 

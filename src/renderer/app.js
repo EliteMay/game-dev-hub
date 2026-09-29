@@ -1011,7 +1011,7 @@ function changedFileExplanation(filePath) {
     return "Godotがファイルを識別するために作るID用ファイルです。Godotが自動で作ることがあります。";
   }
 
-  return "このPC上でGitHub版と違う状態になっているファイルです。";
+  return "このPC上で前回保存した履歴と違う状態になっているファイルです。";
 }
 
 function renderSafetyRecovery(project) {
@@ -2045,7 +2045,7 @@ el.saveChangesForm.addEventListener("submit", (event) => {
   el.saveChangesDialog.close();
 
   runAction(
-    "GitHubへ保存",
+    isLocalPrototype(project) ? "ローカル履歴へ保存" : "GitHubへ保存",
     () => api.saveRepositoryChanges({
       projectId: project.id,
       message
@@ -2505,15 +2505,61 @@ el.folder.addEventListener("click", () => {
 el.github.addEventListener("click", () => {
   const project = requireSelected();
   if (!project) return;
+
+  if (isLocalPrototype(project)) {
+    el.publishLocalUrlInput.value = "";
+    el.publishLocalError.textContent = "";
+    el.publishLocalError.classList.add("hidden");
+    el.publishLocalDialog.showModal();
+    el.publishLocalUrlInput.focus();
+    return;
+  }
+
   runAction("GitHub表示", () => api.openGitHub(project.id));
+});
+
+el.publishLocalClose.addEventListener("click", () => closeDialog(el.publishLocalDialog));
+el.publishLocalCancel.addEventListener("click", () => closeDialog(el.publishLocalDialog));
+
+el.publishLocalForm.addEventListener("submit", async (event) => {
+  const submitter = event.submitter;
+  if (!submitter || submitter.value !== "default") return;
+
+  event.preventDefault();
+  const project = requireSelected();
+  if (!project || !isLocalPrototype(project)) return;
+
+  el.publishLocalError.textContent = "";
+  el.publishLocalError.classList.add("hidden");
+
+  const result = await runAction(
+    "GitHubへ正式公開",
+    () => api.publishLocalPrototype({
+      projectId: project.id,
+      repositoryUrl: el.publishLocalUrlInput.value
+    })
+  );
+
+  if (result?.ok) {
+    closeDialog(el.publishLocalDialog, "default");
+    return;
+  }
+
+  if (result?.code && result.code !== "CANCELED") {
+    el.publishLocalError.textContent =
+      result.message || "GitHubへ公開できませんでした。";
+    el.publishLocalError.classList.remove("hidden");
+    el.publishLocalUrlInput.focus();
+  }
 });
 
 el.remove.addEventListener("click", () => {
   const project = requireSelected();
   if (!project) return;
 
-  el.removeDialogText.textContent =
-    project.name + " をGame Dev Hubから外します。PC上のFileとGitHub Repositoryは削除しません。";
+  el.removeDialogText.textContent = isLocalPrototype(project)
+    ? project.name + " をGame Dev Hubから外します。PC上の試作Fileは削除しません。"
+    : project.name + " をGame Dev Hubから外します。PC上のFileとGitHub Repositoryは削除しません。";
   el.removeDialog.showModal();
 });
 

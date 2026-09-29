@@ -1120,10 +1120,21 @@ function defaultRepositorySaveMessage(project) {
 
 function openSaveChangesDialog(project) {
   const repo = project?.repository || {};
+  const localPrototype = isLocalPrototype(project);
   const files = Array.isArray(repo.changedFiles) ? repo.changedFiles : [];
 
-  el.saveChangesSummary.textContent =
-    "今ある" + repo.changedCount + "件の変更を消さずにGitHubへ保存します。";
+  el.saveChangesKicker.textContent = localPrototype
+    ? "ローカル履歴に保存"
+    : "GitHubへ保存";
+  el.saveChangesTitle.textContent = localPrototype
+    ? "この変更をPC内の履歴へ保存しますか？"
+    : "この変更を保存しますか？";
+  el.saveChangesSummary.textContent = localPrototype
+    ? "今ある" + repo.changedCount + "件の変更を消さずにPC内のGit履歴へ保存します。GitHubへは送信しません。"
+    : "今ある" + repo.changedCount + "件の変更を消さずにGitHubへ保存します。";
+  el.confirmSaveChanges.textContent = localPrototype
+    ? "ローカル履歴に保存"
+    : "GitHubに保存";
   el.saveChangesMessageInput.value = defaultRepositorySaveMessage(project);
   el.saveChangesList.replaceChildren();
 
@@ -1157,7 +1168,10 @@ function openSaveChangesDialog(project) {
     el.saveChangesList.append(more);
   }
 
-  if ((repo.ahead || 0) > 0 || (repo.behind || 0) > 0) {
+  if (localPrototype) {
+    el.saveChangesSyncNote.textContent =
+      "この保存はPC内だけです。気に入った試作だけ、あとから「GitHubで正式管理」で公開できます。";
+  } else if ((repo.ahead || 0) > 0 || (repo.behind || 0) > 0) {
     el.saveChangesSyncNote.textContent =
       "GitHubとの間に未送信・未取得の履歴があります。Hubが先に最新状態を確認し、安全に組み合わせられる場合だけGitHubへ送ります。";
   } else {

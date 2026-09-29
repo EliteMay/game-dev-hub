@@ -1,9 +1,9 @@
 {
   "name": "game-dev-hub",
-  "version": "0.1.27",
+  "version": "0.1.28",
   "private": true,
   "type": "module",
-  "description": "Windows desktop hub for managing multiple Godot game development repositories.",
+  "description": "Windows desktop hub for managing multiple game development repositories.",
   "main": "src/main.mjs",
   "scripts": {
     "dev": "electron src/main.mjs",

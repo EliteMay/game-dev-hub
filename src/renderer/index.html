@@ -193,9 +193,9 @@
               </div>
             </div>
 
-            <details class="safety-details">
-              <summary>「GitHubに保存」で何をする？</summary>
-              <p>
+            <details class="safety-details" id="safety-details">
+              <summary id="safety-details-summary">「GitHubに保存」で何をする？</summary>
+              <p id="safety-details-description">
                 今ある変更をPCの履歴へ保存してGitHubへ送ります。GitHub側に新しい変更がある場合は先に安全に組み合わせます。競合した場合は自動で中断し、PC側の変更は残します。
               </p>
             </details>
@@ -710,8 +710,8 @@
     <form method="dialog" id="save-changes-form">
       <div class="dialog-heading">
         <div>
-          <p class="section-kicker">GitHubへ保存</p>
-          <h2>この変更を保存しますか？</h2>
+          <p class="section-kicker" id="save-changes-kicker">GitHubへ保存</p>
+          <h2 id="save-changes-title">この変更を保存しますか？</h2>
         </div>
         <button class="icon-button" id="save-changes-close-button" type="button" aria-label="閉じる">×</button>
       </div>

@@ -1,5 +1,42 @@
 # 作業報告書
 
+## 2026-09-29 — Web / Electron Project対応
+
+### 目的
+
+Skin Aim TrainerのようにWeb Coreから開発し、後でElectron化するGameもGame Dev Hubから管理できるようにする。
+
+### 実装
+
+- Project Registryに`web` engineを追加
+- 既存Projectはengine未記録時Godotとして互換維持
+- Web Projectは`package.json`をProject markerとしてRepository検証
+- 既存Repository importで`project.godot` / `package.json`からengineを判定
+- 追加DialogへGodot / Web・Electron選択を追加
+- Web ProjectでProject folderを開ける
+- Web Projectで固定の`npm run dev`を起動できる
+- Optional `game-dev-hub.json`のloopback URLだけBrowser自動Openに利用
+- Web ProjectへGodot Game Foundationを適用しない
+- Roadmap / GitHub同期 / ChatGPT共有は既存Workspaceを再利用
+- Registry / UI / Security Regression Testを追加
+
+### Safety
+
+- RendererへShell / Node capabilityは追加していない
+- Project metadataから任意Commandは実行しない
+- Web起動Commandは`npm run dev`固定
+- Browser自動Open URLはlocalhost / 127.0.0.1 / ::1だけ許可
+- 既存Godot flowは分岐で維持
+
+### Verification
+
+- GitHub Actions CI / Security: 実行結果確認待ち
+- Windows実機 Web Project登録 / Clone / 起動: 未確認
+- Skin Aim Trainer Actual Playtest: 未確認
+
+---
+
+
 ## 今回変更した内容
 
 - Game Dev Hub v0.1.15にWindowsゲーム向けAI自動テストの第1段階を追加。

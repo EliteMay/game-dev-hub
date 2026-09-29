@@ -1,7 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { runFile } from "../core/process.mjs";
-import { isLocalPrototypeProject } from "../core/project-model.mjs";
+import {
+  isLocalPrototypeProject,
+  parseGitHubRepositoryUrl
+} from "../core/project-model.mjs";
 import {
   isSensitiveRepositoryPath,
   normalizeCommitMessage,
@@ -358,6 +361,103 @@ async function pushCurrentBranch(project) {
       "PC側には変更を保存できましたが、GitHubへ送れませんでした。GitHubへのサインイン状態やネット接続を確認して、もう一度「GitHubに保存」を押してください。"
     );
   }
+}
+
+export async function publishLocalPrototypeToGitHub(project, repositoryUrl) {
+  if (!isLocalPrototypeProject(project)) {
+    throw new HubError("PROJECT_NOT_LOCAL_PROTOTYPE", "このGameはローカル試作ではありません。");
+  }
+
+  const parsed = parseGitHubRepositoryUrl(repositoryUrl);
+  if (!parsed) {
+    throw new HubError(
+      "INVALID_REPOSITORY_URL",
+      "空のGitHub Repository URLを https://github.com/owner/repository の形で入力してください。"
+    );
+  }
+
+  const state = await inspectRepository(project);
+  if (!state.valid) {
+    throw new HubError(
+      "REPOSITORY_INVALID",
+      "ローカル試作のGodot ProjectまたはPC内Git履歴を確認してください。"
+    );
+  }
+  if (state.branch !== project.defaultBranch) {
+    throw new HubError(
+      "WRONG_BRANCH",
+      "現在のブランチが " + project.defaultBranch + " ではないため公開を止めました。"
+    );
+  }
+
+  await saveRepositoryChanges(project, "chore: save local prototype before GitHub publish");
+
+  const head = (await git(["rev-parse", "HEAD"], project.localPath, 10_000)).stdout;
+  let existingOrigin = "";
+  try {
+    existingOrigin = (await git(["remote", "get-url", "origin"], project.localPath, 10_000)).stdout;
+  } catch {
+    existingOrigin = "";
+  }
+
+  if (existingOrigin) {
+    const existingParsed = parseGitHubRepositoryUrl(existingOrigin);
+    if (!existingParsed || existingParsed.slug.toLowerCase() !== parsed.slug.toLowerCase()) {
+      throw new HubError(
+        "ORIGIN_CONFLICT",
+        "このローカル試作には別のoriginが設定されています。自動では上書きしません。"
+      );
+    }
+  }
+
+  let remoteHead = "";
+  try {
+    const remote = await git(
+      ["ls-remote", "--heads", parsed.cloneUrl, "refs/heads/" + project.defaultBranch],
+      undefined,
+      30_000
+    );
+    remoteHead = String(remote.stdout || "").trim().split(/\s+/)[0] || "";
+  } catch {
+    throw new HubError(
+      "GITHUB_REPOSITORY_UNAVAILABLE",
+      "GitHub Repositoryを確認できませんでした。URL・権限・ネット接続を確認してください。"
+    );
+  }
+
+  if (remoteHead && remoteHead.toLowerCase() !== head.toLowerCase()) {
+    throw new HubError(
+      "FOUNDATION_REPOSITORY_NOT_EMPTY",
+      "公開先には別の履歴があります。Fileのない空Repositoryを指定してください。"
+    );
+  }
+
+  if (!existingOrigin) {
+    await git(["remote", "add", "origin", parsed.cloneUrl], project.localPath, 10_000);
+  }
+
+  if (!remoteHead) {
+    try {
+      await git(
+        ["push", "-u", "origin", "HEAD:" + project.defaultBranch],
+        project.localPath,
+        180_000
+      );
+    } catch {
+      if (!existingOrigin) {
+        await git(["remote", "remove", "origin"], project.localPath, 10_000).catch(() => {});
+      }
+      throw new HubError(
+        "GIT_PUSH_FAILED",
+        "GitHubへ公開できませんでした。PC側の試作は残っています。GitHub認証とRepository権限を確認してください。"
+      );
+    }
+  }
+
+  return {
+    parsed,
+    commit: head
+  };
 }
 
 export async function saveRepositoryChanges(project, commitMessage) {

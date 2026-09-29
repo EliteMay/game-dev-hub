@@ -30,8 +30,12 @@ Skin Aim TrainerのようにWeb Coreから開発し、後でElectron化するGam
 
 ### Verification
 
-- GitHub Actions CI / Security: 実行結果確認待ち
-- Windows実機 Web Project登録 / Clone / 起動: 未確認
+- GitHub Actions CI: PASS
+- GitHub Actions Security / CodeQL: PASS
+- Windows installer build: PASS
+- Updater metadata / blockmap / Setup.exe verification: PASS
+- GitHub Release `v0.1.28`: PASS
+- Windows実機 Web Project登録 / Clone / `npm run dev`起動: 未確認
 - Skin Aim Trainer Actual Playtest: 未確認
 
 ---

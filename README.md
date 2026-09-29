@@ -1,6 +1,6 @@
 # Game Dev Hub
 
-## Current main — Web / Electron Project対応（未Release）
+## v0.1.28 Web / Electron Project対応
 
 Godot Gameに加えて、Web Core / Electronへ発展するGame Repositoryも同じHubで管理できるようにします。
 
@@ -12,7 +12,7 @@ Godot Gameに加えて、Web Core / Electronへ発展するGame Repositoryも同
 - Game Repositoryの `game-dev-hub.json` にloopback URLがある場合だけBrowserを自動Open
 - 既存Godot Project / Local Prototypeは従来どおり維持
 
-最初の対象は `EliteMay/Skin-Aim-Trainer`。Windows実機でのWeb Project登録 → Clone → 起動 → Roadmap確認は未確認なので、現時点ではRelease完了扱いにしません。
+最初の対象は `EliteMay/Skin-Aim-Trainer`。CI / Security / Windows installer build / updater artifact / GitHub Releaseは確認済みです。Web Project登録 → Clone → `npm run dev`起動 → Roadmap確認とSkin Aim TrainerのActual PlaytestはWindows実機で未確認として残します。
 
 
 ## v0.1.27 ローカル試作モード

@@ -1,3 +1,5 @@
+import http from "node:http";
+import net from "node:net";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { runFile, spawnDetached } from "../core/process.mjs";
@@ -5,8 +7,13 @@ import { HubError } from "./repository.mjs";
 
 export const WEB_PROJECT_METADATA_FILE = "game-dev-hub.json";
 
+function normalizeHostname(hostname) {
+  return String(hostname || "").replace(/^\[|\]$/g, "");
+}
+
 function isLoopbackHost(hostname) {
-  return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1";
+  const normalized = normalizeHostname(hostname);
+  return normalized === "127.0.0.1" || normalized === "localhost" || normalized === "::1";
 }
 
 export function safeLoopbackUrl(value) {
@@ -19,6 +26,69 @@ export function safeLoopbackUrl(value) {
   } catch {
     return "";
   }
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function canConnect(host, port, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const socket = net.createConnection({ host, port });
+
+    const finish = (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      socket.destroy();
+      if (error) reject(error);
+      else resolve();
+    };
+
+    const timer = setTimeout(
+      () => finish(new Error("Connection timeout")),
+      timeoutMs
+    );
+
+    socket.once("connect", () => finish());
+    socket.once("error", (error) => finish(error));
+  });
+}
+
+export async function waitForLoopbackServer(value, options = {}) {
+  const safeUrl = safeLoopbackUrl(value);
+  if (!safeUrl) {
+    throw new HubError(
+      "WEB_DEV_URL_INVALID",
+      "開発ServerのURLはlocalhost / 127.0.0.1 / ::1だけ利用できます。"
+    );
+  }
+
+  const parsed = new URL(safeUrl);
+  const host = normalizeHostname(parsed.hostname);
+  const port = Number(parsed.port || (parsed.protocol === "https:" ? 443 : 80));
+  const timeoutMs = Math.max(500, Number(options.timeoutMs) || 15_000);
+  const intervalMs = Math.max(25, Number(options.intervalMs) || 150);
+  const connectTimeoutMs = Math.max(100, Number(options.connectTimeoutMs) || 500);
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    try {
+      await canConnect(host, port, connectTimeoutMs);
+      return true;
+    } catch {
+      const remaining = deadline - Date.now();
+      if (remaining > 0) {
+        await delay(Math.min(intervalMs, remaining));
+      }
+    }
+  }
+
+  throw new HubError(
+    "WEB_DEV_SERVER_NOT_READY",
+    "開発Serverの起動を確認できませんでした。npm run dev のWindowを確認してから再試行してください。"
+  );
 }
 
 export async function inspectWebProject(localPath) {
@@ -102,6 +172,10 @@ export async function runWebProject(project) {
   const pid = spawnDetached(command.file, command.args, {
     cwd: project.localPath
   });
+
+  if (info.devUrl) {
+    await waitForLoopbackServer(info.devUrl);
+  }
 
   return {
     pid,

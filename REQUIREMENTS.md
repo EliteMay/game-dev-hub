@@ -18,7 +18,7 @@ Hub側へ各ゲームの詳細仕様を複製しない。
 2. 開発するゲームを選ぶ
 3. **開発を開始**を押す
 4. Repositoryを安全に最新化する
-5. 正しいGodot Projectを開く
+5. Project種類に応じてGodot EditorまたはWeb / Electron Project folderを開く
 
 ## v0.1
 
@@ -37,7 +37,11 @@ Hub側へ各ゲームの詳細仕様を複製しない。
 - Repositoryフォルダを開ける
 - GitHub Repositoryを開ける
 - GitHub URLからゲームを追加できる
-- PC上の既存Godot Repositoryを登録できる
+- PC上の既存Godot / Web・Electron Repositoryを登録できる
+- GitHub URLから追加する時にGodot / Web・Electronを選択できる
+- Web / Electron Projectは`package.json`をProject markerとして確認できる
+- Web / Electron ProjectはRendererへShell権限を公開せず、Main Processから固定の`npm run dev`だけを起動できる
+- Web Projectの`game-dev-hub.json`にloopback開発URLがある場合だけ、起動後にBrowserを開ける
 - 登録ゲームをHubから外せる
 - 操作ログを表示する
 - 設定・Project一覧をElectron `userData`へ保存する
@@ -123,13 +127,25 @@ Hub側へ各ゲームの詳細仕様を複製しない。
 - Godot自体をHubから自動インストールする
 - 各ゲームの仕様書をHubへコピーする
 
+## Web / Electron Project Contract
+
+- Registryの`engine`は現在`godot` / `web`を許可する
+- 既存Registryでengine未記録のProjectは互換上Godotとして扱う
+- Web ProjectのClone / sync / dirty guard / GitHub保存は既存Repository safety contractを再利用する
+- Web Projectの起動は任意commandを受け取らず、`package.json`の`scripts.dev`が存在する時だけ固定の`npm run dev`を実行する
+- Optional `game-dev-hub.json` はGame Repository側が所有し、`schemaVersion: 1` / `engine: "web"` / loopback URLだけを開発Browser URLとして許可する
+- 外部URLや任意Shell commandをProject metadataから実行しない
+- Godot Game FoundationはWeb Projectへ適用しない
+- Web ProjectでもRoadmap / TODO / ChatGPT共有 / GitHub同期を同じWorkspace機能として使える
+- Web / Electron ProjectのWindows実機起動は実機確認前にVerified扱いしない
+
 ## Repository同期Contract
 
 自動同期を許可する条件:
 
 - Gitが利用可能
 - `.git`が存在
-- `project.godot`が存在
+- Godot Projectは`project.godot`、Web / Electron Projectは`package.json`が存在
 - originが登録済みGitHub Repositoryと一致
 - current branchがProjectのdefault branchと一致
 - working treeがclean

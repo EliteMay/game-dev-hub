@@ -155,7 +155,7 @@
           <section class="safety-recovery hidden" id="safety-recovery" data-project-tab="development" aria-live="polite">
             <div class="safety-recovery-heading">
               <div>
-                <p class="section-kicker">GitHubへの保存待ち</p>
+                <p class="section-kicker" id="safety-recovery-kicker">GitHubへの保存待ち</p>
                 <h3 id="safety-recovery-title">PC側に変更があります</h3>
               </div>
               <span class="dev-badge" id="safety-change-count">0件</span>
@@ -193,9 +193,9 @@
               </div>
             </div>
 
-            <details class="safety-details">
-              <summary>「GitHubに保存」で何をする？</summary>
-              <p>
+            <details class="safety-details" id="safety-details">
+              <summary id="safety-details-summary">「GitHubに保存」で何をする？</summary>
+              <p id="safety-details-description">
                 今ある変更をPCの履歴へ保存してGitHubへ送ります。GitHub側に新しい変更がある場合は先に安全に組み合わせます。競合した場合は自動で中断し、PC側の変更は残します。
               </p>
             </details>
@@ -539,7 +539,7 @@
     <footer class="footer">
       <span id="app-version">Game Dev Hub</span>
       <span class="task-status" id="task-status">待機中</span>
-      <span>ゲーム本体はそれぞれのGitHub Repositoryで管理します。</span>
+      <span>試作はローカル、正式なゲームはGitHubで管理できます。</span>
     </footer>
   </main>
 
@@ -558,6 +558,17 @@
         <strong>Godot Game Foundation</strong>
         <small>作成時にGitHubから最新版を取得</small>
       </div>
+
+      <label class="field">
+        <span>作り方</span>
+        <select id="foundation-create-mode-select" name="creationMode">
+          <option value="local">ローカル試作（Repository不要）</option>
+          <option value="github">GitHubで正式管理（空Repositoryが必要）</option>
+        </select>
+        <small class="field-help">
+          まず試すだけならローカル試作でOKです。必要になった時だけGitHubへ公開できます。
+        </small>
+      </label>
 
       <label class="field">
         <span>開始構成</span>
@@ -587,10 +598,55 @@
         >
       </label>
 
-      <label class="field">
+      <label class="field hidden" id="foundation-repository-field">
         <span>空のGitHub Repository</span>
         <input
           id="foundation-repository-url-input"
+          name="repositoryUrl"
+          type="url"
+          placeholder="https://github.com/EliteMay/my-game"
+          autocomplete="off"
+        >
+      </label>
+
+      <p class="dialog-note" id="foundation-local-note">
+        GitHub Repositoryは不要です。PC内にGodot ProjectとGit履歴を作るので、すぐ起動・編集・確認できます。
+      </p>
+      <p class="dialog-note hidden" id="foundation-github-note">
+        GitHub側でFileのない空Repositoryを先に作ってください。HubがStarter FileとFoundationを生成し、最初のCommitをGitHubへ保存してからゲーム一覧へ登録します。
+      </p>
+      <p class="dialog-note hidden" id="foundation-github-security-note">
+        GitHub Tokenは保存しません。PCのGit認証を使用します。既存FileがあるRepositoryは上書きせず停止します。
+      </p>
+      <p class="dialog-error hidden" id="foundation-create-error" aria-live="polite"></p>
+
+      <div class="dialog-actions">
+        <button class="button button-muted" id="foundation-create-cancel-button" type="button">キャンセル</button>
+        <button class="button button-primary" id="foundation-create-submit-button" type="submit" value="default">
+          ローカル試作を作成
+        </button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="dialog" id="publish-local-dialog">
+    <form method="dialog" id="publish-local-form">
+      <div class="dialog-heading">
+        <div>
+          <p class="section-kicker">ローカル試作を公開</p>
+          <h2>GitHubで正式管理</h2>
+        </div>
+        <button class="icon-button" id="publish-local-close-button" type="button" aria-label="閉じる">×</button>
+      </div>
+
+      <p class="dialog-note">
+        Fileのない空Repositoryを指定すると、現在のローカル試作をそのままPushし、Hubの登録をGitHub管理へ切り替えます。PC側のFileは作り直しません。
+      </p>
+
+      <label class="field">
+        <span>空のGitHub Repository</span>
+        <input
+          id="publish-local-url-input"
           name="repositoryUrl"
           type="url"
           required
@@ -600,17 +656,14 @@
       </label>
 
       <p class="dialog-note">
-        GitHub側でFileのない空Repositoryを先に作ってください。HubがStarter FileとFoundationを生成し、最初のCommitをGitHubへ保存してからゲーム一覧へ登録します。
+        GitHub Tokenは保存しません。PCのGit認証を使用します。公開先に別の履歴がある場合は自動で停止します。
       </p>
-      <p class="dialog-note">
-        GitHub Tokenは保存しません。PCのGit認証を使用します。既存FileがあるRepositoryは上書きせず停止します。
-      </p>
-      <p class="dialog-error hidden" id="foundation-create-error" aria-live="polite"></p>
+      <p class="dialog-error hidden" id="publish-local-error" aria-live="polite"></p>
 
       <div class="dialog-actions">
-        <button class="button button-muted" id="foundation-create-cancel-button" type="button">キャンセル</button>
-        <button class="button button-primary" id="foundation-create-submit-button" type="submit" value="default">
-          Foundationから作成
+        <button class="button button-muted" id="publish-local-cancel-button" type="button">キャンセル</button>
+        <button class="button button-primary" id="publish-local-submit-button" type="submit" value="default">
+          GitHubへ公開
         </button>
       </div>
     </form>
@@ -657,8 +710,8 @@
     <form method="dialog" id="save-changes-form">
       <div class="dialog-heading">
         <div>
-          <p class="section-kicker">GitHubへ保存</p>
-          <h2>この変更を保存しますか？</h2>
+          <p class="section-kicker" id="save-changes-kicker">GitHubへ保存</p>
+          <h2 id="save-changes-title">この変更を保存しますか？</h2>
         </div>
         <button class="icon-button" id="save-changes-close-button" type="button" aria-label="閉じる">×</button>
       </div>

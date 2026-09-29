@@ -3,9 +3,13 @@ import assert from "node:assert/strict";
 import path from "node:path";
 
 import {
+  createLocalPrototypeRecord,
   createProjectRecord,
+  isLocalPrototypeProject,
   makeProjectId,
-  parseGitHubRepositoryUrl
+  normalizeRegistry,
+  parseGitHubRepositoryUrl,
+  REGISTRY_VERSION
 } from "../src/core/project-model.mjs";
 
 test("parses HTTPS GitHub repository URL", () => {
@@ -36,7 +40,7 @@ test("creates stable project id", () => {
   assert.equal(makeProjectId("EliteMay/My Game"), "elitemay-my-game");
 });
 
-test("creates a normalized Godot project record", () => {
+test("creates a normalized GitHub Godot project record", () => {
   const record = createProjectRecord({
     name: "Test Game",
     repositoryUrl: "https://github.com/EliteMay/test-game",
@@ -46,5 +50,64 @@ test("creates a normalized Godot project record", () => {
   });
 
   assert.equal(record.repositorySlug, "EliteMay/test-game");
+  assert.equal(record.sourceType, "github");
   assert.equal(record.engine, "godot");
+});
+
+test("creates local prototype records without a GitHub remote", () => {
+  const record = createLocalPrototypeRecord({
+    id: "local-test-game",
+    name: "Test Game",
+    localSlug: "test-game",
+    localPath: path.resolve("C:/Games/test-game"),
+    defaultBranch: "main",
+    engine: "godot"
+  });
+
+  assert.equal(record.id, "local-test-game");
+  assert.equal(record.sourceType, "local-prototype");
+  assert.equal(record.repositoryUrl, "");
+  assert.equal(record.repositoryWebUrl, "");
+  assert.equal(record.repositorySlug, "local-prototype/test-game");
+  assert.equal(record.localSlug, "test-game");
+  assert.equal(isLocalPrototypeProject(record), true);
+});
+
+test("registry v1 records migrate to GitHub sourceType without changing identity", () => {
+  const localPath = path.resolve("C:/Games/test-game");
+  const normalized = normalizeRegistry({
+    version: 1,
+    projects: [{
+      id: "elitemay-test-game",
+      name: "Test Game",
+      repositoryUrl: "https://github.com/EliteMay/test-game.git",
+      repositoryWebUrl: "https://github.com/EliteMay/test-game",
+      repositorySlug: "EliteMay/test-game",
+      localPath,
+      defaultBranch: "main",
+      engine: "godot"
+    }]
+  });
+
+  assert.equal(normalized.version, REGISTRY_VERSION);
+  assert.equal(normalized.projects.length, 1);
+  assert.equal(normalized.projects[0].id, "elitemay-test-game");
+  assert.equal(normalized.projects[0].sourceType, "github");
+  assert.equal(normalized.projects[0].repositorySlug, "EliteMay/test-game");
+});
+
+test("explicit project id survives local-to-GitHub promotion normalization", () => {
+  const record = createProjectRecord({
+    id: "local-test-game",
+    sourceType: "github",
+    name: "Test Game",
+    repositoryUrl: "https://github.com/EliteMay/test-game",
+    localPath: path.resolve("C:/Games/test-game"),
+    defaultBranch: "main",
+    engine: "godot"
+  });
+
+  assert.equal(record.id, "local-test-game");
+  assert.equal(record.sourceType, "github");
+  assert.equal(record.repositorySlug, "EliteMay/test-game");
 });

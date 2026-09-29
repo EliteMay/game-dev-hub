@@ -18,16 +18,37 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { createProjectRecord, parseGitHubRepositoryUrl } from "./core/project-model.mjs";
+import {
+  createLocalPrototypeRecord,
+  createProjectRecord,
+  isLocalPrototypeProject,
+  makeProjectId,
+  parseGitHubRepositoryUrl
+} from "./core/project-model.mjs";
 import { detectGodot, inspectSelectedGodot, openGodotEditor, runGodotProject } from "./services/godot.mjs";
-import { addProject, loadProjects, removeProject, saveProjects } from "./services/project-registry.mjs";
+import {
+  addProject,
+  loadProjects,
+  removeProject,
+  replaceProject,
+  saveProjects
+} from "./services/project-registry.mjs";
 import {
   bootstrapFoundationProject,
+  bootstrapLocalFoundationProject,
   getFoundationProfileCatalog,
   inspectFoundationInstallation,
   updateProjectFoundation as updateManagedFoundationProject
 } from "./services/foundation-template.mjs";
-import { HubError, inspectGit, inspectRepository, prepareProject, saveRepositoryChanges, syncProject } from "./services/repository.mjs";
+import {
+  HubError,
+  inspectGit,
+  inspectRepository,
+  prepareProject,
+  publishLocalPrototypeToGitHub,
+  saveRepositoryChanges,
+  syncProject
+} from "./services/repository.mjs";
 import { loadSettings, saveSettings } from "./services/settings.mjs";
 import {
   clearTaskVerification,
@@ -309,6 +330,7 @@ const LOGGED_IPC_CHANNELS = new Set([
   "hub:add-github-project",
   "hub:get-foundation-profiles",
   "hub:create-foundation-project",
+  "hub:publish-local-prototype",
   "hub:update-project-foundation",
   "hub:import-existing-project",
   "hub:start-development",
@@ -1523,11 +1545,86 @@ async function getFoundationProfiles() {
   };
 }
 
+async function localPrototypeDestination(settings, registry, name) {
+  const base = makeProjectId(name) || "prototype";
+
+  for (let index = 1; index <= 999; index += 1) {
+    const slug = index === 1 ? base : base + "-" + index;
+    const id = "local-" + slug;
+    const localPath = path.join(settings.projectsRoot, slug);
+    const registered = registry.projects.some(
+      (item) =>
+        item.id === id ||
+        path.resolve(item.localPath).toLowerCase() === path.resolve(localPath).toLowerCase()
+    );
+
+    let pathExists = false;
+    try {
+      await fs.access(localPath);
+      pathExists = true;
+    } catch {
+      pathExists = false;
+    }
+
+    if (!registered && !pathExists) {
+      return { id, slug, localPath };
+    }
+  }
+
+  throw new HubError(
+    "LOCAL_PROTOTYPE_NAME_EXHAUSTED",
+    "同じ名前のローカル試作が多すぎます。別のゲーム名を使ってください。"
+  );
+}
+
 async function createFoundationProject(payload) {
   requireNetwork();
 
   if (!payload || typeof payload !== "object") {
     throw new HubError("INVALID_INPUT", "新しいGameの指定が正しくありません。");
+  }
+
+  const mode = payload.mode === "github" ? "github" : "local";
+  const gameName = String(payload.name ?? "").trim();
+  if (!gameName) {
+    throw new HubError("GAME_NAME_REQUIRED", "ゲーム名を入力してください。");
+  }
+
+  const settings = await getSettings();
+  const registry = await getRegistry();
+
+  if (mode === "local") {
+    const destination = await localPrototypeDestination(settings, registry, gameName);
+    const project = createLocalPrototypeRecord({
+      id: destination.id,
+      name: gameName,
+      localSlug: destination.slug,
+      localPath: destination.localPath,
+      defaultBranch: "main",
+      engine: "godot"
+    });
+
+    const generated = await bootstrapLocalFoundationProject(
+      project,
+      appDataRoot(),
+      String(payload.profileId || "")
+    );
+
+    await addProject(
+      appDataRoot(),
+      settings.projectsRoot,
+      project
+    );
+
+    return {
+      ok: true,
+      message:
+        project.name +
+        " をローカル試作として作成しました。GitHub Repositoryは作成していません。",
+      projectId: project.id,
+      foundation: generated.metadata,
+      state: await getState()
+    };
   }
 
   const parsed = parseGitHubRepositoryUrl(payload.repositoryUrl);
@@ -1538,10 +1635,10 @@ async function createFoundationProject(payload) {
     );
   }
 
-  const settings = await getSettings();
-  const registry = await getRegistry();
   const duplicate = registry.projects.find(
-    (item) => item.repositoryWebUrl.toLowerCase() === parsed.webUrl.toLowerCase()
+    (item) =>
+      !isLocalPrototypeProject(item) &&
+      item.repositoryWebUrl.toLowerCase() === parsed.webUrl.toLowerCase()
   );
 
   if (duplicate) {
@@ -1549,7 +1646,7 @@ async function createFoundationProject(payload) {
   }
 
   const project = createProjectRecord({
-    name: String(payload.name ?? "").trim() || parsed.repo,
+    name: gameName,
     repositoryUrl: parsed.cloneUrl,
     localPath: path.join(settings.projectsRoot, parsed.repo),
     defaultBranch: "main",
@@ -1581,6 +1678,62 @@ async function createFoundationProject(payload) {
   };
 }
 
+async function publishLocalPrototype(payload) {
+  requireNetwork();
+
+  if (!payload || typeof payload !== "object") {
+    throw new HubError("INVALID_INPUT", "GitHub公開の指定が正しくありません。");
+  }
+
+  const project = await findProject(payload.projectId);
+  if (!isLocalPrototypeProject(project)) {
+    throw new HubError("PROJECT_NOT_LOCAL_PROTOTYPE", "このGameはローカル試作ではありません。");
+  }
+
+  const parsed = parseGitHubRepositoryUrl(payload.repositoryUrl);
+  if (!parsed) {
+    throw new HubError(
+      "INVALID_REPOSITORY_URL",
+      "空のGitHub Repository URLを https://github.com/owner/repository の形で入力してください。"
+    );
+  }
+
+  const registry = await getRegistry();
+  const duplicate = registry.projects.find(
+    (item) =>
+      item.id !== project.id &&
+      !isLocalPrototypeProject(item) &&
+      item.repositoryWebUrl.toLowerCase() === parsed.webUrl.toLowerCase()
+  );
+  if (duplicate) {
+    throw new HubError("PROJECT_ALREADY_REGISTERED", "このRepositoryはすでにHubへ登録されています。");
+  }
+
+  const published = await publishLocalPrototypeToGitHub(project, parsed.cloneUrl);
+  const settings = await getSettings();
+  const promoted = await replaceProject(
+    appDataRoot(),
+    settings.projectsRoot,
+    project.id,
+    {
+      ...project,
+      sourceType: "github",
+      repositoryUrl: parsed.cloneUrl,
+      defaultBranch: project.defaultBranch,
+      engine: project.engine
+    }
+  );
+
+  return {
+    ok: true,
+    message:
+      promoted.name +
+      " をGitHubへ公開し、正式なRepository管理へ切り替えました。",
+    projectId: promoted.id,
+    commit: published.commit,
+    state: await getState()
+  };
+}
 
 async function importExistingProject() {
   const result = await dialog.showOpenDialog(mainWindow, {
@@ -1698,24 +1851,37 @@ async function importExistingProject() {
 }
 
 async function startDevelopment(projectId) {
-  requireNetwork();
   const project = await findProject(projectId);
+  if (!isLocalPrototypeProject(project)) {
+    requireNetwork();
+  }
+
   const prepared = await prepareProject(project);
   const godot = await ensureGodot();
   openGodotEditor(godot.path, project);
 
   return {
     ok: true,
-    message: prepared.action === "cloned"
-      ? project.name + " を取得してGodotを開きました。"
-      : project.name + " を最新化してGodotを開きました。",
+    message:
+      prepared.action === "local"
+        ? project.name + " のローカル試作をGodotで開きました。"
+        : prepared.action === "cloned"
+          ? project.name + " を取得してGodotを開きました。"
+          : project.name + " を最新化してGodotを開きました。",
     state: await getState()
   };
 }
 
 async function syncSelected(projectId) {
-  requireNetwork();
   const project = await findProject(projectId);
+  if (isLocalPrototypeProject(project)) {
+    throw new HubError(
+      "LOCAL_PROTOTYPE_NO_REMOTE",
+      "ローカル試作はGitHub未接続です。「GitHubで正式管理」から公開できます。"
+    );
+  }
+
+  requireNetwork();
   const state = await inspectRepository(project);
 
   if (!state.exists) {
@@ -1736,18 +1902,21 @@ async function updateSelectedFoundation(projectId) {
 
   const project = await findProject(projectId);
   const repository = await inspectRepository(project);
+  const localPrototype = isLocalPrototypeProject(project);
 
   if (!repository.valid) {
     throw new HubError(
       "REPOSITORY_INVALID",
-      "Foundation更新前にLocal Repositoryを正しい状態へ準備してください。"
+      "Foundation更新前にLocal Projectを正しい状態へ準備してください。"
     );
   }
 
   if (repository.dirty) {
     throw new HubError(
       "DIRTY_WORKTREE",
-      "PC側に未保存の変更があります。先に「GitHubに保存」するか、変更を確認してからFoundationを更新してください。"
+      localPrototype
+        ? "PC側に未保存の変更があります。先に「ローカル履歴に保存」してからFoundationを更新してください。"
+        : "PC側に未保存の変更があります。先に「GitHubに保存」するか、変更を確認してからFoundationを更新してください。"
     );
   }
 
@@ -1758,35 +1927,40 @@ async function updateSelectedFoundation(projectId) {
     );
   }
 
-  if ((repository.ahead || 0) > 0) {
+  if (!localPrototype && (repository.ahead || 0) > 0) {
     throw new HubError(
       "UNPUSHED_COMMITS",
       "GitHubへの送信待ちがあります。先に「GitHubに保存」を完了してからFoundationを更新してください。"
     );
   }
 
-  await syncProject(project);
+  if (!localPrototype) {
+    await syncProject(project);
+  }
   const updated = await updateManagedFoundationProject(project, appDataRoot());
 
   return {
     ok: true,
     message: updated.changed
-      ? "Foundationを " + updated.foundationVersion + " へ更新しました。Game固有Fileは変更していません。内容を確認して「GitHubに保存」してください。"
+      ? localPrototype
+        ? "Foundationを " + updated.foundationVersion + " へ更新しました。Game固有Fileは変更していません。内容を確認して「ローカル履歴に保存」してください。"
+        : "Foundationを " + updated.foundationVersion + " へ更新しました。Game固有Fileは変更していません。内容を確認して「GitHubに保存」してください。"
       : "Foundationはすでに最新版です。",
     foundation: updated,
     state: await getState()
   };
 }
 
-
 async function saveSelectedRepositoryChanges(payload) {
-  requireNetwork();
-
   if (!payload || typeof payload !== "object") {
-    throw new HubError("INVALID_INPUT", "GitHubへ保存する内容の指定が正しくありません。");
+    throw new HubError("INVALID_INPUT", "変更を保存する内容の指定が正しくありません。");
   }
 
   const project = await findProject(payload.projectId);
+  if (!isLocalPrototypeProject(project)) {
+    requireNetwork();
+  }
+
   const commitMessage =
     typeof payload.message === "string" ? payload.message : "";
 
@@ -2622,6 +2796,7 @@ if (!singleInstanceLock) {
     registerIpc("hub:add-github-project", addGitHubProject);
     registerIpc("hub:get-foundation-profiles", getFoundationProfiles);
     registerIpc("hub:create-foundation-project", createFoundationProject);
+    registerIpc("hub:publish-local-prototype", publishLocalPrototype);
     registerIpc("hub:update-project-foundation", updateSelectedFoundation);
     registerIpc("hub:import-existing-project", importExistingProject);
     registerIpc("hub:start-development", startDevelopment);

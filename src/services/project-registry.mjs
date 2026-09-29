@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   createProjectRecord,
   DEFAULT_PROJECT,
+  isLocalPrototypeProject,
   normalizeRegistry,
   REGISTRY_VERSION
 } from "../core/project-model.mjs";
@@ -67,12 +68,28 @@ export async function addProject(userDataPath, projectsRoot, record) {
   const registry = await loadProjects(userDataPath, projectsRoot);
   const project = createProjectRecord(record);
 
-  const sameRemote = registry.projects.find(
-    (item) => item.repositoryWebUrl.toLowerCase() === project.repositoryWebUrl.toLowerCase()
-  );
+  const sameId = registry.projects.find((item) => item.id === project.id);
+  if (sameId) {
+    throw new Error("同じGame IDがすでに登録されています。");
+  }
 
-  if (sameRemote) {
-    throw new Error("このRepositoryはすでに登録されています。");
+  const sameLocalPath = registry.projects.find(
+    (item) => path.resolve(item.localPath).toLowerCase() === path.resolve(project.localPath).toLowerCase()
+  );
+  if (sameLocalPath) {
+    throw new Error("同じ保存先がすでにHubへ登録されています。");
+  }
+
+  if (!isLocalPrototypeProject(project)) {
+    const sameRemote = registry.projects.find(
+      (item) =>
+        !isLocalPrototypeProject(item) &&
+        item.repositoryWebUrl.toLowerCase() === project.repositoryWebUrl.toLowerCase()
+    );
+
+    if (sameRemote) {
+      throw new Error("このRepositoryはすでに登録されています。");
+    }
   }
 
   const next = {
@@ -81,6 +98,25 @@ export async function addProject(userDataPath, projectsRoot, record) {
   };
 
   await saveProjects(userDataPath, next);
+  return project;
+}
+
+export async function replaceProject(userDataPath, projectsRoot, projectId, record) {
+  const registry = await loadProjects(userDataPath, projectsRoot);
+  const index = registry.projects.findIndex((item) => item.id === projectId);
+  if (index < 0) {
+    throw new Error("対象Gameが見つかりません。");
+  }
+
+  const project = createProjectRecord({ ...record, id: projectId });
+  const nextProjects = registry.projects.map((item, itemIndex) =>
+    itemIndex === index ? project : item
+  );
+
+  await saveProjects(userDataPath, {
+    version: REGISTRY_VERSION,
+    projects: nextProjects
+  });
   return project;
 }
 

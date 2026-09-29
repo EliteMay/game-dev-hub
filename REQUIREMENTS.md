@@ -256,13 +256,20 @@ v0.1は、Windows実機で次を確認して初めて完成扱いとする。
 Foundationから新しいゲームを作る
 → Godot Game Foundation最新版から選択可能なStarter構成を取得
 → 最小構成 / 標準構成などManifestで許可されたProfileを選択
-→ ゲーム名 + 空のGitHub Repository URL
-→ GitHub Repositoryが空であることを確認
-→ 選択ProfileのStarter + Managed Foundationを生成
-→ Initial Commit / Push
-→ Hubへ登録
-→ Godotで開発開始
+→ 作り方を選択
+   ├─ ローカル試作（Default）
+   │  → ゲーム名だけ入力
+   │  → PC内にGodot Project + Local Git履歴を生成
+   │  → Hubへ登録
+   │  → すぐGodot / Gameを起動
+   └─ GitHubで正式管理
+      → ゲーム名 + 空のGitHub Repository URL
+      → Repositoryが空であることを確認
+      → Initial Commit / Push
+      → Hubへ登録
 ```
+
+ローカル試作は後から「GitHubで正式管理」を選び、Fileのない空Repositoryへ現在のLocal Git履歴をPushして正式Projectへ切り替えられる。
 
 ### Existing Game / Update Flow
 
@@ -282,13 +289,17 @@ Foundation導入済みGameを選択
 - 配布ContractはFoundation Repositoryの `foundation-template.json`
 - Starter Profile一覧・既定Profile・Profile固有File SetはManifestをSource of Truthとし、Hub側へ固定複製しない
 - 選択Profileは `.game-foundation.json` へ記録し、旧MetadataにProfileが無い場合は既存互換の `minimal` として扱う
-- 生成先GitHub Repositoryは既存Fileのない空Repositoryに限定する
+- ローカル試作ではGitHub Repositoryを要求せず、PC内のProject FolderとLocal Git履歴をAuthorityとして扱う
+- ローカル試作の変更保存はLocal Commitまでとし、GitHubへ自動送信しない
+- ローカル試作を正式管理へ切り替える時だけ、Userが指定したFileのない空GitHub RepositoryへPushする
+- GitHub管理として直接生成する場合も、生成先Repositoryは既存Fileのない空Repositoryに限定する
 - HubからGitHub Repositoryそのものを新規作成するためのTokenは保持しない
 - Foundation更新対象はManifestで許可されたManaged Pathだけ
 - 現在のManaged Pathは `addons/game_foundation/`
 - `project.godot`、Roadmap、Game Scene / Script / Data / Assetsは更新対象外
 - Rendererへ汎用Filesystem / Shell / Git Command Capabilityを公開しない
-- Offline時はCreate / Updateを開始せず、既存GameのLocal開発は維持する
+- Foundation Source取得が必要なCreate / UpdateはOffline時に開始しない
+- 作成済みローカル試作はOfflineでもGodot起動 / Game起動 / Folder表示 / Local Commitを利用可能にする
 
 ### Completion
 
@@ -297,8 +308,10 @@ Foundation導入済みGameを選択
 - Foundation Version / CommitをHub上で確認できる
 - Managed Pathだけ更新されるRegression Testが通る
 - Existing FileをStarter生成で上書きしない
+- Local Prototype record / Registry migration / Remote-free Local CommitのRegression Testが通る
 - Hub CI / Windows installer buildが成功する
-- Windows実機のCreate / Update操作はCIとは分離して未確認事項として扱う
+- Windows実機でRepositoryなしのLocal Create / Game起動を確認する
+- Windows実機でLocal Prototype → GitHub正式管理への切替はCIとは分離して確認する
 
 ## Windows Game Auto Test
 

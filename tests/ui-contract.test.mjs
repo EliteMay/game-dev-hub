@@ -202,7 +202,7 @@ test("completed user verification tasks are not shown as actionable re-checks", 
   assert.match(mainSource, /!item\.doneInRoadmap && item\.result\?\.overall === "stale"/);
 });
 
-test("Foundation starter flow loads selectable profiles and preserves required-field cancel recovery", async () => {
+test("Foundation starter flow defaults to local prototypes and can opt into GitHub", async () => {
   const html = await fs.readFile(new URL("src/renderer/index.html", root), "utf8");
   const source = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
   const preload = await fs.readFile(new URL("src/preload.cjs", root), "utf8");
@@ -210,22 +210,28 @@ test("Foundation starter flow loads selectable profiles and preserves required-f
 
   assert.match(html, /id="create-foundation-project-button"/);
   assert.match(html, /id="foundation-create-dialog"/);
+  assert.match(html, /id="foundation-create-mode-select"/);
+  assert.match(html, /value="local">ローカル試作（Repository不要）/);
+  assert.match(html, /value="github">GitHubで正式管理/);
   assert.match(html, /id="foundation-profile-select"[^>]*required/);
   assert.match(html, /id="foundation-profile-description"/);
   assert.match(html, /id="foundation-game-name-input"[^>]*required/);
-  assert.match(html, /id="foundation-repository-url-input"[^>]*required/);
-  assert.match(html, /id="foundation-create-close-button"[^>]*type="button"/);
-  assert.match(html, /id="foundation-create-cancel-button"[^>]*type="button"/);
-  assert.match(html, /Fileのない空Repository/);
-  assert.match(html, /既存FileがあるRepositoryは上書きせず停止/);
-  assert.match(source, /getFoundationProfiles/);
-  assert.match(source, /loadFoundationProfiles/);
+  assert.match(html, /class="field hidden" id="foundation-repository-field"/);
+  assert.match(html, /id="foundation-repository-url-input"/);
+  assert.doesNotMatch(html, /id="foundation-repository-url-input"[^>]*required/);
+  assert.match(html, /GitHub Repositoryは不要/);
+  assert.match(html, /id="publish-local-dialog"/);
+  assert.match(html, /id="publish-local-url-input"[^>]*required/);
+  assert.match(source, /renderFoundationCreationMode/);
+  assert.match(source, /mode === "local" \? "ローカル試作作成"/);
   assert.match(source, /profileId: el\.foundationProfileSelect\.value/);
-  assert.match(source, /foundationCreateError/);
-  assert.match(source, /Foundation付きゲーム作成/);
+  assert.match(source, /publishLocalPrototype/);
+  assert.match(source, /ローカル履歴に保存/);
   assert.match(preload, /hub:get-foundation-profiles/);
-  assert.match(mainSource, /getFoundationProfileCatalog/);
-  assert.match(mainSource, /hub:get-foundation-profiles/);
+  assert.match(preload, /hub:publish-local-prototype/);
+  assert.match(mainSource, /bootstrapLocalFoundationProject/);
+  assert.match(mainSource, /localPrototypeDestination/);
+  assert.match(mainSource, /hub:publish-local-prototype/);
 });
 
 test("selected game shows installed Foundation version and explicit update action", async () => {

@@ -25,6 +25,7 @@ const el = {
   foundationDescription: document.querySelector("#foundation-description"),
   foundationUpdate: document.querySelector("#foundation-update-button"),
   safetyRecovery: document.querySelector("#safety-recovery"),
+  safetyRecoveryKicker: document.querySelector("#safety-recovery-kicker"),
   safetyRecoveryTitle: document.querySelector("#safety-recovery-title"),
   safetyRecoverySummary: document.querySelector("#safety-recovery-summary"),
   safetyChangeCount: document.querySelector("#safety-change-count"),
@@ -34,6 +35,8 @@ const el = {
   safetyExport: document.querySelector("#safety-export-button"),
   safetyOpenFolder: document.querySelector("#safety-open-folder-button"),
   safetyRefresh: document.querySelector("#safety-refresh-button"),
+  safetyDetailsSummary: document.querySelector("#safety-details-summary"),
+  safetyDetailsDescription: document.querySelector("#safety-details-description"),
   heroStatus: document.querySelector("#hero-status"),
   heroTitle: document.querySelector("#hero-title"),
   heroDescription: document.querySelector("#hero-description"),
@@ -96,12 +99,24 @@ const el = {
   foundationCreateClose: document.querySelector("#foundation-create-close-button"),
   foundationCreateCancel: document.querySelector("#foundation-create-cancel-button"),
   foundationCreateForm: document.querySelector("#foundation-create-form"),
+  foundationCreateModeSelect: document.querySelector("#foundation-create-mode-select"),
   foundationGameNameInput: document.querySelector("#foundation-game-name-input"),
+  foundationRepositoryField: document.querySelector("#foundation-repository-field"),
   foundationRepositoryUrlInput: document.querySelector("#foundation-repository-url-input"),
+  foundationLocalNote: document.querySelector("#foundation-local-note"),
+  foundationGithubNote: document.querySelector("#foundation-github-note"),
+  foundationGithubSecurityNote: document.querySelector("#foundation-github-security-note"),
   foundationProfileSelect: document.querySelector("#foundation-profile-select"),
   foundationProfileDescription: document.querySelector("#foundation-profile-description"),
   foundationCreateSubmit: document.querySelector("#foundation-create-submit-button"),
   foundationCreateError: document.querySelector("#foundation-create-error"),
+  publishLocalDialog: document.querySelector("#publish-local-dialog"),
+  publishLocalForm: document.querySelector("#publish-local-form"),
+  publishLocalClose: document.querySelector("#publish-local-close-button"),
+  publishLocalCancel: document.querySelector("#publish-local-cancel-button"),
+  publishLocalUrlInput: document.querySelector("#publish-local-url-input"),
+  publishLocalError: document.querySelector("#publish-local-error"),
+  publishLocalSubmit: document.querySelector("#publish-local-submit-button"),
   addDialog: document.querySelector("#add-dialog"),
   addDialogClose: document.querySelector("#add-dialog-close-button"),
   addDialogCancel: document.querySelector("#add-dialog-cancel-button"),
@@ -114,6 +129,9 @@ const el = {
   saveChangesList: document.querySelector("#save-changes-list"),
   saveChangesSyncNote: document.querySelector("#save-changes-sync-note"),
   saveChangesMessageInput: document.querySelector("#save-changes-message-input"),
+  saveChangesKicker: document.querySelector("#save-changes-kicker"),
+  saveChangesTitle: document.querySelector("#save-changes-title"),
+  confirmSaveChanges: document.querySelector("#confirm-save-changes-button"),
   nameInput: document.querySelector("#project-name-input"),
   urlInput: document.querySelector("#project-url-input"),
   removeDialog: document.querySelector("#remove-dialog"),
@@ -264,6 +282,10 @@ function selectedProject() {
   return state?.projects?.find((project) => project.id === selectedId) ?? null;
 }
 
+function isLocalPrototype(project) {
+  return project?.sourceType === "local-prototype";
+}
+
 function addLog(message, tone = "") {
   if (!message) return;
 
@@ -404,7 +426,9 @@ function renderProjectList() {
     dot.className = "status-dot " + projectStatusTone(project);
 
     const slug = document.createElement("small");
-    slug.textContent = project.repositorySlug;
+    slug.textContent = isLocalPrototype(project)
+      ? "ローカル試作"
+      : project.repositorySlug;
 
     top.append(name, dot);
     button.append(top, slug);
@@ -987,18 +1011,34 @@ function changedFileExplanation(filePath) {
     return "Godotがファイルを識別するために作るID用ファイルです。Godotが自動で作ることがあります。";
   }
 
-  return "このPC上でGitHub版と違う状態になっているファイルです。";
+  return "このPC上で前回保存した履歴と違う状態になっているファイルです。";
 }
 
 function renderSafetyRecovery(project) {
   const repo = project?.repository || {};
-  const visible = Boolean(repo.valid && (repo.dirty || (repo.ahead || 0) > 0));
+  const localPrototype = isLocalPrototype(project);
+  const visible = Boolean(
+    repo.valid &&
+    (repo.dirty || (!localPrototype && (repo.ahead || 0) > 0))
+  );
   el.safetyRecovery.classList.toggle("hidden", !visible);
   el.safetyChangedFiles.replaceChildren();
 
   if (!visible) return;
 
-  if (!repo.dirty && (repo.ahead || 0) > 0) {
+  if (localPrototype) {
+    el.safetyRecoveryKicker.textContent = "ローカル履歴への保存待ち";
+    el.safetyDetailsSummary.textContent = "「ローカル履歴に保存」で何をする？";
+    el.safetyDetailsDescription.textContent =
+      "今ある変更をPC内のGit履歴へ保存します。GitHub Repositoryは作成せず、ネット接続も使いません。";
+  } else {
+    el.safetyRecoveryKicker.textContent = "GitHubへの保存待ち";
+    el.safetyDetailsSummary.textContent = "「GitHubに保存」で何をする？";
+    el.safetyDetailsDescription.textContent =
+      "今ある変更をPCの履歴へ保存してGitHubへ送ります。GitHub側に新しい変更がある場合は先に安全に組み合わせます。競合した場合は自動で中断し、PC側の変更は残します。";
+  }
+
+  if (!localPrototype && !repo.dirty && (repo.ahead || 0) > 0) {
     el.safetyRecoveryTitle.textContent =
       "PCには保存済みですが、GitHubへまだ送れていない履歴が" + repo.ahead + "件あります";
     el.safetyRecoverySummary.textContent =
@@ -1017,12 +1057,16 @@ function renderSafetyRecovery(project) {
     return;
   }
 
-  el.safetyRecoveryTitle.textContent =
-    "GitHubにまだ反映されていない変更が" + repo.changedCount + "件あります";
-  el.safetyRecoverySummary.textContent =
-    "エラーではありません。PC側の変更を守るため「最新版にする」だけ一時停止しています。Godotでの作業はそのまま続けられます。";
+  el.safetyRecoveryTitle.textContent = localPrototype
+    ? "PC内の履歴にまだ保存していない変更が" + repo.changedCount + "件あります"
+    : "GitHubにまだ反映されていない変更が" + repo.changedCount + "件あります";
+  el.safetyRecoverySummary.textContent = localPrototype
+    ? "エラーではありません。変更をPC内の履歴へ保存してからでも、そのままGodotで作業を続けても大丈夫です。"
+    : "エラーではありません。PC側の変更を守るため「最新版にする」だけ一時停止しています。Godotでの作業はそのまま続けられます。";
   el.safetyChangeCount.textContent = repo.changedCount + "件";
-  el.safetySave.textContent = repo.changedCount + "件をGitHubに保存";
+  el.safetySave.textContent = localPrototype
+    ? repo.changedCount + "件をローカル履歴に保存"
+    : repo.changedCount + "件をGitHubに保存";
 
   const files = Array.isArray(repo.changedFiles) ? repo.changedFiles : [];
   if (!files.length) {
@@ -1076,10 +1120,21 @@ function defaultRepositorySaveMessage(project) {
 
 function openSaveChangesDialog(project) {
   const repo = project?.repository || {};
+  const localPrototype = isLocalPrototype(project);
   const files = Array.isArray(repo.changedFiles) ? repo.changedFiles : [];
 
-  el.saveChangesSummary.textContent =
-    "今ある" + repo.changedCount + "件の変更を消さずにGitHubへ保存します。";
+  el.saveChangesKicker.textContent = localPrototype
+    ? "ローカル履歴に保存"
+    : "GitHubへ保存";
+  el.saveChangesTitle.textContent = localPrototype
+    ? "この変更をPC内の履歴へ保存しますか？"
+    : "この変更を保存しますか？";
+  el.saveChangesSummary.textContent = localPrototype
+    ? "今ある" + repo.changedCount + "件の変更を消さずにPC内のGit履歴へ保存します。GitHubへは送信しません。"
+    : "今ある" + repo.changedCount + "件の変更を消さずにGitHubへ保存します。";
+  el.confirmSaveChanges.textContent = localPrototype
+    ? "ローカル履歴に保存"
+    : "GitHubに保存";
   el.saveChangesMessageInput.value = defaultRepositorySaveMessage(project);
   el.saveChangesList.replaceChildren();
 
@@ -1113,7 +1168,10 @@ function openSaveChangesDialog(project) {
     el.saveChangesList.append(more);
   }
 
-  if ((repo.ahead || 0) > 0 || (repo.behind || 0) > 0) {
+  if (localPrototype) {
+    el.saveChangesSyncNote.textContent =
+      "この保存はPC内だけです。気に入った試作だけ、あとから「GitHubで正式管理」で公開できます。";
+  } else if ((repo.ahead || 0) > 0 || (repo.behind || 0) > 0) {
     el.saveChangesSyncNote.textContent =
       "GitHubとの間に未送信・未取得の履歴があります。Hubが先に最新状態を確認し、安全に組み合わせられる場合だけGitHubへ送ります。";
   } else {
@@ -1219,6 +1277,7 @@ function renderDetail() {
   el.projectDetail.classList.remove("hidden");
 
   const repo = project.repository || {};
+  const localPrototype = isLocalPrototype(project);
   el.start.textContent = "開発を開始";
 
   renderDevelopmentTasks(project);
@@ -1229,35 +1288,55 @@ function renderDetail() {
     refreshReferenceImages().catch(() => {});
   }
 
-  el.detailSlug.textContent = project.repositorySlug;
+  el.detailSlug.textContent = localPrototype
+    ? "ローカル試作 / GitHub未接続"
+    : project.repositorySlug;
   el.detailName.textContent = project.name;
   el.detailPath.textContent = project.localPath;
+
+  el.sync.classList.toggle("hidden", localPrototype);
+  const githubTitle = el.github.querySelector("strong");
+  const githubDescription = el.github.querySelector("span");
+  if (githubTitle) githubTitle.textContent = localPrototype ? "GitHubで正式管理" : "GitHubを開く";
+  if (githubDescription) {
+    githubDescription.textContent = localPrototype
+      ? "気に入った試作だけRepositoryへ公開"
+      : "Repositoryをブラウザで表示";
+  }
 
   if (!repo.exists) {
     setDot(el.repoDot, "warning");
     el.repoValue.textContent = "PCにまだありません";
-    el.repoDescription.textContent = "「開発を開始」でGitHubから自動取得します。";
+    el.repoDescription.textContent = localPrototype
+      ? "ローカル試作のフォルダが見つかりません。"
+      : "「開発を開始」でGitHubから自動取得します。";
   } else if (!repo.valid) {
     setDot(el.repoDot, "error");
     el.repoValue.textContent = "要確認";
-    el.repoDescription.textContent = "ローカルフォルダと登録Repositoryが一致しません。";
+    el.repoDescription.textContent = localPrototype
+      ? "ローカル試作のGodot ProjectまたはPC内Git履歴を確認してください。"
+      : "ローカルフォルダと登録Repositoryが一致しません。";
   } else {
     setDot(el.repoDot, "ok");
-    el.repoValue.textContent = "接続済み";
-    el.repoDescription.textContent =
-      project.repositorySlug + " / " + (repo.commit || "commit確認済み");
+    el.repoValue.textContent = localPrototype ? "ローカル試作" : "接続済み";
+    el.repoDescription.textContent = localPrototype
+      ? "PC内だけで管理中 / " + (repo.commit || "履歴確認済み")
+      : project.repositorySlug + " / " + (repo.commit || "commit確認済み");
   }
 
   if (!repo.exists) {
     setDot(el.branchDot, "warning");
     el.branchValue.textContent = "未取得";
-    el.branchDescription.textContent = project.defaultBranch + " をCloneします。";
+    el.branchDescription.textContent = localPrototype
+      ? "試作フォルダを確認してください。"
+      : project.defaultBranch + " をCloneします。";
   } else if (repo.dirty) {
     setDot(el.branchDot, "warning");
     el.branchValue.textContent = "PC側に未保存の変更あり";
-    el.branchDescription.textContent =
-      repo.changedCount + "件の変更があります。「GitHubに保存」でまとめて保存できます。";
-  } else if ((repo.ahead || 0) > 0) {
+    el.branchDescription.textContent = localPrototype
+      ? repo.changedCount + "件の変更があります。「ローカル履歴に保存」でPC内に履歴を残せます。"
+      : repo.changedCount + "件の変更があります。「GitHubに保存」でまとめて保存できます。";
+  } else if (!localPrototype && (repo.ahead || 0) > 0) {
     setDot(el.branchDot, "warning");
     el.branchValue.textContent = "GitHubへの送信待ち";
     el.branchDescription.textContent =
@@ -1265,15 +1344,19 @@ function renderDetail() {
   } else if (repo.branch !== project.defaultBranch) {
     setDot(el.branchDot, "warning");
     el.branchValue.textContent = repo.branch || "Branch不明";
-    el.branchDescription.textContent =
-      "自動更新対象は " + project.defaultBranch + " です。";
+    el.branchDescription.textContent = localPrototype
+      ? "ローカル試作の基準Branchは " + project.defaultBranch + " です。"
+      : "自動更新対象は " + project.defaultBranch + " です。";
   } else {
     setDot(el.branchDot, "ok");
     el.branchValue.textContent = repo.branch + " / 変更なし";
-    const delta = repo.behind > 0
-      ? "GitHubより " + repo.behind + " commit古い可能性があります。"
-      : "ローカル変更はありません。";
-    el.branchDescription.textContent = delta;
+    if (localPrototype) {
+      el.branchDescription.textContent = "PC内のGit履歴は最新です。";
+    } else {
+      el.branchDescription.textContent = repo.behind > 0
+        ? "GitHubより " + repo.behind + " commit古い可能性があります。"
+        : "ローカル変更はありません。";
+    }
   }
 
   const foundation = project.foundation || {};
@@ -1310,7 +1393,7 @@ function renderDetail() {
       busy ||
       !repo.valid ||
       repo.dirty ||
-      (repo.ahead || 0) > 0 ||
+      (!localPrototype && (repo.ahead || 0) > 0) ||
       repo.branch !== project.defaultBranch ||
       !state?.network?.online;
   }
@@ -1322,31 +1405,44 @@ function renderDetail() {
     state.godot?.available &&
     repo.valid &&
     !repo.dirty &&
-    (repo.ahead || 0) === 0 &&
+    (localPrototype || (repo.ahead || 0) === 0) &&
     repo.branch === project.defaultBranch;
 
   if (!state.git?.available) {
     el.heroStatus.textContent = "セットアップ";
     el.heroTitle.textContent = "Gitが必要です";
     el.heroDescription.textContent =
-      "Git for Windowsを準備したあと状態を更新してください。";
+      "Git for Windowsを準備したあと状態を更新してください。ローカル試作もPC内の履歴保存にGitを使います。";
   } else if (!state.godot?.available) {
     el.heroStatus.textContent = "初回設定";
     el.heroTitle.textContent = "Godotを一度だけ設定してください";
     el.heroDescription.textContent =
       "上の「Godotを設定」からGodot.exeを選べます。";
-  } else if (repo.dirty) {
+  } else if (localPrototype && repo.dirty) {
+    el.heroStatus.textContent = "ローカル履歴への保存待ち";
+    el.heroTitle.textContent = "PC側に変更があります";
+    el.heroDescription.textContent =
+      "変更はPC内だけです。「ローカル履歴に保存」で履歴を残すか、そのままGodotで作業を続けられます。";
+    el.start.textContent = "Godotで続ける";
+  } else if (!localPrototype && repo.dirty) {
     el.heroStatus.textContent = "GitHubへの保存待ち";
     el.heroTitle.textContent = "PC側に変更があります";
     el.heroDescription.textContent =
       "下の「GitHubに保存」で変更を残したままGitHubへ保存できます。Godotでの作業を続けることもできます。";
     el.start.textContent = "保存せずGodotで続ける";
-  } else if ((repo.ahead || 0) > 0) {
+  } else if (!localPrototype && (repo.ahead || 0) > 0) {
     el.heroStatus.textContent = "GitHubへの送信待ち";
     el.heroTitle.textContent = "PC側への保存は完了しています";
     el.heroDescription.textContent =
       "GitHubへの送信だけが残っています。下の「GitHubへ送る」で再試行できます。";
     el.start.textContent = "Godotで続ける";
+  } else if (localPrototype && repo.valid) {
+    el.heroStatus.textContent = state.network?.online ? "ローカル試作" : "ローカル試作 / オフライン";
+    el.heroTitle.textContent = "GitHubなしですぐ試せます";
+    el.heroDescription.textContent = state.network?.online
+      ? "Godotで開く・ゲーム起動・PC内の履歴保存が使えます。気に入ったら「GitHubで正式管理」へ切り替えられます。"
+      : "Godotで開く・ゲーム起動・PC内の履歴保存はオフラインでも使えます。Foundation更新とGitHub公開は接続後に使えます。";
+    el.start.textContent = "Godotで開く";
   } else if (!state.network?.online && repo.valid) {
     el.heroStatus.textContent = "オフライン";
     el.heroTitle.textContent = "ローカル開発は続けられます";
@@ -1359,11 +1455,11 @@ function renderDetail() {
     el.heroDescription.textContent =
       "接続が戻ったら「開発を開始」でRepositoryを取得できます。";
   } else if (repo.valid && repo.branch !== project.defaultBranch) {
-    el.heroStatus.textContent = "同期停止";
-    el.heroTitle.textContent = "別ブランチなのでGitHub同期は停止中です";
+    el.heroStatus.textContent = localPrototype ? "ローカル履歴を確認" : "同期停止";
+    el.heroTitle.textContent = "別ブランチを使用中です";
     el.heroDescription.textContent =
-      "ローカルのGodot作業は続けられます。同期する場合は " + project.defaultBranch + " に戻してから状態を更新してください。";
-    el.start.textContent = "同期せずGodotで開く";
+      "Godot作業は続けられます。基準Branchへ戻す場合は " + project.defaultBranch + " を使ってください。";
+    el.start.textContent = "Godotで開く";
   } else if (ready) {
     el.heroStatus.textContent = "準備OK";
     el.heroTitle.textContent = "このまま開発を始められます";
@@ -1376,7 +1472,7 @@ function renderDetail() {
       "「開発を開始」でRepositoryをCloneしてGodotを開きます。";
   } else {
     el.heroStatus.textContent = "確認が必要";
-    el.heroTitle.textContent = "Repository状態を確認してください";
+    el.heroTitle.textContent = "Project状態を確認してください";
     el.heroDescription.textContent =
       "登録情報・Branch・Local folderのどこかに確認が必要です。";
   }
@@ -1949,7 +2045,7 @@ el.saveChangesForm.addEventListener("submit", (event) => {
   el.saveChangesDialog.close();
 
   runAction(
-    "GitHubへ保存",
+    isLocalPrototype(project) ? "ローカル履歴へ保存" : "GitHubへ保存",
     () => api.saveRepositoryChanges({
       projectId: project.id,
       message
@@ -2190,6 +2286,18 @@ function renderFoundationProfileDescription() {
     profile.description || profile.label || profile.id;
 }
 
+function renderFoundationCreationMode() {
+  const local = el.foundationCreateModeSelect.value !== "github";
+  el.foundationRepositoryField.classList.toggle("hidden", local);
+  el.foundationRepositoryUrlInput.required = !local;
+  el.foundationLocalNote.classList.toggle("hidden", !local);
+  el.foundationGithubNote.classList.toggle("hidden", local);
+  el.foundationGithubSecurityNote.classList.toggle("hidden", local);
+  el.foundationCreateSubmit.textContent = local
+    ? "ローカル試作を作成"
+    : "GitHubへ作成";
+}
+
 async function loadFoundationProfiles() {
   el.foundationProfileSelect.replaceChildren();
   const loadingOption = document.createElement("option");
@@ -2247,11 +2355,13 @@ async function loadFoundationProfiles() {
 }
 
 el.createFoundationProject.addEventListener("click", () => {
+  el.foundationCreateModeSelect.value = "local";
   el.foundationGameNameInput.value = "";
   el.foundationRepositoryUrlInput.value = "";
   el.foundationProfileSelect._profiles = [];
   el.foundationCreateError.textContent = "";
   el.foundationCreateError.classList.add("hidden");
+  renderFoundationCreationMode();
   el.foundationCreateDialog.showModal();
   el.foundationGameNameInput.focus();
   void loadFoundationProfiles();
@@ -2259,6 +2369,7 @@ el.createFoundationProject.addEventListener("click", () => {
 
 el.foundationCreateClose.addEventListener("click", () => closeDialog(el.foundationCreateDialog));
 el.foundationCreateCancel.addEventListener("click", () => closeDialog(el.foundationCreateDialog));
+el.foundationCreateModeSelect.addEventListener("change", renderFoundationCreationMode);
 el.foundationProfileSelect.addEventListener("change", renderFoundationProfileDescription);
 
 el.foundationCreateForm.addEventListener("submit", async (event) => {
@@ -2269,11 +2380,13 @@ el.foundationCreateForm.addEventListener("submit", async (event) => {
   el.foundationCreateError.textContent = "";
   el.foundationCreateError.classList.add("hidden");
 
+  const mode = el.foundationCreateModeSelect.value === "github" ? "github" : "local";
   const result = await runAction(
-    "Foundation付きゲーム作成",
+    mode === "local" ? "ローカル試作作成" : "Foundation付きゲーム作成",
     () => api.createFoundationProject({
+      mode,
       name: el.foundationGameNameInput.value,
-      repositoryUrl: el.foundationRepositoryUrlInput.value,
+      repositoryUrl: mode === "github" ? el.foundationRepositoryUrlInput.value : "",
       profileId: el.foundationProfileSelect.value
     })
   );
@@ -2287,7 +2400,11 @@ el.foundationCreateForm.addEventListener("submit", async (event) => {
     el.foundationCreateError.textContent =
       result.message || "Foundation付きGameを作成できませんでした。";
     el.foundationCreateError.classList.remove("hidden");
-    el.foundationGameNameInput.focus();
+    if (mode === "github" && /REPOSITORY|GITHUB|URL/.test(String(result.code))) {
+      el.foundationRepositoryUrlInput.focus();
+    } else {
+      el.foundationGameNameInput.focus();
+    }
   }
 });
 
@@ -2388,15 +2505,61 @@ el.folder.addEventListener("click", () => {
 el.github.addEventListener("click", () => {
   const project = requireSelected();
   if (!project) return;
+
+  if (isLocalPrototype(project)) {
+    el.publishLocalUrlInput.value = "";
+    el.publishLocalError.textContent = "";
+    el.publishLocalError.classList.add("hidden");
+    el.publishLocalDialog.showModal();
+    el.publishLocalUrlInput.focus();
+    return;
+  }
+
   runAction("GitHub表示", () => api.openGitHub(project.id));
+});
+
+el.publishLocalClose.addEventListener("click", () => closeDialog(el.publishLocalDialog));
+el.publishLocalCancel.addEventListener("click", () => closeDialog(el.publishLocalDialog));
+
+el.publishLocalForm.addEventListener("submit", async (event) => {
+  const submitter = event.submitter;
+  if (!submitter || submitter.value !== "default") return;
+
+  event.preventDefault();
+  const project = requireSelected();
+  if (!project || !isLocalPrototype(project)) return;
+
+  el.publishLocalError.textContent = "";
+  el.publishLocalError.classList.add("hidden");
+
+  const result = await runAction(
+    "GitHubへ正式公開",
+    () => api.publishLocalPrototype({
+      projectId: project.id,
+      repositoryUrl: el.publishLocalUrlInput.value
+    })
+  );
+
+  if (result?.ok) {
+    closeDialog(el.publishLocalDialog, "default");
+    return;
+  }
+
+  if (result?.code && result.code !== "CANCELED") {
+    el.publishLocalError.textContent =
+      result.message || "GitHubへ公開できませんでした。";
+    el.publishLocalError.classList.remove("hidden");
+    el.publishLocalUrlInput.focus();
+  }
 });
 
 el.remove.addEventListener("click", () => {
   const project = requireSelected();
   if (!project) return;
 
-  el.removeDialogText.textContent =
-    project.name + " をGame Dev Hubから外します。PC上のFileとGitHub Repositoryは削除しません。";
+  el.removeDialogText.textContent = isLocalPrototype(project)
+    ? project.name + " をGame Dev Hubから外します。PC上の試作Fileは削除しません。"
+    : project.name + " をGame Dev Hubから外します。PC上のFileとGitHub Repositoryは削除しません。";
   el.removeDialog.showModal();
 });
 

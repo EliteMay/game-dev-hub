@@ -1,5 +1,19 @@
 # Game Dev Hub
 
+## v0.1.27 ローカル試作モード
+
+Foundation付きGameを試すだけの段階では、GitHub Repositoryを作らなくてよいFlowを追加します。
+
+- 新規Game作成は **ローカル試作** をDefaultにする
+- `minimal / standard` のどちらもRepositoryなしで生成可能
+- PC内にGodot Project + Local Git履歴を作成し、既存の差分検出・安全保存を再利用
+- ローカル試作はGodot起動 / Game起動 / Folder表示をGitHubなしで利用
+- 変更は「ローカル履歴に保存」でPC内へCommitし、GitHubへは送信しない
+- Foundation更新はGame固有Fileを保持したまま利用可能
+- 気に入った試作だけ「GitHubで正式管理」から空Repositoryへ公開
+- 公開後も同じLocal Folder / Hub Project IDを維持
+- 既存Project registryは自動的にGitHub管理Projectとして互換Migration
+
 ## v0.1.26 Foundation Starter Profile Selection
 
 新しいGodot Gameを作る時に、Foundation最新版が公開しているStarter構成をGame Dev Hubから選べるようにします。

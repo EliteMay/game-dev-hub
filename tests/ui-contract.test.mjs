@@ -330,3 +330,19 @@ test("Foundation source repository is not shown as an uninstalled game", async (
   assert.match(source, /Foundation本体/);
   assert.match(source, /共通基盤そのものです。Game Foundationの導入対象ではありません/);
 });
+
+
+test("Hub can register and present Web / Electron projects without Godot-only wording", async () => {
+  const html = await fs.readFile(new URL("src/renderer/index.html", root), "utf8");
+  const source = await fs.readFile(new URL("src/renderer/app.js", root), "utf8");
+  const mainSource = await fs.readFile(new URL("src/main.mjs", root), "utf8");
+
+  assert.match(html, /id="project-engine-select"/);
+  assert.match(html, /value="web">Web \/ Electron/);
+  assert.match(source, /engine: el\.engineInput\.value/);
+  assert.match(source, /webProject = project\.engine === "web"/);
+  assert.match(source, /Web \/ Electron ProjectではGodot Game Foundationを使用しません/);
+  assert.match(mainSource, /payload\.engine === PROJECT_ENGINE_WEB/);
+  assert.match(mainSource, /project\.engine === PROJECT_ENGINE_WEB/);
+  assert.match(mainSource, /runWebProject\(project\)/);
+});

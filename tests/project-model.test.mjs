@@ -54,6 +54,31 @@ test("creates a normalized GitHub Godot project record", () => {
   assert.equal(record.engine, "godot");
 });
 
+
+test("creates a normalized GitHub web project record", () => {
+  const record = createProjectRecord({
+    name: "Skin Aim Trainer",
+    repositoryUrl: "https://github.com/EliteMay/Skin-Aim-Trainer",
+    localPath: path.resolve("C:/Games/Skin-Aim-Trainer"),
+    defaultBranch: "main",
+    engine: "web"
+  });
+
+  assert.equal(record.repositorySlug, "EliteMay/Skin-Aim-Trainer");
+  assert.equal(record.sourceType, "github");
+  assert.equal(record.engine, "web");
+});
+
+test("rejects unsupported project engines", () => {
+  assert.throws(() => createProjectRecord({
+    name: "Unknown",
+    repositoryUrl: "https://github.com/EliteMay/unknown",
+    localPath: path.resolve("C:/Games/unknown"),
+    defaultBranch: "main",
+    engine: "unity"
+  }), /対応していないProject種類/);
+});
+
 test("creates local prototype records without a GitHub remote", () => {
   const record = createLocalPrototypeRecord({
     id: "local-test-game",

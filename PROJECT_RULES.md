@@ -93,7 +93,10 @@ Primary Taskは「ゲームを選んで開発を開始する」。
 - Foundation更新でGame固有の `project.godot`、Roadmap、Scene、Script、Data、Assetを自動上書きしない。
 - Update前にExpected origin / branch / clean worktree /未Push Commitなしを確認する。
 - Update後のCommit / Pushは既存のUser明示「GitHubに保存」Flowへ分離する。
-- Starter CreateはUserが明示した空Repositoryだけを対象にし、既存Remote Contentを上書きしない。
+- Starter CreateのDefaultはローカル試作とし、使い捨て検証のためにGitHub Repository作成を要求しない。
+- ローカル試作はPC内Local Git履歴を持ち、変更保存はLocal CommitまででRemote送信しない。
+- ローカル試作をGitHub管理へ昇格する時と、GitHub管理として直接Starter Createする時だけ、Userが明示した空Repositoryを対象にする。既存Remote Contentを上書きしない。
+- ローカル試作からGitHub管理への昇格ではLocal FolderとHub Project IDを維持する。
 - GitHub Tokenを保存せず、既存のGit Credentialを利用する。
 
 ## Deterministic Windows Test Boundary

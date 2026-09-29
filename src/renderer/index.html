@@ -16,7 +16,7 @@
       <div>
         <p class="eyebrow">ゲーム開発ハブ</p>
         <h1>ゲーム開発</h1>
-        <p class="subtitle">Repository・やること・参考画像・ChatGPT共有・Godot起動を1か所にまとめる。</p>
+        <p class="subtitle">Repository・やること・参考画像・ChatGPT共有・Project起動を1か所にまとめる。</p>
       </div>
       <div class="top-actions">
         <button class="button button-muted" id="diagnostics-button" type="button">診断</button>
@@ -685,6 +685,15 @@
       </label>
 
       <label class="field">
+        <span>Project種類</span>
+        <select id="project-engine-select" name="engine">
+          <option value="godot">Godot</option>
+          <option value="web">Web / Electron</option>
+        </select>
+        <small class="field-help">Web / Electronはpackage.jsonを持つProjectを対象にします。</small>
+      </label>
+
+      <label class="field">
         <span>GitHub Repository</span>
         <input
           id="project-url-input"
@@ -696,7 +705,7 @@
       </label>
 
       <p class="dialog-note">
-        保存先はGame Dev HubのProject保存先から自動作成します。v0.1はGodot Project専用です。
+        保存先はGame Dev HubのProject保存先から自動作成します。Godot / Web・Electron Projectを登録できます。
       </p>
 
       <div class="dialog-actions">

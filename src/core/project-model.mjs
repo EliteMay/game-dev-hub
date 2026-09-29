@@ -1,10 +1,13 @@
 import path from "node:path";
 
-export const REGISTRY_VERSION = 1;
+export const REGISTRY_VERSION = 2;
+export const PROJECT_SOURCE_GITHUB = "github";
+export const PROJECT_SOURCE_LOCAL = "local-prototype";
 
 export const DEFAULT_PROJECT = Object.freeze({
   id: "deep-factory",
   name: "Deep Factory",
+  sourceType: PROJECT_SOURCE_GITHUB,
   repositoryUrl: "https://github.com/EliteMay/deep-factory.git",
   repositoryWebUrl: "https://github.com/EliteMay/deep-factory",
   repositorySlug: "EliteMay/deep-factory",
@@ -43,21 +46,16 @@ export function makeProjectId(slug) {
     .slice(0, 80);
 }
 
-export function createProjectRecord({
-  name,
-  repositoryUrl,
-  localPath,
-  defaultBranch = "main",
-  engine = "godot"
-}) {
-  const parsed = parseGitHubRepositoryUrl(repositoryUrl);
-  if (!parsed) {
-    throw new Error("GitHub Repository URLが正しくありません。");
+function normalizedId(value, fallback) {
+  const id = String(value || fallback || "").trim();
+  if (!/^[a-z0-9][a-z0-9-]{0,99}$/.test(id)) {
+    throw new Error("Game IDが正しくありません。");
   }
+  return id;
+}
 
-  const safeName = String(name ?? "").trim() || parsed.repo;
+function normalizedCommon({ name, localPath, defaultBranch, engine }) {
   const branch = String(defaultBranch ?? "main").trim();
-
   if (!/^[A-Za-z0-9._\/-]{1,120}$/.test(branch)) {
     throw new Error("Default branchが正しくありません。");
   }
@@ -71,15 +69,74 @@ export function createProjectRecord({
   }
 
   return {
-    id: makeProjectId(parsed.slug),
-    name: safeName.slice(0, 100),
-    repositoryUrl: parsed.cloneUrl,
-    repositoryWebUrl: parsed.webUrl,
-    repositorySlug: parsed.slug,
+    name: String(name ?? "").trim().slice(0, 100),
     localPath,
     defaultBranch: branch,
     engine
   };
+}
+
+export function createProjectRecord({
+  id,
+  sourceType = PROJECT_SOURCE_GITHUB,
+  name,
+  repositoryUrl,
+  localPath,
+  defaultBranch = "main",
+  engine = "godot",
+  localSlug = ""
+}) {
+  const common = normalizedCommon({ name, localPath, defaultBranch, engine });
+
+  if (sourceType === PROJECT_SOURCE_LOCAL) {
+    const slug = makeProjectId(localSlug || common.name) || "prototype";
+    const safeName = common.name || "Local Prototype";
+    return {
+      id: normalizedId(id, "local-" + slug),
+      name: safeName,
+      sourceType: PROJECT_SOURCE_LOCAL,
+      repositoryUrl: "",
+      repositoryWebUrl: "",
+      repositorySlug: "local-prototype/" + slug,
+      localSlug: slug,
+      localPath: common.localPath,
+      defaultBranch: common.defaultBranch,
+      engine: common.engine
+    };
+  }
+
+  if (sourceType !== PROJECT_SOURCE_GITHUB) {
+    throw new Error("Gameの保存方式が正しくありません。");
+  }
+
+  const parsed = parseGitHubRepositoryUrl(repositoryUrl);
+  if (!parsed) {
+    throw new Error("GitHub Repository URLが正しくありません。");
+  }
+
+  return {
+    id: normalizedId(id, makeProjectId(parsed.slug)),
+    name: common.name || parsed.repo,
+    sourceType: PROJECT_SOURCE_GITHUB,
+    repositoryUrl: parsed.cloneUrl,
+    repositoryWebUrl: parsed.webUrl,
+    repositorySlug: parsed.slug,
+    localPath: common.localPath,
+    defaultBranch: common.defaultBranch,
+    engine: common.engine
+  };
+}
+
+export function createLocalPrototypeRecord(input) {
+  return createProjectRecord({
+    ...input,
+    sourceType: PROJECT_SOURCE_LOCAL,
+    repositoryUrl: ""
+  });
+}
+
+export function isLocalPrototypeProject(project) {
+  return project?.sourceType === PROJECT_SOURCE_LOCAL;
 }
 
 export function normalizeRegistry(value) {
@@ -91,7 +148,10 @@ export function normalizeRegistry(value) {
       .filter((item) => item && typeof item === "object")
       .map((item) => {
         try {
-          return createProjectRecord(item);
+          return createProjectRecord({
+            ...item,
+            sourceType: item.sourceType || PROJECT_SOURCE_GITHUB
+          });
         } catch {
           return null;
         }

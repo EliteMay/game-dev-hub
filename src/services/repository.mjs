@@ -3,7 +3,8 @@ import path from "node:path";
 import { runFile } from "../core/process.mjs";
 import {
   isLocalPrototypeProject,
-  parseGitHubRepositoryUrl
+  parseGitHubRepositoryUrl,
+  PROJECT_ENGINE_WEB
 } from "../core/project-model.mjs";
 import {
   isSensitiveRepositoryPath,
@@ -72,7 +73,9 @@ export async function inspectRepository(project) {
   }
 
   base.exists = true;
-  base.projectFile = await exists(path.join(project.localPath, "project.godot"));
+  const projectMarker = project.engine === PROJECT_ENGINE_WEB ? "package.json" : "project.godot";
+  base.projectMarker = projectMarker;
+  base.projectFile = await exists(path.join(project.localPath, projectMarker));
 
   if (!(await exists(path.join(project.localPath, ".git")))) {
     return base;
@@ -164,8 +167,10 @@ export async function cloneProject(project) {
 
   if (!cloned.valid) {
     throw new HubError(
-      "NOT_GODOT_REPOSITORY",
-      "Repositoryは取得できましたが、Godot Projectとして確認できません。project.godotとoriginを確認してください。"
+      "PROJECT_MARKER_MISSING",
+      project.engine === PROJECT_ENGINE_WEB
+        ? "Repositoryは取得できましたが、Web Projectとして確認できません。package.jsonとoriginを確認してください。"
+        : "Repositoryは取得できましたが、Godot Projectとして確認できません。project.godotとoriginを確認してください。"
     );
   }
 
@@ -185,7 +190,7 @@ export async function syncProject(project) {
   if (state.dirty) {
     throw new HubError(
       "DIRTY_WORKTREE",
-      "PC側に未保存の変更があります。変更を守るため「最新版にする」だけ停止しています。下の「GitHubに保存」で変更を残したまま保存するか、そのままGodotで作業を続けられます。"
+      "PC側に未保存の変更があります。変更を守るため「最新版にする」だけ停止しています。下の「GitHubに保存」で変更を残したまま保存するか、そのままLocal作業を続けられます。"
     );
   }
 
@@ -219,7 +224,7 @@ export async function prepareProject(project) {
     if (!state.valid) {
       throw new HubError(
         "REPOSITORY_INVALID",
-        "ローカル試作のGodot ProjectまたはPC内Git履歴を確認してください。"
+        "ローカル試作のProjectまたはPC内Git履歴を確認してください。"
       );
     }
     return { action: "local", repository: state };

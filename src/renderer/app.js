@@ -426,7 +426,9 @@ function renderProjectList() {
     dot.className = "status-dot " + projectStatusTone(project);
 
     const slug = document.createElement("small");
-    slug.textContent = project.repositorySlug;
+    slug.textContent = isLocalPrototype(project)
+      ? "ローカル試作"
+      : project.repositorySlug;
 
     top.append(name, dot);
     button.append(top, slug);

@@ -133,6 +133,7 @@ const el = {
   saveChangesTitle: document.querySelector("#save-changes-title"),
   confirmSaveChanges: document.querySelector("#confirm-save-changes-button"),
   nameInput: document.querySelector("#project-name-input"),
+  engineInput: document.querySelector("#project-engine-select"),
   urlInput: document.querySelector("#project-url-input"),
   removeDialog: document.querySelector("#remove-dialog"),
   removeDialogCancel: document.querySelector("#remove-dialog-cancel-button"),
@@ -1278,6 +1279,13 @@ function renderDetail() {
 
   const repo = project.repository || {};
   const localPrototype = isLocalPrototype(project);
+  const webProject = project.engine === "web";
+  const editorTitle = el.editor.querySelector("strong");
+  const editorDescription = el.editor.querySelector("span");
+  if (editorTitle) editorTitle.textContent = webProject ? "Projectを開く" : "Godotで開く";
+  if (editorDescription) editorDescription.textContent = webProject ? "Project folderを表示" : "Editorを起動";
+  el.taskOpenEditor.textContent = webProject ? "Projectを開く" : "Godotで開く";
+  el.run.querySelector("span").textContent = webProject ? "npm run dev で起動" : "ゲームを直接実行";
   el.start.textContent = "開発を開始";
 
   renderDevelopmentTasks(project);
@@ -1363,7 +1371,13 @@ function renderDetail() {
   const isFoundationSourceProject =
     project.repositorySlug === "EliteMay/godot-game-foundation";
 
-  if (isFoundationSourceProject) {
+  if (webProject) {
+    setDot(el.foundationDot, "ok");
+    el.foundationValue.textContent = "対象外";
+    el.foundationDescription.textContent =
+      "Web / Electron ProjectではGodot Game Foundationを使用しません。";
+    el.foundationUpdate.classList.add("hidden");
+  } else if (isFoundationSourceProject) {
     setDot(el.foundationDot, "ok");
     el.foundationValue.textContent = "Foundation本体";
     el.foundationDescription.textContent =
@@ -1402,7 +1416,7 @@ function renderDetail() {
 
   const ready =
     state.git?.available &&
-    state.godot?.available &&
+    (webProject || state.godot?.available) &&
     repo.valid &&
     !repo.dirty &&
     (localPrototype || (repo.ahead || 0) === 0) &&
@@ -1413,7 +1427,7 @@ function renderDetail() {
     el.heroTitle.textContent = "Gitが必要です";
     el.heroDescription.textContent =
       "Git for Windowsを準備したあと状態を更新してください。ローカル試作もPC内の履歴保存にGitを使います。";
-  } else if (!state.godot?.available) {
+  } else if (!webProject && !state.godot?.available) {
     el.heroStatus.textContent = "初回設定";
     el.heroTitle.textContent = "Godotを一度だけ設定してください";
     el.heroDescription.textContent =
@@ -1427,15 +1441,16 @@ function renderDetail() {
   } else if (!localPrototype && repo.dirty) {
     el.heroStatus.textContent = "GitHubへの保存待ち";
     el.heroTitle.textContent = "PC側に変更があります";
-    el.heroDescription.textContent =
-      "下の「GitHubに保存」で変更を残したままGitHubへ保存できます。Godotでの作業を続けることもできます。";
-    el.start.textContent = "保存せずGodotで続ける";
+    el.heroDescription.textContent = webProject
+      ? "下の「GitHubに保存」で変更を残したままGitHubへ保存できます。Project作業はそのまま続けられます。"
+      : "下の「GitHubに保存」で変更を残したままGitHubへ保存できます。Godotでの作業を続けることもできます。";
+    el.start.textContent = webProject ? "保存せずProjectを開く" : "保存せずGodotで続ける";
   } else if (!localPrototype && (repo.ahead || 0) > 0) {
     el.heroStatus.textContent = "GitHubへの送信待ち";
     el.heroTitle.textContent = "PC側への保存は完了しています";
     el.heroDescription.textContent =
       "GitHubへの送信だけが残っています。下の「GitHubへ送る」で再試行できます。";
-    el.start.textContent = "Godotで続ける";
+    el.start.textContent = webProject ? "Projectを開く" : "Godotで続ける";
   } else if (localPrototype && repo.valid) {
     el.heroStatus.textContent = state.network?.online ? "ローカル試作" : "ローカル試作 / オフライン";
     el.heroTitle.textContent = "GitHubなしですぐ試せます";
@@ -1446,9 +1461,10 @@ function renderDetail() {
   } else if (!state.network?.online && repo.valid) {
     el.heroStatus.textContent = "オフライン";
     el.heroTitle.textContent = "ローカル開発は続けられます";
-    el.heroDescription.textContent =
-      "GitHub同期は利用できません。Godotで開く・ゲーム起動・フォルダ表示は利用できます。";
-    el.start.textContent = "Godotで開く";
+    el.heroDescription.textContent = webProject
+      ? "GitHub同期は利用できません。Projectを開く・ゲーム起動・フォルダ表示は利用できます。"
+      : "GitHub同期は利用できません。Godotで開く・ゲーム起動・フォルダ表示は利用できます。";
+    el.start.textContent = webProject ? "Projectを開く" : "Godotで開く";
   } else if (!state.network?.online && !repo.exists) {
     el.heroStatus.textContent = "オフライン";
     el.heroTitle.textContent = "最初の取得にはネット接続が必要です";
@@ -1458,18 +1474,20 @@ function renderDetail() {
     el.heroStatus.textContent = localPrototype ? "ローカル履歴を確認" : "同期停止";
     el.heroTitle.textContent = "別ブランチを使用中です";
     el.heroDescription.textContent =
-      "Godot作業は続けられます。基準Branchへ戻す場合は " + project.defaultBranch + " を使ってください。";
-    el.start.textContent = "Godotで開く";
+      (webProject ? "Local作業" : "Godot作業") + "は続けられます。基準Branchへ戻す場合は " + project.defaultBranch + " を使ってください。";
+    el.start.textContent = webProject ? "Projectを開く" : "Godotで開く";
   } else if (ready) {
     el.heroStatus.textContent = "準備OK";
     el.heroTitle.textContent = "このまま開発を始められます";
-    el.heroDescription.textContent =
-      "GitHubを確認して最新化したあと、Godot Editorを開きます。";
+    el.heroDescription.textContent = webProject
+      ? "GitHubを確認して最新化したあと、Project folderを開きます。"
+      : "GitHubを確認して最新化したあと、Godot Editorを開きます。";
   } else if (!repo.exists) {
     el.heroStatus.textContent = "初回準備";
     el.heroTitle.textContent = "最初の取得は自動で行います";
-    el.heroDescription.textContent =
-      "「開発を開始」でRepositoryをCloneしてGodotを開きます。";
+    el.heroDescription.textContent = webProject
+      ? "「開発を開始」でRepositoryをCloneしてProject folderを開きます。"
+      : "「開発を開始」でRepositoryをCloneしてGodotを開きます。";
   } else {
     el.heroStatus.textContent = "確認が必要";
     el.heroTitle.textContent = "Project状態を確認してください";
@@ -2001,9 +2019,9 @@ el.safetyContinue.addEventListener("click", () => {
   const project = requireSelected();
   if (!project) return;
   runAction(
-    "Godot起動",
+    project.engine === "web" ? "Project表示" : "Godot起動",
     () => api.openEditor(project.id),
-    { pickGodotOnMissing: true }
+    { pickGodotOnMissing: project.engine !== "web" }
   );
 });
 
@@ -2085,7 +2103,7 @@ el.taskRunGame.addEventListener("click", () => {
   runAction(
     "ゲーム起動",
     () => api.runGame(project.id),
-    { pickGodotOnMissing: true }
+    { pickGodotOnMissing: project.engine !== "web" }
   );
 });
 
@@ -2419,6 +2437,7 @@ el.foundationUpdate.addEventListener("click", () => {
 
 el.addProject.addEventListener("click", () => {
   el.nameInput.value = "";
+  el.engineInput.value = "godot";
   el.urlInput.value = "";
   el.addDialog.showModal();
   el.urlInput.focus();
@@ -2441,6 +2460,7 @@ el.addForm.addEventListener("submit", (event) => {
 
   runAction("ゲーム追加", () => api.addGitHubProject({
     name: el.nameInput.value,
+    engine: el.engineInput.value,
     repositoryUrl: el.urlInput.value
   }));
 });
@@ -2456,9 +2476,9 @@ el.start.addEventListener("click", () => {
 
   if (localOnly) {
     runAction(
-      "Godot起動",
+      project.engine === "web" ? "Project表示" : "Godot起動",
       () => api.openEditor(project.id),
-      { pickGodotOnMissing: true }
+      { pickGodotOnMissing: project.engine !== "web" }
     );
     return;
   }
@@ -2466,7 +2486,7 @@ el.start.addEventListener("click", () => {
   runAction(
     "開発開始",
     () => api.startDevelopment(project.id),
-    { pickGodotOnMissing: true }
+    { pickGodotOnMissing: project.engine !== "web" }
   );
 });
 

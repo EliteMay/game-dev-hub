@@ -1749,7 +1749,7 @@ async function publishLocalPrototype(payload) {
 
 async function importExistingProject() {
   const result = await dialog.showOpenDialog(mainWindow, {
-    title: "既存のGodot Repositoryを選ぶ",
+    title: "既存のGame Repositoryを選ぶ",
     properties: ["openDirectory"]
   });
 
@@ -1760,12 +1760,31 @@ async function importExistingProject() {
   const localPath = result.filePaths[0];
 
   try {
-    await fs.access(path.join(localPath, "project.godot"));
     await fs.access(path.join(localPath, ".git"));
   } catch {
     throw new HubError(
-      "NOT_GODOT_REPOSITORY",
-      "project.godot と .git があるGame Repositoryを選んでください。"
+      "NOT_GAME_REPOSITORY",
+      ".git があるGame Repositoryを選んでください。"
+    );
+  }
+
+  let detectedEngine = "";
+  try {
+    await fs.access(path.join(localPath, "project.godot"));
+    detectedEngine = PROJECT_ENGINE_GODOT;
+  } catch {
+    try {
+      await fs.access(path.join(localPath, "package.json"));
+      detectedEngine = PROJECT_ENGINE_WEB;
+    } catch {
+      detectedEngine = "";
+    }
+  }
+
+  if (!detectedEngine) {
+    throw new HubError(
+      "PROJECT_MARKER_MISSING",
+      "project.godot または package.json があるGame Repositoryを選んでください。"
     );
   }
 
@@ -1824,7 +1843,8 @@ async function importExistingProject() {
     const updatedProject = createProjectRecord({
       ...existing,
       localPath,
-      defaultBranch
+      defaultBranch,
+      engine: detectedEngine
     });
 
     await saveProjects(appDataRoot(), {
@@ -1850,7 +1870,7 @@ async function importExistingProject() {
       repositoryUrl: parsed.cloneUrl,
       localPath,
       defaultBranch,
-      engine: "godot"
+      engine: detectedEngine
     }
   );
 

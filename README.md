@@ -1,5 +1,17 @@
 # Game Dev Hub
 
+## v0.1.29 Web Dev Server Readiness Fix
+
+Web / Electron Projectの「ゲームを起動」で、Browserがdev serverより先に開き `ERR_CONNECTION_REFUSED` になるRace conditionを修正します。
+
+- `npm run dev` 起動後、固定時間だけ待つのではなくloopback portの接続可能状態を確認
+- dev serverがReadyになってからBrowserを開く
+- 最大15秒でReadyにならない場合はBrowserを先に開かず、Hubへ明確なErrorを返す
+- `localhost / 127.0.0.1 / ::1` だけを許可する既存Security boundaryを維持
+- loopback readiness probeのRegression Testを追加
+
+Skin Aim Trainerで確認された `127.0.0.1:4173 / ERR_CONNECTION_REFUSED` を対象不具合として修正しています。Windows実機でHubから再起動し、Browserが初回から正常表示されることはRelease後に確認します。
+
 ## v0.1.28 Web / Electron Project対応
 
 Godot Gameに加えて、Web Core / Electronへ発展するGame Repositoryも同じHubで管理できるようにします。

@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { runFile } from "../core/process.mjs";
+import { isLocalPrototypeProject } from "../core/project-model.mjs";
 import {
   isSensitiveRepositoryPath,
   normalizeCommitMessage,
@@ -75,6 +76,7 @@ export async function inspectRepository(project) {
   }
 
   try {
+    const localPrototype = isLocalPrototypeProject(project);
     const [
       branchResult,
       commitResult,
@@ -84,7 +86,9 @@ export async function inspectRepository(project) {
       git(["rev-parse", "--abbrev-ref", "HEAD"], project.localPath),
       git(["rev-parse", "--short=8", "HEAD"], project.localPath),
       git(["status", "--porcelain=v1"], project.localPath),
-      git(["remote", "get-url", "origin"], project.localPath)
+      localPrototype
+        ? Promise.resolve({ stdout: "" })
+        : git(["remote", "get-url", "origin"], project.localPath)
     ]);
 
     const status = parsePorcelainStatus(statusResult.stdout);
@@ -94,24 +98,29 @@ export async function inspectRepository(project) {
     base.changedCount = status.changedCount;
     base.changedFiles = status.files.slice(0, 20);
     base.origin = originResult.stdout;
-    base.expectedRemote = remoteMatchesProject(base.origin, project);
+    base.expectedRemote = localPrototype
+      ? true
+      : remoteMatchesProject(base.origin, project);
     base.valid = base.projectFile && base.expectedRemote;
+    base.localPrototype = localPrototype;
 
-    try {
-      const delta = await git(
-        [
-          "rev-list",
-          "--left-right",
-          "--count",
-          "HEAD...origin/" + project.defaultBranch
-        ],
-        project.localPath,
-        10_000
-      );
+    if (!localPrototype) {
+      try {
+        const delta = await git(
+          [
+            "rev-list",
+            "--left-right",
+            "--count",
+            "HEAD...origin/" + project.defaultBranch
+          ],
+          project.localPath,
+          10_000
+        );
 
-      Object.assign(base, parseAheadBehind(delta.stdout));
-    } catch {
-      // Remote tracking data may not exist before first fetch.
+        Object.assign(base, parseAheadBehind(delta.stdout));
+      } catch {
+        // Remote tracking data may not exist before first fetch.
+      }
     }
 
     return base;
@@ -196,6 +205,22 @@ export async function syncProject(project) {
 
 export async function prepareProject(project) {
   const state = await inspectRepository(project);
+
+  if (isLocalPrototypeProject(project)) {
+    if (!state.exists) {
+      throw new HubError(
+        "LOCAL_PROTOTYPE_MISSING",
+        "ローカル試作のフォルダが見つかりません。Hubから外して作り直すか、フォルダを確認してください。"
+      );
+    }
+    if (!state.valid) {
+      throw new HubError(
+        "REPOSITORY_INVALID",
+        "ローカル試作のGodot ProjectまたはPC内Git履歴を確認してください。"
+      );
+    }
+    return { action: "local", repository: state };
+  }
 
   if (!state.exists) {
     return { action: "cloned", repository: await cloneProject(project) };
@@ -297,6 +322,18 @@ async function pushCurrentBranch(project) {
   }
 
   await git(["fetch", "--prune", "origin"], project.localPath, 120_000);
+  if (localPrototype) {
+    const repository = await inspectRepository(project);
+    return {
+      repository,
+      commit: repository.commit,
+      mergedRemote: false,
+      message: state.dirty
+        ? "変更をPC内のGit履歴へ保存しました。GitHub Repositoryは作成していません。"
+        : "PC内のGit履歴へ保存する変更はありません。"
+    };
+  }
+
   const delta = parseAheadBehind(
     (await git(
       ["rev-list", "--left-right", "--count", "HEAD...origin/" + project.defaultBranch],
@@ -329,18 +366,22 @@ export async function saveRepositoryChanges(project, commitMessage) {
   if (!state.valid) {
     throw new HubError(
       "REPOSITORY_INVALID",
-      "登録情報とPC上のRepositoryが一致しません。"
+      "登録情報とPC上のProjectが一致しません。"
     );
   }
 
   if (state.branch !== project.defaultBranch) {
     throw new HubError(
       "WRONG_BRANCH",
-      "現在のブランチが " + project.defaultBranch + " ではないため、GitHubへの保存を止めました。"
+      "現在のブランチが " + project.defaultBranch + " ではないため、保存を止めました。"
     );
   }
 
-  await git(["fetch", "--prune", "origin"], project.localPath, 120_000);
+  const localPrototype = isLocalPrototypeProject(project);
+
+  if (!localPrototype) {
+    await git(["fetch", "--prune", "origin"], project.localPath, 120_000);
+  }
 
   if (state.dirty) {
     const status = await fullRepositoryStatus(project);

@@ -705,6 +705,9 @@ Foundationの `minimal / standard` を実機確認するたびに空GitHub Repos
 - Installer artifact upload: PASS
 - Dependency Review: PASS
 - CodeQL: PASS
-- Release後、Windows実機でLocal `minimal` をRepositoryなしで生成・起動する
+- Windows実機でLocal `minimal` をRepositoryなしで生成: PASS
+- Windows実機でLocal `minimal` を起動し、Foundation Runtime ready表示: PASS
+- Hub上で `ローカル試作 / GitHub未接続`、Foundation `v0.17.0-dev`、`構成: minimal` 表示: PASS
+- Local Prototypeの「基盤を更新」→「Foundationはすでに最新版です」: PASS
 - Local Prototype → GitHub正式管理の実機Pushは別確認項目として残す
 

@@ -641,3 +641,61 @@ Godot Game Foundation Phase 17で追加したStarter Profile ContractをGame Dev
 - CodeQL: PASS
 - Windows実機でのminimal / standard新規生成・起動はRelease後のUser確認対象
 
+---
+
+## v0.1.27 — ローカル試作モード
+
+### User Problem
+
+Foundationの `minimal / standard` を実機確認するたびに空GitHub Repositoryを作る必要があり、検証用Repositoryが増えて管理が面倒だった。
+
+### 方針
+
+新規Foundation Gameを次の2 Flowへ分離する。
+
+1. **ローカル試作（Default）**
+   - Repository URL不要
+   - PC内にGodot Project + Local Git履歴を作成
+   - `minimal / standard` 選択可能
+   - Godot / Game起動・Folder表示・Local Commitを利用
+2. **GitHubで正式管理**
+   - 直接空Repositoryへ生成する既存Flow
+   - またはLocal Prototypeを後から空RepositoryへPushして昇格
+
+### 実装
+
+- Project Registry schemaをv2へ更新
+  - `sourceType: github | local-prototype`
+  - 旧Recordは `github` として互換Migration
+- Local PrototypeはremoteなしのLocal Git Repositoryとして作成
+- Foundation Starterを選択Profileでmaterializeし、初回Local Commitを作成
+- Local Repository inspectionはoriginを要求しない
+- 「ローカル履歴に保存」はSecret guardを維持しつつLocal Commitだけ行う
+- Foundation UpdateはLocal Prototypeでも利用できるがFoundation Source取得のためNetworkは必要
+- GitHub同期ActionはLocal Prototypeでは表示しない
+- GitHub ActionをLocal Prototypeでは「GitHubで正式管理」に切替
+- Empty RemoteへPush成功後、同じFolder / Project IDのままGitHub管理へRegistryを切替
+- Remoteに既存履歴がある場合はfail-closed
+- Rendererへraw Git / Filesystem capabilityは追加せずoperation-specific IPCを維持
+
+### Regression Guard
+
+- 旧Registry v1 → GitHub sourceType migration
+- Local Prototype record / explicit ID preservation
+- originなしLocal Repositoryがvalid
+- Local saveがoriginなしでCommitできる
+- Create DialogがLocal PrototypeをDefaultにする
+- GitHub URL requiredはGitHub modeの時だけRendererで切替
+- Publish IPC / DialogのContract
+
+### Version
+
+- Game Dev Hub `0.1.27`
+
+### Validation
+
+- PR CIでNode Test / production dependency / Windows installer / updater artifactsを確認する
+- Security workflowでCodeQLを確認する
+- Release後、Windows実機でLocal `minimal` をRepositoryなしで生成・起動する
+- Local Prototype → GitHub正式管理の実機Pushは別確認項目として残す
+

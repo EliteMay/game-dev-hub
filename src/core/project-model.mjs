@@ -1,8 +1,11 @@
 import path from "node:path";
 
-export const REGISTRY_VERSION = 2;
+export const REGISTRY_VERSION = 3;
 export const PROJECT_SOURCE_GITHUB = "github";
 export const PROJECT_SOURCE_LOCAL = "local-prototype";
+export const PROJECT_ENGINE_GODOT = "godot";
+export const PROJECT_ENGINE_WEB = "web";
+export const PROJECT_ENGINES = Object.freeze([PROJECT_ENGINE_GODOT, PROJECT_ENGINE_WEB]);
 
 export const DEFAULT_PROJECT = Object.freeze({
   id: "deep-factory",
@@ -12,7 +15,7 @@ export const DEFAULT_PROJECT = Object.freeze({
   repositoryWebUrl: "https://github.com/EliteMay/deep-factory",
   repositorySlug: "EliteMay/deep-factory",
   defaultBranch: "main",
-  engine: "godot"
+  engine: PROJECT_ENGINE_GODOT
 });
 
 export function parseGitHubRepositoryUrl(input) {
@@ -60,8 +63,8 @@ function normalizedCommon({ name, localPath, defaultBranch, engine }) {
     throw new Error("Default branchが正しくありません。");
   }
 
-  if (engine !== "godot") {
-    throw new Error("v0.1ではGodot Projectだけ登録できます。");
+  if (!PROJECT_ENGINES.includes(engine)) {
+    throw new Error("対応していないProject種類です。");
   }
 
   if (typeof localPath !== "string" || !path.isAbsolute(localPath)) {
@@ -83,7 +86,7 @@ export function createProjectRecord({
   repositoryUrl,
   localPath,
   defaultBranch = "main",
-  engine = "godot",
+  engine = PROJECT_ENGINE_GODOT,
   localSlug = ""
 }) {
   const common = normalizedCommon({ name, localPath, defaultBranch, engine });

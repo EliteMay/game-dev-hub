@@ -320,3 +320,15 @@
 - Problem: `EliteMay/godot-game-foundation` 本体をHubへ登録すると、`.game-foundation.json` が無いことだけで「Foundation未導入の既存Game」と表示され、Source Repositoryなのに導入対象のように見えた。
 - Decision: Foundation Source RepositoryはRepository slugで明示識別し、「Foundation本体 / 導入対象ではありません」と表示する。
 - Prevention: Provider / Template / Foundation等のSource Repositoryと、それを利用するConsumer Projectを同じinstallation stateで分類しない。
+
+## GL-030 — 使い捨て検証へRemote Repository作成を要求しない
+
+- Date: 2026-09-29
+- Type: Workflow / UX / Git
+- Status: Adopted
+- Problem: Foundation Profileや新しい共通基盤を実機確認するたびにGitHub Repositoryを作るFlowでは、検証用Repositoryが増え、削除・命名・整理の負担がPrimary Taskより大きくなる。
+- Decision: 新規Foundation GameはLocal PrototypeをDefaultにし、PC内Project + Local Git履歴だけで生成・起動・差分保存できるようにする。価値が確認できたGameだけ明示的に空GitHub Repositoryへ昇格する。
+- Safety Boundary: LocalでもGit履歴は維持し、変更破棄を自動化しない。GitHub昇格先は空Repositoryだけ許可し、既存Remote履歴は上書きしない。
+- Compatibility: 既存Registry recordはGitHub管理Projectとして自動Migrationし、Local Prototype導入で既存GameのID / Path / Remoteを変更しない。
+- Prevention: Prototype / Spike / VerificationとDurable Projectを同じRemote作成Flowへ機械的に統一しない。External resource creationには継続利用価値がある時だけ進む。
+

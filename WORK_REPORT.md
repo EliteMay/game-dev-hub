@@ -781,3 +781,35 @@ Foundationの `minimal / standard` を実機確認するたびに空GitHub Repos
 - Local Prototypeの「基盤を更新」→「Foundationはすでに最新版です」: PASS
 - Local Prototype → GitHub正式管理の実機Pushは別確認項目として残す
 
+
+
+## 2026-09-30 — v0.1.30 Fast Verification
+
+### User Feedback
+
+User実機確認で、各「できた」を押した後の反応が遅く、8〜9項目を1つずつ選ぶ操作Costが高いとFeedback。
+
+### Root Cause
+
+- RendererはMain Processの保存完了まで選択状態を更新していなかった
+- 各保存後に確認UI全体を再構築していた
+- Main Processは各Step保存ごとにRepository / Godot Contextを取り直していた
+- 保存Response生成のためだけにHub全体の`getState()`を再実行していた
+- 複数Stepを短時間に押す場合、保存完了前の古いVerification Stateを次Clickが参照し得た
+
+### Implemented
+
+- Click直後にVerification Stateを画面へ反映するOptimistic UI
+- 同じTaskの保存Requestを直列化し、Rapid Clickで古い保存が新しい結果を上書きしないようにした
+- 「すべてできた」Buttonを追加し、全Stepを1回の保存でPASSにできるようにした
+- 保存時の`getState()`再構築を削除
+- Verification Session開始後は同じRepository Commit / Branch / Godot Version Contextを再利用
+- Web Projectでは不要なGodot検出を行わない
+- UI / performance regression contractを追加
+
+### Compatibility
+
+- Task completionのSource of TruthはGame Repository Roadmapのまま
+- Verification JSON Schema / ChatGPT Pack formatは変更しない
+- `できた / できなかった / 今は確認できない` の3択は維持
+- Reset / Note / Screenshot flowは維持

@@ -383,3 +383,13 @@ test("repository sync verifies local HEAD reached origin default branch", async 
   assert.match(source, /SYNC_NOT_AT_REMOTE_HEAD/);
   assert.match(source, /rev-parse", "origin\/" \+ project\.defaultBranch/);
 });
+
+
+test("clean repository sync force-aligns only when remote is ahead", async () => {
+  const source = await fs.readFile(new URL("src/services/repository.mjs", root), "utf8");
+  assert.match(source, /rev-list", "--left-right", "--count", "HEAD\.\.\.origin\/" \+ project\.defaultBranch/);
+  assert.match(source, /if \(delta\.ahead > 0\)/);
+  assert.match(source, /UNPUSHED_COMMITS/);
+  assert.match(source, /if \(delta\.behind > 0\)/);
+  assert.match(source, /\["reset", "--hard", "origin\/" \+ project\.defaultBranch\]/);
+});

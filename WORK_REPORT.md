@@ -821,3 +821,30 @@ User実機確認で、各「できた」を押した後の反応が遅く、8〜
 - Updater artifact verification: PASS — GitHub Actions run 36667330077
 - Security workflow: PASS — GitHub Actions run 36667330594
 - Windows user interaction timing: NOT_RUN — v0.1.30 update後に実機確認
+
+
+## 2026-09-30 — v0.1.31 Verification Click Latency Follow-up
+
+### User Feedback
+
+v0.1.30のFast Verification導入後も、実機確認の「できた」を押した時の反応をさらに速くしたいというFeedback。
+
+### Additional Bottleneck
+
+v0.1.30では保存待ちはCritical Pathから外れていたが、Optimistic update時に選択中Taskと右側Verification Overviewの両方を同じEvent turnで再構築し、保存完了後にも再度Task UI / Overviewを再描画していた。
+
+### Implemented
+
+- 選択中Taskの結果反映を最優先
+- Verification Overview再描画をrequestAnimationFrameへ移動
+- Rapid Click時はOverview更新を1 Frameへcoalesce
+- 保存完了時はTask UI全体を再構築せず「保存済み時刻」だけ更新
+- 保存失敗時だけRollback + 再描画
+- 「すべてできた」はv0.1.30の1回保存Bulk Actionを維持
+
+### Compatibility
+
+- Verification storage schema変更なし
+- Main Process / IPC contract変更なし
+- Roadmap completion contract変更なし
+- ChatGPT共有Pack format変更なし

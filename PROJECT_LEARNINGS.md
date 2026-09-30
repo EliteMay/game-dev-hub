@@ -365,3 +365,14 @@
 - Decision: Primary interaction surfaceだけ同期更新し、Secondary summary / aggregate viewは次のanimation frameへdeferしてcoalesceする。保存成功時も同一内容のTask DOMを再構築しない。
 - Safety: 永続化失敗時は最新操作だけRollbackし、Error stateを表示する。Summary deferはData durabilityや保存順序を変更しない。
 - Prevention: Human verificationのような反復Inputでは、Secondary dashboard更新をPrimary feedbackのCritical Pathへ入れない。
+
+
+## GL-023 — OSのOnline判定をGitHub同期の唯一Gateにしない
+
+- Date: 2026-09-30
+- Type: Reliability / Git Sync
+- Status: Adopted
+- Problem: ElectronのNetwork hintがoffline判定になると、実際にはGitHubへ到達できる場合でも「最新版にする」がGit操作前に停止する可能性がある。
+- Decision: 明示的なRepository同期はOS側のonline判定だけでは止めず、Gitのfetch自体をProvider到達のOracleとして使う。
+- Validation: 同期後はLocal HEADとorigin/<defaultBranch>が一致することを確認し、一致しなければ成功表示しない。
+- Prevention: Provider操作の成否をOS接続Hintだけで確定しない。実Provider operationの結果を優先する。

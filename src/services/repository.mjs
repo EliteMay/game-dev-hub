@@ -203,10 +203,22 @@ export async function syncProject(project) {
 
   await git(["fetch", "--prune", "origin"], project.localPath, 120_000);
   await git(
-    ["pull", "--ff-only", "origin", project.defaultBranch],
+    ["merge", "--ff-only", "origin/" + project.defaultBranch],
     project.localPath,
     120_000
   );
+
+  const [localHead, remoteHead] = await Promise.all([
+    git(["rev-parse", "HEAD"], project.localPath, 10_000),
+    git(["rev-parse", "origin/" + project.defaultBranch], project.localPath, 10_000)
+  ]);
+
+  if (localHead.stdout !== remoteHead.stdout) {
+    throw new HubError(
+      "SYNC_NOT_AT_REMOTE_HEAD",
+      "GitHubから取得はできましたが、PC側がGitHubの最新Commitまで進みませんでした。変更は破棄していません。もう一度試すか、診断情報を共有してください。"
+    );
+  }
 
   return inspectRepository(project);
 }

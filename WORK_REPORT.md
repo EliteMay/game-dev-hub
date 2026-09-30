@@ -848,3 +848,31 @@ v0.1.30では保存待ちはCritical Pathから外れていたが、Optimistic u
 - Main Process / IPC contract変更なし
 - Roadmap completion contract変更なし
 - ChatGPT共有Pack format変更なし
+
+
+## 2026-09-30 — 「最新版にする」が更新できない問題
+
+### Observed symptom
+
+Skin Aim TrainerのRemote mainに新しいCommitがある状態で、Game Dev Hubの「最新版にする」から期待どおり最新状態へ進めない報告があった。
+
+### Root cause / failure mechanism
+
+Repository同期IPCがGit操作を始める前にElectronのonline判定を必須Gateとしていた。これはGitHub到達そのものの確認ではないため、OS / Electron側のNetwork hintがfalse-negativeになった場合、実際にはGitHubへ到達可能でも同期が止まる経路があった。
+
+また、同期成功後にLocal HEADがRemote HEADへ到達したことを直接検証していなかったため、「更新しました」というMessageと実Commitの不一致を検出するGuardが不足していた。
+
+### Fix
+
+- 明示的な「最新版にする」ではOS側のonline判定を唯一Gateにしない
+- git fetch --prune originを実Provider到達確認として使用
+- git merge --ff-only origin/<defaultBranch>で更新
+- 更新後にLocal HEADとRemote tracking HEADの完全一致を確認
+- 不一致ならSYNC_NOT_AT_REMOTE_HEADとして成功扱いしない
+- Regression testを追加
+
+### Validation state
+
+- Automated CI: PASS — CI run 36675417823 / Security run 36675418234
+- Windows installer build artifact: PASS — CI run 36675417823
+- Windows installed-app verification: NOT_RUN

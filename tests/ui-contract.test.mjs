@@ -364,3 +364,22 @@ test("Hub can register and present Web / Electron projects without Godot-only wo
   assert.match(mainSource, /project\.engine === PROJECT_ENGINE_WEB/);
   assert.match(mainSource, /runWebProject\(project\)/);
 });
+
+
+test("repository sync attempts GitHub even when Electron network hint is offline", async () => {
+  const mainSource = await fs.readFile(new URL("src/main.mjs", root), "utf8");
+  const start = mainSource.indexOf("async function syncSelected");
+  const end = mainSource.indexOf("\nasync function updateSelectedFoundation", start);
+  assert.ok(start >= 0 && end > start, "syncSelected must exist");
+  const body = mainSource.slice(start, end);
+  assert.doesNotMatch(body, /requireNetwork\(\)/);
+  assert.match(body, /syncProject\(project\)/);
+});
+
+test("repository sync verifies local HEAD reached origin default branch", async () => {
+  const source = await fs.readFile(new URL("src/services/repository.mjs", root), "utf8");
+  assert.match(source, /git\(\["fetch", "--prune", "origin"\]/);
+  assert.match(source, /\["merge", "--ff-only", "origin\/" \+ project\.defaultBranch\]/);
+  assert.match(source, /SYNC_NOT_AT_REMOTE_HEAD/);
+  assert.match(source, /rev-parse", "origin\/" \+ project\.defaultBranch/);
+});

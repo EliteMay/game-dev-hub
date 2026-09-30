@@ -1927,7 +1927,7 @@ async function syncSelected(projectId) {
     );
   }
 
-  requireNetwork();
+  // Electronのonline判定は補助情報。GitHub到達可否はGit操作そのもので判定する。
   const state = await inspectRepository(project);
 
   if (!state.exists) {

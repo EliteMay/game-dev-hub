@@ -216,6 +216,7 @@ let aiTestRunStartedAt = 0;
 let aiTestElapsedTimer = null;
 const verificationSaveChains = new Map();
 const verificationSaveVersions = new Map();
+let verificationOverviewFrame = null;
 
 const actionButtons = [
   el.refresh,
@@ -628,6 +629,22 @@ function renderVerificationOverview(project) {
     : "確認結果をまとめてChatGPTへ";
 }
 
+function scheduleVerificationOverviewRender(project) {
+  if (!project) return;
+
+  if (verificationOverviewFrame !== null) {
+    cancelAnimationFrame(verificationOverviewFrame);
+  }
+
+  verificationOverviewFrame = requestAnimationFrame(() => {
+    verificationOverviewFrame = null;
+    if (selectedProject()?.id === project.id) {
+      renderVerificationOverview(project);
+    }
+  });
+}
+
+
 function verificationSummary(overall) {
   if (overall === "completed") return { label: "Roadmap完了済み", tone: "ok" };
   if (overall === "passed") return { label: "すべてできた", tone: "ok" };
@@ -692,8 +709,8 @@ async function persistVerification(project, task, steps, note) {
   project.development.verifications[task.id] = optimistic;
 
   renderTaskVerification(project, task);
-  renderVerificationOverview(project);
-  el.taskVerificationSavedState.textContent = "保存中…";
+  scheduleVerificationOverviewRender(project);
+  el.taskVerificationSavedState.textContent = "反映済み・保存中…";
 
   const previousSave = verificationSaveChains.get(key) || Promise.resolve();
   const request = previousSave
@@ -723,7 +740,7 @@ async function persistVerification(project, task, steps, note) {
         delete project.development.verifications[task.id];
       }
       renderTaskVerification(project, task);
-      renderVerificationOverview(project);
+      scheduleVerificationOverviewRender(project);
       el.taskVerificationSavedState.textContent = "保存失敗";
     }
     addLog(result?.message || "確認結果を保存できませんでした。", "error");
@@ -732,8 +749,17 @@ async function persistVerification(project, task, steps, note) {
 
   if (latest) {
     project.development.verifications[task.id] = result.verification;
-    renderTaskVerification(project, task);
-    renderVerificationOverview(project);
+    const savedAt = result.verification?.updatedAt
+      ? new Date(result.verification.updatedAt).toLocaleTimeString("ja-JP", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit"
+        })
+      : "";
+    el.taskVerificationSavedState.textContent = savedAt
+      ? "保存済み " + savedAt
+      : "保存済み";
+    scheduleVerificationOverviewRender(project);
   }
 
   return result;

@@ -1,5 +1,16 @@
 # Game Dev Hub
 
+## v0.1.31 Verification Click Latency Fix
+
+実機確認の「できた / できなかった / 今は確認できない」を押した直後の体感をさらに軽くします。
+
+- 押した結果は先に選択中タスクへ即時反映
+- 右側の「確認結果まとめ」は次の描画Frameへ遅延し、Click acknowledgementを優先
+- 保存完了時に確認UI全体をもう一度作り直さず、保存時刻だけ更新
+- 保存は引き続きBackgroundで順序保証
+- v0.1.30で追加した **「すべてできた」** はそのまま利用可能
+- Verification JSON / ChatGPT共有Pack / Roadmap連動Contractは変更なし
+
 ## v0.1.29 Web Dev Server Readiness Fix
 
 Web / Electron Projectの「ゲームを起動」で、Browserがdev serverより先に開き `ERR_CONNECTION_REFUSED` になるRace conditionを修正します。

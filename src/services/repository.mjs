@@ -202,11 +202,31 @@ export async function syncProject(project) {
   }
 
   await git(["fetch", "--prune", "origin"], project.localPath, 120_000);
-  await git(
-    ["merge", "--ff-only", "origin/" + project.defaultBranch],
-    project.localPath,
-    120_000
+
+  const delta = parseAheadBehind(
+    (await git(
+      ["rev-list", "--left-right", "--count", "HEAD...origin/" + project.defaultBranch],
+      project.localPath,
+      15_000
+    )).stdout
   );
+
+  if (delta.ahead > 0) {
+    throw new HubError(
+      "UNPUSHED_COMMITS",
+      delta.behind > 0
+        ? "PC側とGitHub側の履歴が分岐しています。PC側の履歴を守るため自動更新を停止しました。「GitHubに保存」または診断情報の共有を行ってください。"
+        : "GitHubへ未送信のCommitがあります。PC側の履歴を守るため「最新版にする」は停止しました。先に「GitHubに保存」してください。"
+    );
+  }
+
+  if (delta.behind > 0) {
+    await git(
+      ["reset", "--hard", "origin/" + project.defaultBranch],
+      project.localPath,
+      120_000
+    );
+  }
 
   const [localHead, remoteHead] = await Promise.all([
     git(["rev-parse", "HEAD"], project.localPath, 10_000),

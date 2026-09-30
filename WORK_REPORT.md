@@ -876,3 +876,26 @@ Repository同期IPCがGit操作を始める前にElectronのonline判定を必�
 - Automated CI: PASS — CI run 36675417823 / Security run 36675418234
 - Windows installer build artifact: PASS — CI run 36675417823
 - Windows installed-app verification: NOT_RUN
+
+
+## 2026-09-30 — Repository同期の完全一致化
+
+### Context
+
+Skin Aim TrainerのGitHub mainはHold Angle / Pre-Aim実装済みのCommitへ進んでいる一方、Game Dev Hub上のLocal Commitが古いまま残る実機報告が続いた。
+
+### Change
+
+- fetch後にahead / behindを再計算
+- Localに未送信Commitがある場合は自動更新を停止
+- LocalがRemoteより古いだけの場合はreset --hard origin/<defaultBranch>で完全一致
+- worktree dirty / wrong branch / wrong originの既存Safety Guardは維持
+- 同期後にLocal HEAD = Remote HEADを再確認
+- Regression contract追加
+- Version 0.1.33
+
+### Validation state
+
+- Automated CI: PENDING
+- Release: PENDING
+- Windows installed-app verification: NOT_RUN

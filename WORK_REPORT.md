@@ -813,3 +813,11 @@ User実機確認で、各「できた」を押した後の反応が遅く、8〜
 - Verification JSON Schema / ChatGPT Pack formatは変更しない
 - `できた / できなかった / 今は確認できない` の3択は維持
 - Reset / Note / Screenshot flowは維持
+
+### Validation
+
+- Node test suite: PASS — GitHub Actions run 36667330077
+- Windows installer build: PASS — GitHub Actions run 36667330077
+- Updater artifact verification: PASS — GitHub Actions run 36667330077
+- Security workflow: PASS — GitHub Actions run 36667330594
+- Windows user interaction timing: NOT_RUN — v0.1.30 update後に実機確認

@@ -147,6 +147,8 @@ test("user-owned tasks expose step-by-step verification results and direct game 
   assert.match(html, /id="task-verification"/);
   assert.match(html, /id="task-verification-steps"/);
   assert.match(html, /id="task-verification-note"/);
+  assert.match(html, /id="task-verification-pass-all-button"/);
+  assert.match(html, /すべてできた/);
   assert.match(html, /id="task-run-game-button"/);
   assert.match(source, /できた/);
   assert.match(source, /できなかった/);
@@ -154,8 +156,24 @@ test("user-owned tasks expose step-by-step verification results and direct game 
   assert.match(source, /saveTaskVerification/);
   assert.match(source, /clearTaskVerification/);
   assert.match(source, /saveVerificationChoice/);
+  assert.match(source, /saveAllVerificationPassed/);
+  assert.match(source, /optimisticVerificationRecord/);
+  assert.match(source, /verificationSaveChains/);
   assert.match(source, /ゲーム起動/);
   assert.match(source, /確認結果はHubに自動保存されます/);
+});
+
+
+test("task verification save avoids rebuilding the full Hub state for every click", async () => {
+  const mainSource = await fs.readFile(new URL("src/main.mjs", root), "utf8");
+  const match = mainSource.match(
+    /async function saveManualTaskVerification\(payload\) \{([\s\S]*?)\n\}/
+  );
+
+  assert.ok(match, "saveManualTaskVerification must exist");
+  assert.match(match[1], /loadTaskVerifications/);
+  assert.match(match[1], /existing && !existing\.stale && existing\.repositoryCommit/);
+  assert.doesNotMatch(match[1], /state:\s*await getState\(\)/);
 });
 
 test("completed and future roadmap tasks use progressive disclosure", async () => {

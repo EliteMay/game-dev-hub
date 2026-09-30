@@ -166,14 +166,14 @@ test("user-owned tasks expose step-by-step verification results and direct game 
 
 test("task verification save avoids rebuilding the full Hub state for every click", async () => {
   const mainSource = await fs.readFile(new URL("src/main.mjs", root), "utf8");
-  const match = mainSource.match(
-    /async function saveManualTaskVerification\(payload\) \{([\s\S]*?)\n\}/
-  );
+  const start = mainSource.indexOf("async function saveManualTaskVerification");
+  const end = mainSource.indexOf("\nasync function clearManualTaskVerification", start);
 
-  assert.ok(match, "saveManualTaskVerification must exist");
-  assert.match(match[1], /loadTaskVerifications/);
-  assert.match(match[1], /existing && !existing\.stale && existing\.repositoryCommit/);
-  assert.doesNotMatch(match[1], /state:\s*await getState\(\)/);
+  assert.ok(start >= 0 && end > start, "saveManualTaskVerification must exist");
+  const body = mainSource.slice(start, end);
+  assert.match(body, /loadTaskVerifications/);
+  assert.match(body, /existing && !existing\.stale && existing\.repositoryCommit/);
+  assert.doesNotMatch(body, /state:\s*await getState\(\)/);
 });
 
 test("completed and future roadmap tasks use progressive disclosure", async () => {

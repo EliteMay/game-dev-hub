@@ -2212,6 +2212,13 @@ el.taskVerificationClear.addEventListener("click", async () => {
   const task = project ? activeDevelopmentTask(project) : null;
   if (!project || !task || task.owner !== "user" || busy) return;
 
+  const key = verificationSaveKey(project, task);
+  const pendingSave = verificationSaveChains.get(key);
+  if (pendingSave) {
+    await pendingSave.catch(() => {});
+  }
+  verificationSaveVersions.set(key, (verificationSaveVersions.get(key) || 0) + 1);
+
   const result = await api.clearTaskVerification({
     projectId: project.id,
     taskId: task.id

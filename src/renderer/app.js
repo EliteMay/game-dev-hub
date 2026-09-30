@@ -77,6 +77,7 @@ const el = {
   taskExport: document.querySelector("#task-export-button"),
   taskVerification: document.querySelector("#task-verification"),
   taskVerificationSummary: document.querySelector("#task-verification-summary"),
+  taskVerificationPassAll: document.querySelector("#task-verification-pass-all-button"),
   taskVerificationSteps: document.querySelector("#task-verification-steps"),
   taskVerificationNote: document.querySelector("#task-verification-note"),
   taskVerificationAddImage: document.querySelector("#task-verification-add-image-button"),
@@ -213,6 +214,8 @@ let aiTestState = null;
 let aiTestProjectId = "";
 let aiTestRunStartedAt = 0;
 let aiTestElapsedTimer = null;
+const verificationSaveChains = new Map();
+const verificationSaveVersions = new Map();
 
 const actionButtons = [
   el.refresh,
@@ -646,6 +649,96 @@ function verificationMetaLabel(verification) {
   return "";
 }
 
+function verificationOverallFromSteps(steps) {
+  const statuses = steps.map((step) => step.status);
+
+  if (statuses.includes("failed")) return "failed";
+  if (statuses.includes("blocked")) return "blocked";
+  if (statuses.length > 0 && statuses.every((status) => status === "passed")) return "passed";
+  if (statuses.some((status) => status !== "pending")) return "in-progress";
+  return "untested";
+}
+
+function optimisticVerificationRecord(task, current, steps, note) {
+  const texts = task.steps?.length ? task.steps : [task.text];
+  const normalizedSteps = texts.map((text, index) => ({
+    text,
+    status: steps[index]?.status || "pending"
+  }));
+
+  return {
+    ...(current || {}),
+    taskId: task.id,
+    stale: false,
+    overall: verificationOverallFromSteps(normalizedSteps),
+    steps: normalizedSteps,
+    note,
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function verificationSaveKey(project, task) {
+  return project.id + ":" + task.id;
+}
+
+async function persistVerification(project, task, steps, note) {
+  const key = verificationSaveKey(project, task);
+  const previous = verificationForTask(project, task.id);
+  const version = (verificationSaveVersions.get(key) || 0) + 1;
+  verificationSaveVersions.set(key, version);
+
+  const optimistic = optimisticVerificationRecord(task, previous, steps, note);
+  project.development.verifications ||= {};
+  project.development.verifications[task.id] = optimistic;
+
+  renderTaskVerification(project, task);
+  renderVerificationOverview(project);
+  el.taskVerificationSavedState.textContent = "保存中…";
+
+  const previousSave = verificationSaveChains.get(key) || Promise.resolve();
+  const request = previousSave
+    .catch(() => {})
+    .then(() => api.saveTaskVerification({
+      projectId: project.id,
+      taskId: task.id,
+      steps,
+      note
+    }));
+
+  verificationSaveChains.set(key, request);
+
+  const result = await request;
+
+  if (verificationSaveChains.get(key) === request) {
+    verificationSaveChains.delete(key);
+  }
+
+  const latest = verificationSaveVersions.get(key) === version;
+
+  if (!result?.ok) {
+    if (latest) {
+      if (previous) {
+        project.development.verifications[task.id] = previous;
+      } else {
+        delete project.development.verifications[task.id];
+      }
+      renderTaskVerification(project, task);
+      renderVerificationOverview(project);
+      el.taskVerificationSavedState.textContent = "保存失敗";
+    }
+    addLog(result?.message || "確認結果を保存できませんでした。", "error");
+    return result;
+  }
+
+  if (latest) {
+    project.development.verifications[task.id] = result.verification;
+    renderTaskVerification(project, task);
+    renderVerificationOverview(project);
+  }
+
+  return result;
+}
+
 async function saveVerificationChoice(project, task, stepIndex, status) {
   const current = verificationForTask(project, task.id);
   const steps = (task.steps?.length ? task.steps : [task.text]).map((_text, index) => ({
@@ -655,25 +748,15 @@ async function saveVerificationChoice(project, task, stepIndex, status) {
         : (current?.stale ? "pending" : current?.steps?.[index]?.status || "pending")
   }));
 
-  el.taskVerificationSavedState.textContent = "保存中…";
+  return persistVerification(project, task, steps, el.taskVerificationNote.value);
+}
 
-  const result = await api.saveTaskVerification({
-    projectId: project.id,
-    taskId: task.id,
-    steps,
-    note: el.taskVerificationNote.value
-  });
+async function saveAllVerificationPassed(project, task) {
+  const steps = (task.steps?.length ? task.steps : [task.text]).map(() => ({
+    status: "passed"
+  }));
 
-  if (!result?.ok) {
-    el.taskVerificationSavedState.textContent = "保存失敗";
-    addLog(result?.message || "確認結果を保存できませんでした。", "error");
-    return;
-  }
-
-  project.development.verifications ||= {};
-  project.development.verifications[task.id] = result.verification;
-  renderActiveTaskGuide(project);
-  renderVerificationOverview(project);
+  return persistVerification(project, task, steps, el.taskVerificationNote.value);
 }
 
 async function saveVerificationNote(project, task) {
@@ -682,25 +765,7 @@ async function saveVerificationNote(project, task) {
     status: current?.stale ? "pending" : current?.steps?.[index]?.status || "pending"
   }));
 
-  el.taskVerificationSavedState.textContent = "保存中…";
-
-  const result = await api.saveTaskVerification({
-    projectId: project.id,
-    taskId: task.id,
-    steps,
-    note: el.taskVerificationNote.value
-  });
-
-  if (!result?.ok) {
-    el.taskVerificationSavedState.textContent = "保存失敗";
-    addLog(result?.message || "確認メモを保存できませんでした。", "error");
-    return;
-  }
-
-  project.development.verifications ||= {};
-  project.development.verifications[task.id] = result.verification;
-  renderActiveTaskGuide(project);
-  renderVerificationOverview(project);
+  return persistVerification(project, task, steps, el.taskVerificationNote.value);
 }
 
 function renderTaskVerification(project, task) {
@@ -711,6 +776,7 @@ function renderTaskVerification(project, task) {
   if (!visible) {
     el.taskVerificationSteps.replaceChildren();
     el.taskVerificationNote.value = "";
+    el.taskVerificationPassAll.disabled = true;
     el.taskVerificationSummary.textContent = "未確認";
     el.taskVerificationSummary.dataset.tone = "";
     return;
@@ -777,6 +843,10 @@ function renderTaskVerification(project, task) {
 
   el.taskVerificationNote.value = verification?.stale ? "" : verification?.note || "";
   el.taskVerificationClear.disabled = !verification;
+  const allPassed = steps.length > 0 && steps.every((_step, index) =>
+    (verification?.stale ? "pending" : verification?.steps?.[index]?.status || "pending") === "passed"
+  );
+  el.taskVerificationPassAll.disabled = allPassed;
 
   if (verification?.stale) {
     el.taskVerificationSavedState.textContent =
@@ -2117,6 +2187,16 @@ el.taskOpenEditor.addEventListener("click", () => {
   );
 });
 
+el.taskVerificationPassAll.addEventListener("click", () => {
+  const project = selectedProject();
+  const task = project ? activeDevelopmentTask(project) : null;
+  if (!project || !task || task.owner !== "user") return;
+
+  saveAllVerificationPassed(project, task).catch((error) => {
+    addLog(String(error?.message || error), "error");
+  });
+});
+
 el.taskVerificationNote.addEventListener("change", () => {
   const project = selectedProject();
   const task = project ? activeDevelopmentTask(project) : null;
@@ -2131,6 +2211,13 @@ el.taskVerificationClear.addEventListener("click", async () => {
   const project = selectedProject();
   const task = project ? activeDevelopmentTask(project) : null;
   if (!project || !task || task.owner !== "user" || busy) return;
+
+  const key = verificationSaveKey(project, task);
+  const pendingSave = verificationSaveChains.get(key);
+  if (pendingSave) {
+    await pendingSave.catch(() => {});
+  }
+  verificationSaveVersions.set(key, (verificationSaveVersions.get(key) || 0) + 1);
 
   const result = await api.clearTaskVerification({
     projectId: project.id,

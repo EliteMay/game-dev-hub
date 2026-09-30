@@ -273,8 +273,18 @@
                     <span class="verification-summary-badge" id="task-verification-summary">未確認</span>
                   </div>
                   <p class="task-verification-help">
-                    選んだ結果はHubに自動保存され、ChatGPT共有パックにも入ります。
+                    選んだ瞬間に画面へ反映し、保存は裏で行います。全部OKなら一括で選べます。
                   </p>
+                  <div class="verification-bulk-actions">
+                    <button
+                      class="button button-primary button-small"
+                      id="task-verification-pass-all-button"
+                      type="button"
+                    >
+                      すべてできた
+                    </button>
+                    <span>全項目を1回で「できた」にして保存</span>
+                  </div>
                   <div class="verification-step-list" id="task-verification-steps"></div>
                   <label class="verification-note-field">
                     <span>気づいたこと・症状（任意）※ Token / Passwordは書かない</span>

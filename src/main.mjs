@@ -2172,21 +2172,45 @@ async function saveManualTaskVerification(payload) {
     throw new HubError("TASK_OWNER_MISMATCH", "この確認結果は「担当: あなた」のタスクだけに保存できます。");
   }
 
-  const repository = await inspectRepository(project);
-  const settings = await getSettings();
-  const godot = await detectGodot(settings.godotPath);
+  const existingVerifications = await loadTaskVerifications(
+    appDataRoot(),
+    project.id,
+    tasks
+  );
+  const existing = existingVerifications[task.id];
+
+  let context;
+
+  if (existing && !existing.stale && existing.repositoryCommit) {
+    context = {
+      repositoryCommit: existing.repositoryCommit,
+      repositoryBranch: existing.repositoryBranch || "",
+      godotVersion: existing.godotVersion || "",
+      appVersion: app.getVersion()
+    };
+  } else {
+    const [repository, settings] = await Promise.all([
+      inspectRepository(project),
+      getSettings()
+    ]);
+    const godot = project.engine === PROJECT_ENGINE_WEB
+      ? { version: "" }
+      : await detectGodot(settings.godotPath);
+
+    context = {
+      repositoryCommit: repository.commit || "",
+      repositoryBranch: repository.branch || "",
+      godotVersion: godot.version || "",
+      appVersion: app.getVersion()
+    };
+  }
 
   const verification = await saveTaskVerification(
     appDataRoot(),
     project.id,
     task,
     payload,
-    {
-      repositoryCommit: repository.commit || "",
-      repositoryBranch: repository.branch || "",
-      godotVersion: godot.version || "",
-      appVersion: app.getVersion()
-    }
+    context
   );
 
   const message =
@@ -2198,8 +2222,7 @@ async function saveManualTaskVerification(payload) {
   return {
     ok: true,
     message,
-    verification,
-    state: await getState()
+    verification
   };
 }
 

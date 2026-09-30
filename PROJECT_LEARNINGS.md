@@ -343,3 +343,14 @@
 - Decision: Registryは`godot` / `web`を明示的に許可し、Repository safety / Roadmap / GitHub保存は共通化する。Engine固有差分はProject marker・Editor/Open action・Run action・Foundation適用へ限定する。
 - Safety Boundary: Web Projectは任意Shellを許可せず固定の`npm run dev`だけをMain Processから実行する。Project metadataから開けるURLはloopbackだけに限定する。
 - Prevention: 新Engine追加時はProject management共通責務を複製せず、Engine adapter相当の差分だけ追加する。Provider / Engine固有条件をRegistry全体の恒久前提にしない。
+
+
+## GL-032 — Human Verificationは保存待ちをInput feedbackにしない
+
+- Date: 2026-09-30
+- Type: UX / Performance / Verification
+- Status: Adopted
+- Problem: Stepごとの「できた」を押すたびにDisk保存、Runtime context収集、Hub全State再構築の完了を待ってからUIを更新していたため、実機確認の反復が遅かった。
+- Decision: User selectionはOptimistic UIで即時反映し、同一Taskの保存はBackgroundで順序保証する。全Stepが同じ結果ならBulk Actionで1回にまとめる。
+- Safety: 永続化失敗時は最新操作だけRollbackしてErrorを表示する。Rapid Clickは直列保存し、古いResponseで新しいUI Stateを上書きしない。
+- Prevention: Human-in-the-loopの短い反復操作では、Disk / Provider / Full-state refreshをInput acknowledgementのCritical Pathへ置かない。

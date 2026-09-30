@@ -354,3 +354,14 @@
 - Decision: User selectionはOptimistic UIで即時反映し、同一Taskの保存はBackgroundで順序保証する。全Stepが同じ結果ならBulk Actionで1回にまとめる。
 - Safety: 永続化失敗時は最新操作だけRollbackしてErrorを表示する。Rapid Clickは直列保存し、古いResponseで新しいUI Stateを上書きしない。
 - Prevention: Human-in-the-loopの短い反復操作では、Disk / Provider / Full-state refreshをInput acknowledgementのCritical Pathへ置かない。
+
+
+## GL-033 — Secondary summary renderをClick acknowledgementより先に置かない
+
+- Date: 2026-09-30
+- Type: UX / Performance / Renderer
+- Status: Adopted
+- Problem: Optimistic UIにしても、同じClick handler内でVerification Overview全体まで再構築すると、Task数が増えたProjectでは押下直後のMain Thread workが残る。
+- Decision: Primary interaction surfaceだけ同期更新し、Secondary summary / aggregate viewは次のanimation frameへdeferしてcoalesceする。保存成功時も同一内容のTask DOMを再構築しない。
+- Safety: 永続化失敗時は最新操作だけRollbackし、Error stateを表示する。Summary deferはData durabilityや保存順序を変更しない。
+- Prevention: Human verificationのような反復Inputでは、Secondary dashboard更新をPrimary feedbackのCritical Pathへ入れない。

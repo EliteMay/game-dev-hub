@@ -873,5 +873,6 @@ Repository同期IPCがGit操作を始める前にElectronのonline判定を必�
 
 ### Validation state
 
-- Automated CI: PENDING
+- Automated CI: PASS — CI run 36675417823 / Security run 36675418234
+- Windows installer build artifact: PASS — CI run 36675417823
 - Windows installed-app verification: NOT_RUN

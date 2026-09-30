@@ -376,3 +376,14 @@
 - Decision: 明示的なRepository同期はOS側のonline判定だけでは止めず、Gitのfetch自体をProvider到達のOracleとして使う。
 - Validation: 同期後はLocal HEADとorigin/<defaultBranch>が一致することを確認し、一致しなければ成功表示しない。
 - Prevention: Provider操作の成否をOS接続Hintだけで確定しない。実Provider operationの結果を優先する。
+
+
+## GL-024 — 明示同期はclean + no-aheadならRemote HEADへ完全一致させる
+
+- Date: 2026-09-30
+- Type: Reliability / Git Sync
+- Status: Adopted
+- Problem: fetch + ff-only mergeだけでは、環境依存のGit状態や追跡情報のずれで「最新版にする」後も古いCommitが残る報告があった。
+- Decision: 明示的な同期ではfetch後にahead/behindを再計算する。aheadが1件でもあればLocal履歴保護のため停止し、ahead=0かつbehind>0の場合だけreset --hard origin/<defaultBranch>でRemote HEADへ完全一致させる。
+- Safety: 実行前にworktree clean / expected branch / expected originを必須条件とする。未保存変更や未送信Commitを自動破棄しない。
+- Validation: reset後にLocal HEADとRemote tracking HEADを比較し、一致時だけ成功扱いする。

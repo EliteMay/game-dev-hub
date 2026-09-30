@@ -1381,6 +1381,19 @@ h3 {
   color: #f09a9a;
 }
 
+.verification-bulk-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 10px;
+}
+
+.verification-bulk-actions > span {
+  color: var(--faint);
+  font-size: 9px;
+}
+
 .verification-step-list {
   display: grid;
   gap: 8px;

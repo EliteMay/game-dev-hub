@@ -1,5 +1,32 @@
 # Game Dev Hub
 
+
+Windowsで**GodotゲームやWeb・Electronゲームの開発作業をまとめて管理するデスクトップアプリ**です。ゲームごとのコードやデータは、それぞれ独立したGitHub Repositoryで管理し、Game Dev Hubには複製しません。
+
+## このRepositoryの入口
+
+| やりたいこと | 参照先 |
+| --- | --- |
+| 開発者として起動する | [開発起動](#開発起動) |
+| Windows用アプリをビルドする | [Windows build](#windows-build) |
+| Hubと各ゲームの担当範囲を確認する | [各Gameとの分離](#各gameとの分離) |
+| 何が実機確認できているか確認する | [現在の確認状態](#現在の確認状態) |
+| 正式な仕様・守るべき約束を読む | [REQUIREMENTS.md](REQUIREMENTS.md) / [PROJECT_RULES.md](PROJECT_RULES.md) |
+| 開発時の注意・既知の学びを見る | [PROJECT_LEARNINGS.md](PROJECT_LEARNINGS.md) / [WORK_REPORT.md](WORK_REPORT.md) |
+
+**開発コマンド（Windows / Node.js 20+）**
+
+```powershell
+npm install
+npm test
+npm run dev
+```
+
+ここから下はバージョン別の変更メモです。使い始める場合は先に上の表から、現在の仕様と起動手順を確認してください。
+
+---
+
+
 ## v0.1.31 Verification Click Latency Fix
 
 実機確認の「できた / できなかった / 今は確認できない」を押した直後の体感をさらに軽くします。

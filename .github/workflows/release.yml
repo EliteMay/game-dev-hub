@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+    # Keep installer publishing tied to code/config changes, not documentation-only edits.
+    # Version changes in package.json still trigger this workflow.
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.mdx'
+      - 'docs/**'
 
 permissions:
   contents: write

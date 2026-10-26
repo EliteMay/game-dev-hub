@@ -15,7 +15,7 @@
   },
   "devDependencies": {
     "electron": "44.4.3",
-    "electron-builder": "26.15.3"
+    "electron-builder": "26.18.0"
   },
   "build": {
     "appId": "com.elitemay.gamedevhub",
@@ -68,7 +68,7 @@
     "@computer-use/nut-js": "4.2.0",
     "@ui-tars/operator-nut-js": "1.2.3",
     "@ui-tars/sdk": "1.2.3",
-    "electron-updater": "6.8.9",
+    "electron-updater": "6.8.11",
     "jimp": "1.6.0",
     "uuid": "9.0.1"
   }
